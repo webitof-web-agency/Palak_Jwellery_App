@@ -1,0 +1,41 @@
+# Supplier: ZAR (brand: DAZZLING / 18Kt-DAZZLING)
+# Tag prefix: RDZ-xx, JFC-xxxxx
+#
+# !! CRITICAL FINDING !!
+# The ZAR QR code contains ONLY a design/catalog number — NO weight data.
+# Weights printed on tag (32130/31394) are NOT encoded in the QR.
+# Salesman must enter ALL weights manually after scanning.
+#
+# Tag printed data (NOT from QR):
+#   32130 / 31394  = Gross / Net weight in MILLIGRAMS
+#                    Gross = 32.130g, Net = 31.394g, Stone = 0.736g
+#   RDZ36(2)       = Product code (series RDZ, size 36, variant 2)
+#   JFC74342       = Design/catalog number ← THIS IS WHAT THE QR ENCODES
+#   2.06           = Bangle size (cm)
+#   18Kt           = Gold purity
+#
+# QR ENCODES: design number only → "JFC74342"
+#
+# PARSER BEHAVIOUR: parse-qr will return success:false for all weight fields.
+# The Flutter app must show all fields as unparsed (red/amber) and require
+# manual entry. This is expected and handled by the sale entry fallback.
+#
+# DETECTION: regex ^JFC\d+ (QR starts with JFC followed by digits)
+#
+# ── RECOMMENDED qrMapping CONFIG ─────────────────────────────────────────────
+# No weight fields can be mapped. Config is intentionally minimal.
+# {
+#   "strategy": "delimiter",
+#   "delimiter": "/",
+#   "fieldMap": {
+#     "supplierCode": 0
+#   }
+# }
+# All weight fields will return { value: null, parsed: false }
+# Flutter app shows debug panel and requires manual weight entry.
+#
+# ── REAL QR SAMPLES ──────────────────────────────────────────────────────────
+
+# Tag: 18Kt-DAZZLING / RDZ36(2) / 32130/31394 / JFC74342-2.06
+# QR encodes only the design number:
+JFC74342

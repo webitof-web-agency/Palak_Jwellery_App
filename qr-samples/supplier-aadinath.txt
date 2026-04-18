@@ -1,0 +1,36 @@
+# Supplier: Aadinath
+# Tag prefixes: BG-xxxx (necklace/heavy), LR-xx (rings/light)
+# Delimiter: /
+#
+# FIELD POSITIONS (0-indexed):
+#   [0] = G  = Gross weight (grams)
+#   [1] = S  = Micro stone weight (grams)
+#   [2] = B  = Big stone weight (grams) — empty string when no big stones
+#   [3]–[5]  = empty (reserved/unknown)
+#   [6] = N  = Net weight (grams)
+#   [7] = item code (BG-xxxx or LR-xx)
+#
+# WEIGHT FORMULA: N = G - S - B
+#   Verified BG-2007: 33.21 - 2.23 - 7.51 = 23.47 ✓
+#   Verified LR-19:   3.49 - 0.28 - 0.00 = 3.21 ✓
+#
+# DETECTION: regex (BG|LR)-\d+ (item code appears at end of QR string)
+#
+# ── RECOMMENDED qrMapping CONFIG ─────────────────────────────────────────────
+# {
+#   "strategy": "delimiter",
+#   "delimiter": "/",
+#   "fieldMap": {
+#     "grossWeight":  0,
+#     "stoneWeight":  { "sumIndices": [1, 2] },
+#     "netWeight":    6
+#   }
+# }
+#
+# ── REAL QR SAMPLES ──────────────────────────────────────────────────────────
+
+# Ring/light item — LR-19 — G:3.490 S:0.280 B:0 N:3.210
+3.49/0.28/////3.21/LR-19
+
+# Necklace/heavy item — BG-2007 — G:33.210 S:2.230 B:7.510 N:23.470
+33.21/2.23/7.51////23.47/BG-2007

@@ -1,0 +1,40 @@
+# Supplier: Utsav (USV)
+# Tag colour: Orange
+# Tag prefix: NST-xxxx
+# Delimiter: /
+#
+# FIELD POSITIONS (0-indexed):
+#   [0] = NST-5185    item code
+#   [1] = GWT-15.100  gross weight with label prefix
+#   [2] = NWT-13.660  net weight with label prefix
+#   [3] = SWT-1.060   stone weight with label prefix
+#   [4] = CL-0.380    cutting loss (making/wastage deduction — NOT stone)
+#   [5] = 6HCBX5      batch/lot code
+#   [6] = (empty)
+#   [7] = 75          gold purity (75% = 18K)
+#   [8] = USV         supplier brand code
+#
+# WEIGHT FORMULA: NWT = GWT - SWT - CL
+#   Verified: 15.100 - 1.060 - 0.380 = 13.660 ✓
+#
+# IMPORTANT: CL (cutting loss) is NOT stone weight. NWT is already the
+# pre-computed final net. Use NWT directly — do not add CL to stoneWeight.
+# Our schema validation: netWeight (13.660) ≤ grossWeight (15.100) ✓
+#
+# DETECTION: contains "USV" (supplier code always at last position)
+#
+# ── RECOMMENDED qrMapping CONFIG ─────────────────────────────────────────────
+# {
+#   "strategy": "delimiter",
+#   "delimiter": "/",
+#   "fieldMap": {
+#     "grossWeight":  { "index": 1, "stripPrefix": "GWT-" },
+#     "netWeight":    { "index": 2, "stripPrefix": "NWT-" },
+#     "stoneWeight":  { "index": 3, "stripPrefix": "SWT-" }
+#   }
+# }
+#
+# ── REAL QR SAMPLES ──────────────────────────────────────────────────────────
+
+# NST-5185 — GWT:15.100 NWT:13.660 SWT:1.060 CL:0.380 75% gold
+NST-5185/GWT-15.100/NWT-13.660/SWT-1.060/CL-0.380/6HCBX5//75/USV

@@ -1,0 +1,48 @@
+# Supplier: YUG (brand on tag)
+# Tag prefix: SWNK-xxxx
+# Delimiter: /
+# Total fields: 21
+#
+# FIELD POSITIONS (0-indexed):
+#   [0]  = 2435076   internal batch/serial ID
+#   [1]  = 191584    secondary internal ID
+#   [2]  = 18K       karat
+#   [3]  = 12.62     GW = Gross weight (grams)
+#   [4]  = 0.949     SS = Stone weight (grams) + Rs charge on tag
+#   [5]  = 11.398    NW = Net weight (grams)
+#   [6]  = 1461      stone charge in Rs
+#   [7]  = SWNK - 976   item code (note: spaces around dash)
+#   [8]  = NA        size
+#   [9]  = Y+W       metal type (Yellow+White gold)
+#   [10] = 2J0Y0     lot/batch code
+#   [11] = 0         OW = other weight (always 0 seen)
+#   [12] = 0         unknown
+#   [13] = WHITE     stone colour
+#   [14] = 0.273     MS = Micro stone weight (grams)
+#   [15]–[20] = 0/0/0/1/0/0   (unknown, mostly zeros)
+#
+# WEIGHT FORMULA: NW = GW - SS - MS - OW
+#   Verified: 12.62 - 0.949 - 0.273 - 0 = 11.398 ✓
+#   stoneWeight = SS [4] + MS [14] = 0.949 + 0.273 = 1.222
+#
+# DETECTION: contains "SWNK" (unique YUG item code prefix)
+#
+# ── RECOMMENDED qrMapping CONFIG ─────────────────────────────────────────────
+# {
+#   "strategy": "delimiter",
+#   "delimiter": "/",
+#   "fieldMap": {
+#     "grossWeight":  3,
+#     "stoneWeight":  { "sumIndices": [4, 14] },
+#     "netWeight":    5,
+#     "category":     7
+#   }
+# }
+#
+# NOTE: category will be "SWNK - 976" (full item code) — salesman may want to
+# override with a friendlier name like "NECKLACE" in the sale entry form.
+#
+# ── REAL QR SAMPLES ──────────────────────────────────────────────────────────
+
+# SWNK-976 — GW:12.620 SS:0.949 MS:0.273 NW:11.398 18K Y+W
+2435076/191584/18K/12.62/0.949/11.398/1461/SWNK - 976/NA/Y+W/2J0Y0/0/0/WHITE/0.273/0/0/0/1/0/0
