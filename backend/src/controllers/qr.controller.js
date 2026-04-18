@@ -35,6 +35,9 @@ const normalizeText = (value) => {
 const toPublicIngestion = (ingestion) => {
   if (!ingestion) return null
   const plain = typeof ingestion.toObject === 'function' ? ingestion.toObject() : { ...ingestion }
+  if (plain.parsed && Array.isArray(plain.parsed.parseErrors) && !Array.isArray(plain.parsed.errors)) {
+    plain.parsed.errors = [...plain.parsed.parseErrors]
+  }
   delete plain.__v
   return plain
 }
@@ -85,9 +88,15 @@ export const ingestQr = async (req, res) => {
       learning = buildUnknownLearningMetadata(rawString, unknownParsed)
     }
 
+    const parsedForStorage = {
+      ...parsed,
+      parseErrors: Array.isArray(parsed?.errors) ? [...parsed.errors] : [],
+    }
+    delete parsedForStorage.errors
+
     const ingestion = await QrIngestion.create({
       raw: rawString,
-      parsed,
+      parsed: parsedForStorage,
       fallback,
       warnings,
       final,
@@ -113,6 +122,9 @@ export const getQrIngestion = async (req, res) => {
       return sendError(res, 404, 'QR ingestion not found', 'NOT_FOUND')
     }
 
+    if (ingestion.parsed && Array.isArray(ingestion.parsed.parseErrors) && !Array.isArray(ingestion.parsed.errors)) {
+      ingestion.parsed.errors = [...ingestion.parsed.parseErrors]
+    }
     delete ingestion.__v
     return sendSuccess(res, ingestion)
   } catch (error) {

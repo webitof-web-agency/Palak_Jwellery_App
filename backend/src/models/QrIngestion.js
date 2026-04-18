@@ -52,7 +52,7 @@ const parsedSchema = new Schema(
       default: null,
       trim: true,
     },
-    errors: {
+    parseErrors: {
       type: [String],
       default: [],
     },

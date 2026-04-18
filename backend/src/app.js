@@ -12,6 +12,10 @@ import qrRoutes from './routes/qr.routes.js'
 
 const app = express()
 
+// Render and similar hosts sit behind a reverse proxy.
+// Trust one hop so rate limiting can read the real client IP.
+app.set('trust proxy', 1)
+
 // Security headers
 app.use(helmet())
 
