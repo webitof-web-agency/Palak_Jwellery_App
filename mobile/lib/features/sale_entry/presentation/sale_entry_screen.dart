@@ -233,15 +233,15 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text('New Sale'),
+        title: Text('New Sale'),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          icon: Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => context.pop(),
         ),
         actions: [
           TextButton(
             onPressed: isLoading ? null : () => _submit(),
-            child: const Text(
+            child: Text(
               'Save',
               style: TextStyle(
                 color: AppColors.accent,
@@ -282,11 +282,11 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
 
                   // â”€â”€ Parse status chip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   _ParseStatusChip(parseResult: widget.parseResult),
-                  const SizedBox(height: 16),
+                  SizedBox(height: 16),
 
                   // â”€â”€ Supplier section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   _SectionLabel('Supplier'),
-                  const SizedBox(height: 8),
+                  SizedBox(height: 8),
                   SizedBox(
                     width: double.infinity,
                     child: _supplierId != null && !widget.parseResult.hasErrors
@@ -305,11 +305,11 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                             }),
                           ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: 20),
 
                   // â”€â”€ Fields â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   _SectionLabel('Item Details'),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   _SaleField(
                     label: 'Category',
@@ -318,7 +318,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                     hint: 'e.g. RING, NECKLACE, BANGLE',
                     required: true,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   Row(
                     children: [
@@ -331,7 +331,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                           numeric: true,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Expanded(
                         child: _SaleField(
                           label: 'Stone Weight (g)',
@@ -343,7 +343,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   _SaleField(
                     label: 'Net Weight (g)',
@@ -353,7 +353,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                     numeric: true,
                     required: true,
                   ),
-                  const SizedBox(height: 12),
+                  SizedBox(height: 12),
 
                   _SaleField(
                     label: 'Rate per Gram (â‚¹)',
@@ -365,11 +365,11 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                     required: true,
                   ),
 
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // â”€â”€ Total display â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   _TotalCard(total: _total),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24),
 
                   // â”€â”€ QR Debug panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   if (widget.parseResult.raw.isNotEmpty ||
@@ -380,7 +380,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                       onToggle: () =>
                           setState(() => _debugExpanded = !_debugExpanded),
                     ),
-                  const SizedBox(height: 32),
+                  SizedBox(height: 32),
                 ],
               ),
             ),
@@ -432,15 +432,15 @@ class SaleSuccessScreen extends StatelessWidget {
                     width: 2,
                   ),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.check_rounded,
                   color: AppColors.success,
                   size: 44,
                 ),
               ),
-              const SizedBox(height: 28),
+              SizedBox(height: 28),
 
-              const Text(
+              Text(
                 'Sale Recorded!',
                 style: TextStyle(
                   fontSize: 26,
@@ -448,7 +448,7 @@ class SaleSuccessScreen extends StatelessWidget {
                   letterSpacing: -0.5,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 'Total value',
                 style: TextStyle(
@@ -456,7 +456,7 @@ class SaleSuccessScreen extends StatelessWidget {
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 'â‚¹ ${formatMoney(sale.totalValue)}',
                 style: TextStyle(
@@ -466,7 +466,7 @@ class SaleSuccessScreen extends StatelessWidget {
                   letterSpacing: -1,
                 ),
               ),
-              const SizedBox(height: 4),
+              SizedBox(height: 4),
               Text(
                 sale.ref,
                 style: TextStyle(
@@ -477,7 +477,7 @@ class SaleSuccessScreen extends StatelessWidget {
                 ),
               ),
               if (sale.isDuplicate) ...[
-                const SizedBox(height: 12),
+                SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 14,
@@ -491,26 +491,26 @@ class SaleSuccessScreen extends StatelessWidget {
                       width: 1,
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'âš  Saved as duplicate entry',
                     style: TextStyle(color: AppColors.warning, fontSize: 13),
                   ),
                 ),
               ],
-              const SizedBox(height: 48),
+              SizedBox(height: 48),
 
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton(
                   onPressed: () => context.go('/dashboard'),
-                  child: const Text('Back to Dashboard'),
+                  child: Text('Back to Dashboard'),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               TextButton(
                 onPressed: () => context.go('/scanner'),
-                child: const Text('Scan Another'),
+                child: Text('Scan Another'),
               ),
             ],
           ),
@@ -571,13 +571,13 @@ class _SaleField extends StatelessWidget {
 
     Widget? suffixIcon;
     if (parsed && !parsedOverride) {
-      suffixIcon = const Icon(
+      suffixIcon = Icon(
         Icons.check_circle_rounded,
         color: AppColors.success,
         size: 18,
       );
     } else if (isMissed) {
-      suffixIcon = const Icon(
+      suffixIcon = Icon(
         Icons.warning_amber_rounded,
         color: AppColors.warning,
         size: 18,
@@ -651,12 +651,12 @@ class _SupplierChip extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.check_circle_rounded,
             color: AppColors.success,
             size: 18,
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Text(
               name,
@@ -668,7 +668,7 @@ class _SupplierChip extends StatelessWidget {
           ),
           GestureDetector(
             onTap: onClear,
-            child: const Icon(
+            child: Icon(
               Icons.close_rounded,
               color: AppColors.textFaint,
               size: 18,
@@ -691,7 +691,7 @@ class _SupplierDropdown extends ConsumerWidget {
     final suppliers = ref.watch(suppliersProvider);
 
     return suppliers.when(
-      loading: () => const LinearProgressIndicator(
+      loading: () => LinearProgressIndicator(
         color: AppColors.accent,
         backgroundColor: AppColors.surfaceAlt,
       ),
@@ -718,7 +718,7 @@ class _SupplierDropdown extends ConsumerWidget {
               borderRadius: BorderRadius.circular(14),
               border: Border.all(color: AppColors.warning.withValues(alpha: 0.3)),
             ),
-            child: const Text(
+            child: Text(
               'No active suppliers found. Ask admin to add one.',
               style: TextStyle(color: AppColors.warning, fontSize: 13),
             ),
@@ -755,7 +755,7 @@ class _SupplierDropdown extends ConsumerWidget {
               horizontal: 16,
               vertical: 14,
             ),
-            prefixIcon: const Icon(
+            prefixIcon: Icon(
               Icons.warning_amber_rounded,
               color: AppColors.warning,
               size: 20,
@@ -795,7 +795,7 @@ class _TotalCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           colors: [AppColors.warningSoft, AppColors.surfaceAlt],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -808,7 +808,7 @@ class _TotalCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -901,7 +901,7 @@ class _ParseStatusChip extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, color: color, size: 16),
-          const SizedBox(width: 8),
+          SizedBox(width: 8),
           Expanded(
             child: Text(label, style: TextStyle(color: color, fontSize: 13)),
           ),
@@ -940,13 +940,13 @@ class _QrDebugPanel extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.bug_report_rounded,
                     color: AppColors.textFaint,
                     size: 16,
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
+                  SizedBox(width: 8),
+                  Text(
                     'QR Debug',
                     style: TextStyle(
                       color: AppColors.textFaint,
@@ -973,7 +973,7 @@ class _QrDebugPanel extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Divider(color: AppColors.border),
-                  const Text(
+                  Text(
                     'RAW QR STRING',
                     style: TextStyle(
                       fontSize: 10,
@@ -982,7 +982,7 @@ class _QrDebugPanel extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),
@@ -1002,8 +1002,8 @@ class _QrDebugPanel extends StatelessWidget {
                     ),
                   ),
                   if (parseResult.errors.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text(
+                    SizedBox(height: 12),
+                    Text(
                       'PARSE ERRORS',
                       style: TextStyle(
                         fontSize: 10,
@@ -1012,14 +1012,14 @@ class _QrDebugPanel extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     ...parseResult.errors.map(
                       (e) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
+                            Text(
                               'â€¢ ',
                               style: TextStyle(color: AppColors.warning),
                             ),
@@ -1074,13 +1074,13 @@ class _DuplicateWarningBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.warning_amber_rounded,
                 color: AppColors.warning,
                 size: 18,
               ),
-              const SizedBox(width: 8),
-              const Expanded(
+              SizedBox(width: 8),
+              Expanded(
                 child: Text(
                   'Duplicate QR Detected',
                   style: TextStyle(
@@ -1091,12 +1091,12 @@ class _DuplicateWarningBanner extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          SizedBox(height: 6),
           Text(
             'This QR was scanned on $formatted. Save anyway?',
             style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: 12),
           Row(
             children: [
               Expanded(
@@ -1109,10 +1109,10 @@ class _DuplicateWarningBanner extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text('Cancel'),
+                  child: Text('Cancel'),
                 ),
               ),
-              const SizedBox(width: 10),
+              SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
                   onPressed: onSaveAnyway,
@@ -1123,7 +1123,7 @@ class _DuplicateWarningBanner extends StatelessWidget {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Yes, Save',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
@@ -1163,12 +1163,12 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.error_outline_rounded,
             color: AppColors.danger,
             size: 18,
           ),
-          const SizedBox(width: 10),
+          SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1191,7 +1191,7 @@ class _ErrorBanner extends StatelessWidget {
           if (retryCount < 3)
             TextButton(
               onPressed: onRetry,
-              child: const Text(
+              child: Text(
                 'Retry',
                 style: TextStyle(color: AppColors.accent),
               ),
@@ -1224,7 +1224,7 @@ class _SaveBar extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: AppColors.background,
-        border: const Border(top: BorderSide(color: AppColors.border)),
+        border: Border(top: BorderSide(color: AppColors.border)),
         boxShadow: [
           BoxShadow(
             color: AppColors.background.withValues(alpha: 0.4),
@@ -1239,7 +1239,7 @@ class _SaveBar extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Total',
                 style: TextStyle(color: AppColors.textFaint, fontSize: 12),
               ),
@@ -1253,7 +1253,7 @@ class _SaveBar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: 16),
           Expanded(
             child: SizedBox(
               height: 50,
@@ -1267,7 +1267,7 @@ class _SaveBar extends StatelessWidget {
                   ),
                 ),
                 child: isLoading
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 20,
                         height: 20,
                         child: CircularProgressIndicator(
@@ -1275,7 +1275,7 @@ class _SaveBar extends StatelessWidget {
                           color: AppColors.textMuted,
                         ),
                       )
-                    : const Text(
+                    : Text(
                         'Save Sale',
                         style: TextStyle(
                           fontWeight: FontWeight.w800,
@@ -1290,6 +1290,7 @@ class _SaveBar extends StatelessWidget {
     );
   }
 }
+
 
 
 

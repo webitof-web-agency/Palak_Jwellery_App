@@ -1,12 +1,16 @@
-import { Navigate, Route, BrowserRouter, Routes, useNavigate } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
+import { Navigate, Route, BrowserRouter, Routes } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/auth/LoginPage'
-import SuppliersPage from './pages/suppliers/SuppliersPage'
-import SalesPage from './pages/sales/SalesPage'
-import DashboardPage from './pages/dashboard/DashboardPage'
-import UsersPage from './pages/users/UsersPage'
 import { Layout } from './components/Layout'
+import FullScreenLoader from './components/ui/FullScreenLoader'
 import './index.css'
+
+const SuppliersPage = lazy(() => import('./pages/suppliers/SuppliersPage'))
+const SupplierFormPage = lazy(() => import('./pages/suppliers/SupplierFormPage'))
+const SalesPage = lazy(() => import('./pages/sales/SalesPage'))
+const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'))
+const UsersPage = lazy(() => import('./pages/users/UsersPage'))
 
 const HomeRedirect = () => {
   const token = useAuthStore((state) => state.token)
@@ -36,30 +40,33 @@ const AdminRoute = ({ children }) => {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<HomeRedirect />} />
-        
-        {/* Public Routes */}
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <LoginPage />
-            </PublicRoute>
-          }
-        />
-        
-        {/* Protected Authenticated Routes with Sidebar */}
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+      <Suspense fallback={<FullScreenLoader />}>
+        <Routes>
+          <Route path="/" element={<HomeRedirect />} />
+
+          {/* Public Routes */}
+          <Route
+            path="/login"
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            }
+          />
+
+          {/* Protected Authenticated Routes with Sidebar */}
+          <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/suppliers" element={<SuppliersPage />} />
+            <Route path="/suppliers/form" element={<SupplierFormPage />} />
             <Route path="/sales" element={<SalesPage />} />
             <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
-        </Route>
+          </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
     </BrowserRouter>
   )
 }

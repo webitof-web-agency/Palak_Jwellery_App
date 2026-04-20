@@ -2,35 +2,11 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { login as loginRequest } from "../../api/auth.api";
+import LogoBadge from "../../components/ui/LogoBadge";
+import PasswordField from "../../components/ui/PasswordField";
+import ThemeToggleButton from "../../components/ui/ThemeToggleButton";
 import { useAuthStore } from "../../store/authStore";
-import { loadTheme, toggleTheme } from "../../theme/theme";
-
-const ThemeToggleIcon = ({ themeName }) => {
-  const isLight = themeName === "roseLight";
-
-  return isLight ? (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="6.75" stroke="currentColor" strokeWidth="1.6" opacity="0.35" />
-      <circle cx="12" cy="12" r="4.25" stroke="currentColor" strokeWidth="1.8" />
-      <path
-        d="M12 2.8v2.4M12 18.8v2.4M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.8 12h2.4M18.8 12h2.4M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
-    </svg>
-  ) : (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.4" opacity="0.35" />
-      <path
-        d="M15.8 12.6A6.6 6.6 0 1 1 11.4 4.2a5.2 5.2 0 0 0 4.4 8.4Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-};
+import { APP_BRAND_NAME, loadTheme, toggleTheme } from "../../theme/theme";
 
 const LoginPage = () => {
   const navigate = useNavigate();
@@ -79,14 +55,11 @@ const LoginPage = () => {
 
   return (
     <main className="auth-page w-full">
-      <button
-        type="button"
+      <ThemeToggleButton
+        themeName={themeName}
         onClick={handleThemeToggle}
-        aria-label={themeName === "midnightRose" ? "Switch to light mode" : "Switch to dark mode"}
-        className="absolute right-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-white/10 bg-dark-900/85 text-primary shadow-lg shadow-black/20 backdrop-blur-sm"
-      >
-        <ThemeToggleIcon themeName={themeName} />
-      </button>
+        className="absolute right-4 top-4 z-20 backdrop-blur-sm"
+      />
 
       {/* Background Ambience */}
       <div className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-gold-600/5 rounded-full blur-[200px] pointer-events-none -translate-y-1/2 translate-x-1/4" />
@@ -95,11 +68,11 @@ const LoginPage = () => {
       <section className="auth-shell relative z-10">
         <div className="auth-marketing">
           <div className="relative z-10">
-            <span className="eyebrow">Jewellery Management</span>
-            <h1 className="text-5xl font-display font-bold leading-[1.1] mb-8 text-primary">
+            <span className="eyebrow text-heading">{APP_BRAND_NAME}</span>
+            <h1 className="text-5xl font-display font-bold leading-[1.1] mb-8 text-heading">
               Streamlined Sales <br />& Inventory Suite.
             </h1>
-            <p className="text-secondary max-w-sm text-base leading-relaxed mb-12">
+            <p className="text-muted max-w-sm text-base leading-relaxed mb-12">
               The professional console for your jewellery business. Manage
               suppliers, verify stock, and track sales performance in real-time.
             </p>
@@ -124,20 +97,25 @@ const LoginPage = () => {
         <div className="auth-card">
           <div className="card-top">
             <div>
-              <span className="eyebrow bg-gold-600/10 text-gold-500">
+              <span className="eyebrow text-heading bg-gold-600/10">
                 Admin Login
               </span>
-              <h2 className="text-3xl font-display font-bold mt-2">Sign In</h2>
+              <h2 className="text-3xl font-display font-bold mt-2 text-heading">
+                Sign In
+              </h2>
               <p className="text-muted text-xs mt-2">
                 Access your management dashboard below.
               </p>
             </div>
-            <div className="brand-mark">
-              <img
-                src={themeName === "roseLight" ? "/logo-light-rose-notext-clean.png" : "/logo-dark.png"}
-                alt="Brand Mark"
-              />
-            </div>
+            <LogoBadge
+              src={
+                themeName === "roseLight"
+                  ? "/logo-light-rose-notext-clean.png"
+                  : "/logo-dark.png"
+              }
+              alt="Brand Mark"
+              wrapperClassName="brand-mark brand-mark--lg"
+            />
           </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
@@ -154,17 +132,14 @@ const LoginPage = () => {
               />
             </div>
 
-            <div className="field">
-              <span className="field-label">Password</span>
-              <input
-                className="input"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="••••••••••••"
-              />
-            </div>
+            <PasswordField
+              label="Password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Enter your password"
+              autoComplete="current-password"
+              required
+            />
 
             {errorMessage && (
               <p className="error-banner" role="alert">

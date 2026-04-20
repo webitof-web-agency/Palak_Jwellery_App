@@ -1,8 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 enum AppThemePreset { roseLight, midnightRose }
 
-const AppThemePreset activePreset = AppThemePreset.roseLight;
+AppThemePreset activePreset = AppThemePreset.roseLight;
+
+AppThemePreset toggleThemePreset(AppThemePreset preset) {
+  return preset == AppThemePreset.midnightRose
+      ? AppThemePreset.roseLight
+      : AppThemePreset.midnightRose;
+}
+
+class ThemeController extends Notifier<AppThemePreset> {
+  @override
+  AppThemePreset build() => activePreset;
+
+  void toggle() {
+    state = toggleThemePreset(state);
+    activePreset = state;
+  }
+}
+
+final themeControllerProvider =
+    NotifierProvider<ThemeController, AppThemePreset>(ThemeController.new);
 
 class AppColorPalette {
   const AppColorPalette({
@@ -51,7 +71,6 @@ class AppColorPalette {
 class AppColors {
   const AppColors._();
 
-
   static const AppColorPalette roseLight = AppColorPalette(
     background: Color(0xFFFBF6F0),
     surface: Color(0xFFFFFAF5),
@@ -96,35 +115,38 @@ class AppColors {
     dangerSoft: Color(0xFF2A0A0A),
   );
 
-  static const Color background = activePreset == AppThemePreset.midnightRose ? Color(0xFF030811) : Color(0xFFFBF6F0);
-  static const Color surface = activePreset == AppThemePreset.midnightRose ? Color(0xFF07111F) : Color(0xFFFFFAF5);
-  static const Color surfaceAlt = activePreset == AppThemePreset.midnightRose ? Color(0xFF0B1524) : Color(0xFFF5EBDD);
-  static const Color surfaceStrong = activePreset == AppThemePreset.midnightRose ? Color(0xFF0E1828) : Color(0xFFE9D6C4);
-  static const Color textPrimary = activePreset == AppThemePreset.midnightRose ? Color(0xFFF4F0EA) : Color(0xFF261C18);
-  static const Color textSecondary = activePreset == AppThemePreset.midnightRose ? Color(0xFFD8D1C7) : Color(0xFF5A463D);
-  static const Color textMuted = activePreset == AppThemePreset.midnightRose ? Color(0xFFB9B1A7) : Color(0xFF806A5F);
-  static const Color textFaint = activePreset == AppThemePreset.midnightRose ? Color(0xFF958B81) : Color(0xFFA18E84);
-  static const Color border = activePreset == AppThemePreset.midnightRose ? Color(0x22FFFFFF) : Color(0x2A7B6254);
-  static const Color borderStrong = activePreset == AppThemePreset.midnightRose ? Color(0x33FFFFFF) : Color(0x3A7B6254);
-  static const Color accent = activePreset == AppThemePreset.midnightRose ? Color(0xFFD6A24F) : Color(0xFFC87368);
-  static const Color accentSoft = activePreset == AppThemePreset.midnightRose ? Color(0xFFF7D89B) : Color(0xFFE9B7AC);
-  static const Color accentOn = activePreset == AppThemePreset.midnightRose ? Colors.black : Color(0xFF261C18);
-  static const Color success = activePreset == AppThemePreset.midnightRose ? Color(0xFF27AE60) : Color(0xFF2F8A64);
-  static const Color successSoft = activePreset == AppThemePreset.midnightRose ? Color(0xFF0E2A1A) : Color(0xFFDCEFE6);
-  static const Color warning = activePreset == AppThemePreset.midnightRose ? Color(0xFFE57C1A) : Color(0xFFB97A3A);
-  static const Color warningSoft = activePreset == AppThemePreset.midnightRose ? Color(0xFF1A1000) : Color(0xFFF8E5C8);
-  static const Color danger = activePreset == AppThemePreset.midnightRose ? Color(0xFFC0392B) : Color(0xFFB34949);
-  static const Color dangerSoft = activePreset == AppThemePreset.midnightRose ? Color(0xFF2A0A0A) : Color(0xFFF6DADA);
+  static AppColorPalette colorsFor(AppThemePreset preset) {
+    return preset == AppThemePreset.midnightRose ? midnightRose : roseLight;
+  }
+
+  static Color get background => colorsFor(activePreset).background;
+  static Color get surface => colorsFor(activePreset).surface;
+  static Color get surfaceAlt => colorsFor(activePreset).surfaceAlt;
+  static Color get surfaceStrong => colorsFor(activePreset).surfaceStrong;
+  static Color get textPrimary => colorsFor(activePreset).textPrimary;
+  static Color get textSecondary => colorsFor(activePreset).textSecondary;
+  static Color get textMuted => colorsFor(activePreset).textMuted;
+  static Color get textFaint => colorsFor(activePreset).textFaint;
+  static Color get border => colorsFor(activePreset).border;
+  static Color get borderStrong => colorsFor(activePreset).borderStrong;
+  static Color get accent => colorsFor(activePreset).accent;
+  static Color get accentSoft => colorsFor(activePreset).accentSoft;
+  static Color get accentOn => colorsFor(activePreset).accentOn;
+  static Color get success => colorsFor(activePreset).success;
+  static Color get successSoft => colorsFor(activePreset).successSoft;
+  static Color get warning => colorsFor(activePreset).warning;
+  static Color get warningSoft => colorsFor(activePreset).warningSoft;
+  static Color get danger => colorsFor(activePreset).danger;
+  static Color get dangerSoft => colorsFor(activePreset).dangerSoft;
 }
 
 class AppTheme {
   const AppTheme._();
 
-  static ThemeData theme() {
-    final colors = activePreset == AppThemePreset.midnightRose
-        ? AppColors.midnightRose
-        : AppColors.roseLight;
-    final isDark = activePreset == AppThemePreset.midnightRose;
+  static ThemeData theme([AppThemePreset? preset]) {
+    final selectedPreset = preset ?? activePreset;
+    final colors = AppColors.colorsFor(selectedPreset);
+    final isDark = selectedPreset == AppThemePreset.midnightRose;
 
     final colorScheme = ColorScheme.fromSeed(
       seedColor: colors.accent,

@@ -224,7 +224,7 @@ export const createSupplier = async (req, res) => {
       return sendError(res, 400, 'Name and code are required', 'MISSING_FIELDS')
     }
 
-    if (!['cash', 'cheque', 'bank_transfer', 'other'].includes(payload.paymentMode)) {
+    if (!['cash', 'cheque', 'credit', 'bank_transfer', 'other'].includes(payload.paymentMode)) {
       return sendError(res, 400, 'Invalid payment mode', 'INVALID_PAYMENT_MODE')
     }
 
@@ -265,7 +265,7 @@ export const updateSupplier = async (req, res) => {
       return sendError(res, 400, 'Name and code are required', 'MISSING_FIELDS')
     }
 
-    if (!['cash', 'cheque', 'bank_transfer', 'other'].includes(payload.paymentMode)) {
+    if (!['cash', 'cheque', 'credit', 'bank_transfer', 'other'].includes(payload.paymentMode)) {
       return sendError(res, 400, 'Invalid payment mode', 'INVALID_PAYMENT_MODE')
     }
 

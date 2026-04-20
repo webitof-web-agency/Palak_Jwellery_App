@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -8,7 +8,7 @@ import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../../../shared/theme/app_theme.dart';
 
 /// Full-screen QR scanner screen.
-/// On successful scan → calls parse-qr → navigates to sale entry.
+/// On successful scan â†’ calls parse-qr â†’ navigates to sale entry.
 /// "Enter Manually" bypasses the scanner entirely.
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
@@ -105,7 +105,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // ── Camera Feed ──────────────────────────────────────────────
+          // â”€â”€ Camera Feed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
@@ -117,7 +117,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
             },
           ),
 
-          // ── Safe area UI overlay ─────────────────────────────────────
+          // â”€â”€ Safe area UI overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           SafeArea(
             child: Column(
               children: [
@@ -161,19 +161,22 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                       if (_processing)
                         const _ProcessingIndicator()
                       else
-                        const Text(
+                        Text(
                           'Point camera at QR code on jewellery',
-                          style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
                           textAlign: TextAlign.center,
                         ),
-                      const SizedBox(height: 20),
+                      SizedBox(height: 20),
                       SizedBox(
                         width: double.infinity,
                         height: 52,
                         child: OutlinedButton.icon(
                           onPressed: _processing ? null : _enterManually,
-                          icon: const Icon(Icons.edit_rounded, size: 18),
-                          label: const Text('Enter Manually'),
+                          icon: Icon(Icons.edit_rounded, size: 18),
+                          label: Text('Enter Manually'),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: AppColors.textPrimary,
                             side: BorderSide(color: AppColors.border),
@@ -195,7 +198,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 }
 
-// ─── Sub-widgets ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Sub-widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class _ScannerFrame extends StatelessWidget {
   const _ScannerFrame({required this.active});
@@ -363,21 +366,21 @@ class _CameraErrorView extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.camera_alt_rounded, size: 64, color: Colors.black26),
-              const SizedBox(height: 24),
+              Icon(Icons.camera_alt_rounded, size: 64, color: Colors.black26),
+              SizedBox(height: 24),
               Text(
                 error,
                 style: TextStyle(color: AppColors.textMuted),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
+              SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
                   onPressed: onManualEntry,
-                  icon: const Icon(Icons.edit_rounded),
-                  label: const Text('Enter Sale Manually'),
+                  icon: Icon(Icons.edit_rounded),
+                  label: Text('Enter Sale Manually'),
                 ),
               ),
             ],
@@ -387,3 +390,4 @@ class _CameraErrorView extends StatelessWidget {
     );
   }
 }
+

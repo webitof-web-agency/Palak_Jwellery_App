@@ -1,39 +1,9 @@
 ﻿import { useEffect, useMemo, useState } from 'react'
 import { salesApi } from '../../api/sales.api'
-
-const currencyFormatter = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-})
-
-const numberFormatter = new Intl.NumberFormat('en-IN', {
-  maximumFractionDigits: 2,
-})
-
-const dateFormatter = new Intl.DateTimeFormat('en-IN', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  hour: 'numeric',
-  minute: '2-digit',
-  hour12: true,
-})
-
-const formatCurrency = (value) => currencyFormatter.format(Number(value) || 0)
-const formatNumber = (value) => numberFormatter.format(Number(value) || 0)
-
-const formatDateTime = (value) => {
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return '-'
-  }
-
-  const parts = dateFormatter.formatToParts(date)
-  const getPart = (type) => parts.find((part) => part.type === type)?.value || ''
-  const dayPeriod = getPart('dayPeriod').toUpperCase()
-
-  return `${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}:${getPart('minute')} ${dayPeriod}`
-}
+import EmptyState from '../../components/ui/EmptyState'
+import PageHeader from '../../components/ui/PageHeader'
+import SectionCard from '../../components/ui/SectionCard'
+import { formatCurrency, formatDateTime, formatNumber, formatWeight } from '../../utils/formatters'
 
 const getName = (value) => {
   if (!value) return 'Unknown'
@@ -41,10 +11,6 @@ const getName = (value) => {
   if (typeof value === 'object') return value.name || value.title || 'Unknown'
   return String(value)
 }
-
-const getTotalWeight = (sale) => ({
-  net: Number(sale?.netWeight) || 0,
-})
 
 const LoadingRows = () => (
   <tbody className="divide-y divide-white/5">
@@ -58,16 +24,6 @@ const LoadingRows = () => (
       </tr>
     ))}
   </tbody>
-)
-
-const EmptyState = ({ title, description }) => (
-  <div className="py-16 text-center">
-    <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-white/30">
-      •
-    </div>
-    <div className="text-lg font-semibold text-white/80">{title}</div>
-    <p className="mt-2 text-sm text-white/40">{description}</p>
-  </div>
 )
 
 export default function SalesPage() {
@@ -122,7 +78,7 @@ export default function SalesPage() {
       }
     }
 
-    loadSales()
+    void loadSales()
 
     return () => {
       active = false
@@ -131,12 +87,12 @@ export default function SalesPage() {
 
   const rangeText = useMemo(() => {
     if (!total) {
-      return 'Showing 0–0 of 0 results'
+      return 'Showing 0 - 0 of 0 results'
     }
 
     const start = (page - 1) * limit + 1
     const end = Math.min(page * limit, total)
-    return `Showing ${start}–${end} of ${total} results`
+    return `Showing ${start} - ${end} of ${total} results`
   }, [page, total])
 
   const updateFilter = (name, value) => {
@@ -150,20 +106,31 @@ export default function SalesPage() {
 
   return (
     <div className="page-shell space-y-8">
-      <header className="page-hero">
-        <div>
-          <span className="eyebrow">Operations Log</span>
-          <h1 className="text-4xl font-bold font-display gold-gradient-text tracking-tight">Sales</h1>
-          <p className="mt-2 text-white/40">Search the sales ledger by salesman, supplier, and date range.</p>
-        </div>
-        <div className="surface-card !p-4 mb-0 min-w-[220px]">
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/30">Results</div>
-          <div className="mt-2 text-2xl font-bold text-white">{numberFormatter.format(total)}</div>
-          <div className="mt-1 text-sm text-white/40">Matching sales records</div>
-        </div>
-      </header>
+      {/* Page header and summary */}
+      <PageHeader
+        eyebrow="Operations Log"
+        title="Sales"
+        description="Search the sales ledger by salesman, supplier, and date range."
+        actions={
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="surface-panel-soft panel-border rounded-2xl !p-4 mb-0 min-w-[160px]">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Results</div>
+              <div className="mt-2 text-2xl font-bold text-heading">{formatNumber(total)}</div>
+              <div className="mt-1 text-sm text-muted">Matching sales records</div>
+            </div>
+            <div className="surface-panel-soft panel-border rounded-2xl !p-4 mb-0 min-w-[160px]">
+              <div className="text-[10px] uppercase tracking-[0.18em] text-muted">Active Filters</div>
+              <div className="mt-2 text-2xl font-bold text-heading">
+                {[filters.salesman, filters.supplier, filters.startDate, filters.endDate].filter(Boolean).length}
+              </div>
+              <div className="mt-1 text-sm text-muted">Applied search controls</div>
+            </div>
+          </div>
+        }
+      />
 
-      <section className="surface-card">
+      {/* Filter bar */}
+      <SectionCard>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 items-end">
           <div className="field">
             <label className="field-label" htmlFor="salesman-filter">Salesman</label>
@@ -174,6 +141,7 @@ export default function SalesPage() {
               value={filters.salesman}
               onChange={(event) => updateFilter('salesman', event.target.value)}
               placeholder="Search by salesman"
+              aria-label="Filter sales by salesman"
             />
           </div>
 
@@ -186,6 +154,7 @@ export default function SalesPage() {
               value={filters.supplier}
               onChange={(event) => updateFilter('supplier', event.target.value)}
               placeholder="Search by supplier"
+              aria-label="Filter sales by supplier"
             />
           </div>
 
@@ -197,6 +166,7 @@ export default function SalesPage() {
               type="date"
               value={filters.startDate}
               onChange={(event) => updateFilter('startDate', event.target.value)}
+              aria-label="Filter sales from date"
             />
           </div>
 
@@ -208,11 +178,13 @@ export default function SalesPage() {
               type="date"
               value={filters.endDate}
               onChange={(event) => updateFilter('endDate', event.target.value)}
+              aria-label="Filter sales to date"
             />
           </div>
         </div>
-      </section>
+      </SectionCard>
 
+      {/* Error banner */}
       {error && (
         <div className="surface-card border-red-500/20 bg-red-500/10 text-red-200 flex items-center justify-between gap-4">
           <span>{error}</span>
@@ -220,17 +192,19 @@ export default function SalesPage() {
             type="button"
             onClick={retry}
             className="primary-luxury-button bg-red-500 text-white hover:bg-red-400"
+            aria-label="Retry loading sales"
           >
             Retry
           </button>
         </div>
       )}
 
-      <section className="surface-card !p-0 overflow-hidden">
+      {/* Sales table and pagination */}
+      <SectionCard className="!p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-white/30">
+              <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-muted">
                 <th className="px-5 py-4">Ref</th>
                 <th className="px-5 py-4">Date</th>
                 <th className="px-5 py-4">Salesman</th>
@@ -245,7 +219,7 @@ export default function SalesPage() {
 
             {loading ? (
               <LoadingRows />
-              ) : sales.length === 0 ? (
+            ) : sales.length === 0 ? (
               <tbody>
                 <tr>
                   <td colSpan="9" className="px-5 py-6">
@@ -259,42 +233,26 @@ export default function SalesPage() {
             ) : (
               <tbody className="divide-y divide-white/5">
                 {sales.map((sale) => {
-                  const { net } = getTotalWeight(sale)
+                  const netWeight = Number(sale?.netWeight) || 0
                   const isDuplicate = sale?.isDuplicate === true
 
                   return (
                     <tr key={sale._id} className="hover:bg-white/5">
-                      <td className="px-5 py-4 font-mono text-xs text-white/40">
-                        {sale.ref || '—'}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-white/75">
-                        {formatDateTime(sale.saleDate)}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-white/80">
-                        {getName(sale.salesman)}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-white/80">
-                        {getName(sale.supplier)}
-                      </td>
-                      <td className="px-5 py-4 whitespace-nowrap text-white/80">
-                        {sale?.category || '-'}
-                      </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap text-white/75">
-                        {formatNumber(net)} g
-                      </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap text-white/75">
-                        {formatCurrency(sale.ratePerGram)}
-                      </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap font-semibold text-gold-500">
-                        {formatCurrency(sale.totalValue)}
-                      </td>
+                      <td className="px-5 py-4 font-mono text-xs text-muted">{sale.ref || '-'}</td>
+                      <td className="px-5 py-4 whitespace-nowrap text-primary">{formatDateTime(sale.saleDate)}</td>
+                      <td className="px-5 py-4 whitespace-nowrap text-primary">{getName(sale.salesman)}</td>
+                      <td className="px-5 py-4 whitespace-nowrap text-primary">{getName(sale.supplier)}</td>
+                      <td className="px-5 py-4 whitespace-nowrap text-primary">{sale?.category || '-'}</td>
+                      <td className="px-5 py-4 text-right whitespace-nowrap text-primary">{formatWeight(netWeight)}</td>
+                      <td className="px-5 py-4 text-right whitespace-nowrap text-primary">{formatCurrency(sale.ratePerGram)}</td>
+                      <td className="px-5 py-4 text-right whitespace-nowrap font-semibold text-gold-500">{formatCurrency(sale.totalValue)}</td>
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         {isDuplicate ? (
                           <span className="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
                             Duplicate
                           </span>
                         ) : (
-                          <span className="text-white/20 text-[10px] uppercase tracking-[0.18em]">—</span>
+                          <span className="text-muted text-[10px] uppercase tracking-[0.18em]">-</span>
                         )}
                       </td>
                     </tr>
@@ -306,30 +264,32 @@ export default function SalesPage() {
         </div>
 
         <div className="flex flex-col gap-4 border-t border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
-          <div className="text-sm text-white/45">{rangeText}</div>
+          <div className="text-sm text-muted">{rangeText}</div>
           <div className="flex items-center gap-3">
             <button
               type="button"
-              className="luxury-button border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="luxury-button border border-white/10 bg-white/5 text-on-accent hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={loading || page <= 1}
               onClick={() => setPage((current) => Math.max(1, current - 1))}
+              aria-label="Previous sales page"
             >
-              Prev
+              Previous
             </button>
-            <span className="text-xs uppercase tracking-[0.18em] text-white/30">
+            <span className="text-xs uppercase tracking-[0.18em] text-muted">
               Page {page} of {pages}
             </span>
             <button
               type="button"
-              className="luxury-button border border-white/10 bg-white/5 text-white/80 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
+              className="luxury-button border border-white/10 bg-white/5 text-on-accent hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
               disabled={loading || page >= pages}
               onClick={() => setPage((current) => Math.min(pages, current + 1))}
+              aria-label="Next sales page"
             >
               Next
             </button>
           </div>
         </div>
-      </section>
+      </SectionCard>
     </div>
   )
 }

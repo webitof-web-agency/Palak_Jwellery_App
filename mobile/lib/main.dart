@@ -9,6 +9,7 @@ import 'features/sale_entry/presentation/sale_entry_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_logo.dart';
+import 'shared/widgets/theme_toggle_button.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -79,7 +80,9 @@ class JewelleryApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authSession = ref.watch(authSessionProvider);
     final router = ref.watch(appRouterProvider);
-    final theme = AppTheme.theme();
+    final themePreset = ref.watch(themeControllerProvider);
+    activePreset = themePreset;
+    final theme = AppTheme.theme(themePreset);
 
     if (authSession.isLoading) {
       return MaterialApp(
@@ -123,11 +126,15 @@ class DashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Dashboard'),
+        title: Text('Dashboard'),
         actions: [
+          const Padding(
+            padding: EdgeInsets.only(right: 8),
+            child: ThemeToggleButton(size: 40),
+          ),
           IconButton(
             onPressed: () => ref.read(authSessionProvider.notifier).clearSession(),
-            icon: const Icon(Icons.logout_rounded),
+            icon: Icon(Icons.logout_rounded),
             tooltip: 'Sign out',
           ),
         ],
@@ -154,8 +161,8 @@ class DashboardScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const AppLogo(size: 56),
-                    const SizedBox(height: 16),
-                    const Text(
+                    SizedBox(height: 16),
+                    Text(
                       'Jewellery Sales Management',
                       style: TextStyle(
                         color: AppColors.accent,
@@ -164,33 +171,33 @@ class DashboardScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Text(
                       'Welcome, $user',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
+                    SizedBox(height: 6),
+                    Text(
                       'Start a QR scan or enter a sale manually.',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
                   onPressed: () => context.push('/scanner'),
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  label: const Text('Scan QR'),
+                  icon: Icon(Icons.qr_code_scanner_rounded),
+                  label: Text('Scan QR'),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 52,
@@ -199,8 +206,8 @@ class DashboardScreen extends ConsumerWidget {
                     '/sale-entry',
                     extra: ParseQrResult.empty(''),
                   ),
-                  icon: const Icon(Icons.edit_note_rounded),
-                  label: const Text('Enter Manually'),
+                  icon: Icon(Icons.edit_note_rounded),
+                  label: Text('Enter Manually'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary,
                     side: BorderSide(color: AppColors.border),
@@ -210,7 +217,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -219,7 +226,7 @@ class DashboardScreen extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.border),
                 ),
-                child: const Text(
+                child: Text(
                   'Sale entry flow is ready. Dashboard metrics will come in the next slice.',
                   style: TextStyle(color: AppColors.textSecondary, height: 1.5),
                 ),
@@ -231,3 +238,4 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
+

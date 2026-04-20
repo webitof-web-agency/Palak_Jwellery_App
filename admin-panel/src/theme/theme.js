@@ -1,15 +1,23 @@
 const PALETTES = {
   roseLight: {
+    '--jsm-ink': '#09111f',
     '--jsm-bg': '#fbf6f0',
     '--jsm-surface': '#fffaf5',
     '--jsm-surface-strong': '#f3e8da',
     '--jsm-surface-muted': '#f7efe7',
+    '--jsm-panel-bg': 'rgba(255, 250, 245, 0.92)',
+    '--jsm-panel-bg-soft': 'rgba(247, 239, 231, 0.90)',
+    '--jsm-panel-bg-faint': 'rgba(255, 255, 255, 0.70)',
+    '--jsm-panel-border': 'rgba(92, 70, 56, 0.14)',
+    '--jsm-panel-border-strong': 'rgba(92, 70, 56, 0.20)',
     '--jsm-text': '#261c18',
     '--jsm-text-soft': 'rgba(38, 28, 24, 0.84)',
     '--jsm-text-muted': 'rgba(38, 28, 24, 0.64)',
     '--jsm-text-faint': 'rgba(38, 28, 24, 0.44)',
-    '--jsm-border': 'rgba(92, 70, 56, 0.14)',
-    '--jsm-border-strong': 'rgba(92, 70, 56, 0.20)',
+    '--jsm-heading': '#b95c58',
+    '--jsm-on-accent': '#fffaf5',
+    '--jsm-border': 'var(--jsm-panel-border)',
+    '--jsm-border-strong': 'var(--jsm-panel-border-strong)',
     '--jsm-gold-500': '#c87368',
     '--jsm-gold-600': '#b95c58',
     '--jsm-gold-700': '#9f4a49',
@@ -18,22 +26,41 @@ const PALETTES = {
     '--jsm-accent-green': '#2f8a64',
     '--jsm-shadow-premium':
       '0 16px 48px rgba(76, 53, 43, 0.10), inset 0 1px 0 rgba(255, 255, 255, 0.70)',
+    '--jsm-control-bg': 'rgba(255, 255, 255, 0.72)',
+    '--jsm-control-bg-hover': 'rgba(255, 255, 255, 0.82)',
+    '--jsm-success-bg': 'rgba(99, 200, 135, 0.12)',
+    '--jsm-success-border': 'rgba(99, 200, 135, 0.24)',
+    '--jsm-success-text': '#d8f5e2',
+    '--jsm-danger-bg': 'rgba(242, 110, 110, 0.08)',
+    '--jsm-danger-border': 'rgba(242, 110, 110, 0.30)',
+    '--jsm-danger-text': '#ffcbcb',
+    '--jsm-warning-bg': 'rgba(242, 181, 84, 0.10)',
+    '--jsm-warning-border': 'rgba(242, 181, 84, 0.24)',
+    '--jsm-warning-text': '#ffdfaa',
     '--jsm-bg-gradient':
       'radial-gradient(circle at 0% 0%, rgba(200, 115, 104, 0.10) 0%, transparent 46%), radial-gradient(circle at 100% 0%, rgba(185, 92, 88, 0.08) 0%, transparent 42%)',
     '--jsm-card-gradient':
       'linear-gradient(180deg, rgba(255, 250, 245, 0.92) 0%, rgba(247, 239, 231, 0.90) 100%)',
   },
   midnightRose: {
+    '--jsm-ink': '#09111f',
     '--jsm-bg': '#030811',
     '--jsm-surface': '#07111f',
     '--jsm-surface-strong': '#0e1828',
     '--jsm-surface-muted': '#0b1524',
+    '--jsm-panel-bg': 'rgba(9, 15, 27, 0.82)',
+    '--jsm-panel-bg-soft': 'rgba(255, 255, 255, 0.04)',
+    '--jsm-panel-bg-faint': 'rgba(255, 255, 255, 0.03)',
+    '--jsm-panel-border': 'rgba(255, 255, 255, 0.08)',
+    '--jsm-panel-border-strong': 'rgba(255, 255, 255, 0.12)',
     '--jsm-text': '#f4f0ea',
     '--jsm-text-soft': 'rgba(244, 240, 234, 0.88)',
     '--jsm-text-muted': 'rgba(244, 240, 234, 0.60)',
     '--jsm-text-faint': 'rgba(244, 240, 234, 0.40)',
-    '--jsm-border': 'rgba(255, 255, 255, 0.06)',
-    '--jsm-border-strong': 'rgba(255, 255, 255, 0.12)',
+    '--jsm-heading': '#e5b463',
+    '--jsm-on-accent': '#f4f0ea',
+    '--jsm-border': 'var(--jsm-panel-border)',
+    '--jsm-border-strong': 'var(--jsm-panel-border-strong)',
     '--jsm-gold-500': '#e5b463',
     '--jsm-gold-600': '#d6a24f',
     '--jsm-gold-700': '#b8863a',
@@ -42,6 +69,17 @@ const PALETTES = {
     '--jsm-accent-green': '#27ae60',
     '--jsm-shadow-premium':
       '0 12px 40px rgba(0, 0, 0, 0.50), inset 0 1px 1px rgba(255, 255, 255, 0.03)',
+    '--jsm-control-bg': 'rgba(255, 255, 255, 0.04)',
+    '--jsm-control-bg-hover': 'rgba(255, 255, 255, 0.07)',
+    '--jsm-success-bg': 'rgba(99, 200, 135, 0.12)',
+    '--jsm-success-border': 'rgba(99, 200, 135, 0.24)',
+    '--jsm-success-text': '#d8f5e2',
+    '--jsm-danger-bg': 'rgba(242, 110, 110, 0.08)',
+    '--jsm-danger-border': 'rgba(242, 110, 110, 0.30)',
+    '--jsm-danger-text': '#ffcbcb',
+    '--jsm-warning-bg': 'rgba(242, 181, 84, 0.10)',
+    '--jsm-warning-border': 'rgba(242, 181, 84, 0.24)',
+    '--jsm-warning-text': '#ffdfaa',
     '--jsm-bg-gradient':
       'radial-gradient(circle at 0% 0%, rgba(229, 180, 99, 0.05) 0%, transparent 50%)',
     '--jsm-card-gradient':
@@ -51,6 +89,9 @@ const PALETTES = {
 
 export const DEFAULT_THEME = 'roseLight'
 export const THEME_STORAGE_KEY = 'jewellery-admin-theme'
+export const APP_BRAND_NAME = 'Jewellery Management'
+export const APP_BRAND_SHORT = 'Jewellery'
+export const APP_BRAND_TAGLINE = 'Management Console'
 
 const THEME_ASSETS = {
   roseLight: {

@@ -24,7 +24,7 @@ const supplierSchema = new mongoose.Schema({
   },
   paymentMode: {
     type: String,
-    enum: ['cash', 'cheque', 'bank_transfer', 'other'],
+    enum: ['cash', 'cheque', 'credit', 'bank_transfer', 'other'],
     default: 'other',
   },
   qrMapping: {

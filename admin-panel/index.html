@@ -6,6 +6,29 @@
     <meta name="theme-color" content="#030811" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Jewellery Admin Console</title>
+    <script>
+      (() => {
+        try {
+          const themeKey = 'jewellery-admin-theme';
+          const savedTheme = localStorage.getItem(themeKey);
+          const theme = savedTheme === 'midnightRose' ? 'midnightRose' : 'roseLight';
+          const isDark = theme === 'midnightRose';
+          const bg = isDark ? '#030811' : '#fbf6f0';
+          const fg = isDark ? '#f4f0ea' : '#261c18';
+          const root = document.documentElement;
+          root.dataset.theme = theme;
+          root.style.colorScheme = isDark ? 'dark' : 'light';
+          root.style.backgroundColor = bg;
+          root.style.color = fg;
+          if (document.body) {
+            document.body.style.backgroundColor = bg;
+            document.body.style.color = fg;
+          }
+        } catch {
+          // Ignore theme bootstrap failures.
+        }
+      })();
+    </script>
     <!-- Premium Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
