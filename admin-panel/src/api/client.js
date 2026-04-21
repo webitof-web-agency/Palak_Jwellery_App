@@ -49,6 +49,13 @@ const serializeBody = (body, headers) => {
 const parseResponse = async (response) => {
   const contentType = response.headers.get('content-type') || ''
 
+  if (
+    contentType.includes('text/csv') ||
+    contentType.includes('application/octet-stream')
+  ) {
+    return response.blob()
+  }
+
   if (contentType.includes('application/json')) {
     return response.json()
   }

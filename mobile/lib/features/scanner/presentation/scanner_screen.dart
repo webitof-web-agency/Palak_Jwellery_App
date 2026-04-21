@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -6,10 +6,8 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../sale_entry/data/sale_repository.dart';
 import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../../../shared/theme/app_theme.dart';
+import 'widgets/scanner_widgets.dart';
 
-/// Full-screen QR scanner screen.
-/// On successful scan â†’ calls parse-qr â†’ navigates to sale entry.
-/// "Enter Manually" bypasses the scanner entirely.
 class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({super.key});
 
@@ -18,10 +16,14 @@ class ScannerScreen extends ConsumerStatefulWidget {
 }
 
 class _ScannerScreenState extends ConsumerState<ScannerScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late final MobileScannerController _controller;
+  late final AnimationController _scanLineController;
+  late final AnimationController _pulseController;
+
   bool _torchOn = false;
-  bool _processing = false; // prevents double-scan
+  bool _processing = false;
+  bool _detected = false;
 
   @override
   void initState() {
@@ -33,12 +35,24 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       formats: const [BarcodeFormat.qrCode],
       torchEnabled: false,
     );
+    _scanLineController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat(reverse: true);
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+      lowerBound: 0.96,
+      upperBound: 1.02,
+    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
+    _scanLineController.dispose();
+    _pulseController.dispose();
     super.dispose();
   }
 
@@ -57,13 +71,15 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final raw = capture.barcodes.isEmpty ? null : capture.barcodes.first.rawValue;
     if (raw == null || raw.isEmpty) return;
 
-    setState(() => _processing = true);
-    _controller.stop();
-
+    setState(() {
+      _processing = true;
+      _detected = true;
+    });
+    await _controller.stop();
+    await Future<void>.delayed(const Duration(milliseconds: 260));
     await _navigateToSaleEntry(rawQr: raw);
   }
 
-  /// Parse QR and navigate to sale entry. Never throws.
   Future<void> _navigateToSaleEntry({required String rawQr}) async {
     if (!mounted) return;
 
@@ -77,35 +93,55 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
     if (!mounted) return;
 
-    // Reset any previous sale entry state
     final saleEntryNotifier = ref.read(saleEntryProvider.notifier);
     saleEntryNotifier.reset();
     saleEntryNotifier.setParseResult(result);
 
-    context.push('/sale-entry', extra: result);
+    await context.push('/sale-entry', extra: result);
+
+    if (!mounted) return;
+    await _resetScannerState();
   }
 
   Future<void> _toggleTorch() async {
     await _controller.toggleTorch();
+    if (!mounted) return;
     setState(() => _torchOn = !_torchOn);
   }
 
-  void _enterManually() {
-    _controller.stop();
+  Future<void> _enterManually() async {
+    await _controller.stop();
+    if (!mounted) return;
+
     final emptyResult = ParseQrResult.empty('');
     final saleEntryNotifier = ref.read(saleEntryProvider.notifier);
     saleEntryNotifier.reset();
     saleEntryNotifier.setParseResult(emptyResult);
-    context.push('/sale-entry', extra: emptyResult);
+    await context.push('/sale-entry', extra: emptyResult);
+
+    if (!mounted) return;
+    await _resetScannerState();
+  }
+
+  Future<void> _resetScannerState() async {
+    setState(() {
+      _processing = false;
+      _detected = false;
+    });
+
+    if (mounted) {
+      await _controller.start();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(themeControllerProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // â”€â”€ Camera Feed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
@@ -116,80 +152,37 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
               );
             },
           ),
-
-          // â”€â”€ Safe area UI overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+          ScannerDetectedOverlay(visible: _detected),
           SafeArea(
-            child: Column(
-              children: [
-                // Top bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        onPressed: () => context.pop(),
-                        icon: Icon(Icons.arrow_back_ios_new_rounded, color: AppColors.textPrimary),
-                        tooltip: 'Back',
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        onPressed: _toggleTorch,
-                        icon: Icon(
-                          _torchOn ? Icons.flash_on_rounded : Icons.flash_off_rounded,
-                          color: _torchOn
-                              ? AppColors.accent
-                              : AppColors.textPrimary,
-                        ),
-                        tooltip: 'Toggle torch',
-                      ),
-                    ],
-                  ),
-                ),
-
-                const Spacer(),
-
-                // Viewfinder frame hint
-                _ScannerFrame(active: !_processing),
-
-                const Spacer(),
-
-                // Bottom actions
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-                  child: Column(
-                    children: [
-                      if (_processing)
-                        const _ProcessingIndicator()
-                      else
-                        Text(
-                          'Point camera at QR code on jewellery',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 14,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      SizedBox(height: 20),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: _processing ? null : _enterManually,
-                          icon: Icon(Icons.edit_rounded, size: 18),
-                          label: Text('Enter Manually'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.textPrimary,
-                            side: BorderSide(color: AppColors.border),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            child: AnimatedBuilder(
+              animation: Listenable.merge([
+                _scanLineController,
+                _pulseController,
+              ]),
+              builder: (context, child) {
+                return Column(
+                  children: [
+                    ScannerTopBar(
+                      onBack: () => context.pop(),
+                      onToggleTorch: _toggleTorch,
+                      torchOn: _torchOn,
+                    ),
+                    const Spacer(),
+                    ScannerFrame(
+                      progress: _scanLineController.value,
+                      pulseScale: _pulseController.value,
+                      active: !_processing,
+                      detected: _detected,
+                    ),
+                    const Spacer(),
+                    ScannerBottomPanel(
+                      processing: _processing,
+                      detected: _detected,
+                      onManualEntry: _enterManually,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -198,163 +191,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 }
 
-// â”€â”€â”€ Sub-widgets â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-class _ScannerFrame extends StatelessWidget {
-  const _ScannerFrame({required this.active});
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    const size = 240.0;
-    const cornerLen = 28.0;
-    const cornerThick = 3.5;
-    final gold = active ? AppColors.accent : AppColors.textFaint;
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        children: [
-          // Top-left
-          Positioned(
-            top: 0,
-            left: 0,
-            child: _Corner(color: gold, length: cornerLen, thick: cornerThick,
-                top: true, left: true),
-          ),
-          // Top-right
-          Positioned(
-            top: 0,
-            right: 0,
-            child: _Corner(color: gold, length: cornerLen, thick: cornerThick,
-                top: true, left: false),
-          ),
-          // Bottom-left
-          Positioned(
-            bottom: 0,
-            left: 0,
-            child: _Corner(color: gold, length: cornerLen, thick: cornerThick,
-                top: false, left: true),
-          ),
-          // Bottom-right
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: _Corner(color: gold, length: cornerLen, thick: cornerThick,
-                top: false, left: false),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _Corner extends StatelessWidget {
-  const _Corner({
-    required this.color,
-    required this.length,
-    required this.thick,
-    required this.top,
-    required this.left,
-  });
-
-  final Color color;
-  final double length;
-  final double thick;
-  final bool top;
-  final bool left;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: length,
-      height: length,
-      child: CustomPaint(
-        painter: _CornerPainter(
-            color: color, thick: thick, top: top, left: left),
-      ),
-    );
-  }
-}
-
-class _CornerPainter extends CustomPainter {
-  _CornerPainter(
-      {required this.color,
-      required this.thick,
-      required this.top,
-      required this.left});
-
-  final Color color;
-  final double thick;
-  final bool top;
-  final bool left;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = thick
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-
-    if (top && left) {
-      path.moveTo(0, size.height);
-      path.lineTo(0, 0);
-      path.lineTo(size.width, 0);
-    } else if (top && !left) {
-      path.moveTo(0, 0);
-      path.lineTo(size.width, 0);
-      path.lineTo(size.width, size.height);
-    } else if (!top && left) {
-      path.moveTo(0, 0);
-      path.lineTo(0, size.height);
-      path.lineTo(size.width, size.height);
-    } else {
-      path.moveTo(0, size.height);
-      path.lineTo(size.width, size.height);
-      path.lineTo(size.width, 0);
-    }
-
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_CornerPainter old) => false;
-}
-
-class _ProcessingIndicator extends StatelessWidget {
-  const _ProcessingIndicator();
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 16,
-          height: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.accent,
-          ),
-        ),
-        SizedBox(width: 10),
-        Text(
-          'Reading QR...',
-          style: TextStyle(color: AppColors.accent, fontSize: 14),
-        ),
-      ],
-    );
-  }
-}
-
 class _CameraErrorView extends StatelessWidget {
   const _CameraErrorView({required this.error, required this.onManualEntry});
+
   final String error;
-  final VoidCallback onManualEntry;
+  final Future<void> Function() onManualEntry;
 
   @override
   Widget build(BuildContext context) {
@@ -366,21 +207,27 @@ class _CameraErrorView extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.camera_alt_rounded, size: 64, color: Colors.black26),
-              SizedBox(height: 24),
+              Icon(
+                Icons.camera_alt_rounded,
+                size: 64,
+                color: AppColors.textFaint,
+              ),
+              const SizedBox(height: 24),
               Text(
                 error,
                 style: TextStyle(color: AppColors.textMuted),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 height: 52,
                 child: ElevatedButton.icon(
-                  onPressed: onManualEntry,
-                  icon: Icon(Icons.edit_rounded),
-                  label: Text('Enter Sale Manually'),
+                  onPressed: () async {
+                    await onManualEntry();
+                  },
+                  icon: const Icon(Icons.edit_rounded),
+                  label: const Text('Enter Sale Manually'),
                 ),
               ),
             ],
@@ -390,4 +237,3 @@ class _CameraErrorView extends StatelessWidget {
     );
   }
 }
-

@@ -9,6 +9,7 @@ import salesRoutes from './routes/sales.routes.js'
 import reportsRoutes from './routes/reports.routes.js'
 import userRoutes from './routes/users.routes.js'
 import qrRoutes from './routes/qr.routes.js'
+import systemRoutes from './routes/system.routes.js'
 
 const app = express()
 
@@ -27,6 +28,9 @@ app.use(cors({
 
 // Body parsing
 app.use(express.json({ limit: '10kb' }))
+
+// Public system routes
+app.use(systemRoutes)
 
 // Global rate limit
 app.use(rateLimit({

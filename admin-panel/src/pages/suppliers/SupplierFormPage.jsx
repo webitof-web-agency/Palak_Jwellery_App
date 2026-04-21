@@ -13,6 +13,18 @@ const paymentModes = [
   { value: 'other', label: 'Other' },
 ]
 
+const strategyOptions = [
+  { value: 'delimiter', label: 'Delimiter / positional' },
+  { value: 'key_value', label: 'Key-value label format' },
+  { value: 'venzora', label: 'Venzora token format' },
+]
+
+const detectionTypeOptions = [
+  { value: 'regex', label: 'Regex' },
+  { value: 'contains', label: 'Contains' },
+  { value: 'prefix', label: 'Prefix' },
+]
+
 const mappingFields = [
   { key: 'supplierCode', label: 'Supplier code index' },
   { key: 'category', label: 'Category index' },
@@ -35,8 +47,12 @@ const createEmptyForm = () => ({
   gst: '',
   address: '',
   paymentMode: 'cash',
-  categories: '',
+  categories: [],
+  categoryDraft: '',
   isActive: true,
+  strategy: 'delimiter',
+  detectionType: 'contains',
+  detectionPattern: '',
   delimiter: '|',
   fieldMap: { ...defaultFieldMap },
 })
@@ -55,27 +71,49 @@ const supplierToForm = (supplier) => ({
   gst: supplier?.gst || '',
   address: supplier?.address || '',
   paymentMode: supplier?.paymentMode || 'cash',
-  categories: Array.isArray(supplier?.categories) ? supplier.categories.join(', ') : '',
+  categories: Array.isArray(supplier?.categories) ? supplier.categories : [],
+  categoryDraft: '',
   isActive: supplier?.isActive ?? true,
+  strategy: supplier?.qrMapping?.strategy || 'delimiter',
+  detectionType: supplier?.detectionPattern?.type || 'contains',
+  detectionPattern: supplier?.detectionPattern?.pattern || '',
   delimiter: supplier?.qrMapping?.delimiter || '|',
   fieldMap: {
-    supplierCode: toFieldValue(supplier?.qrMapping?.fieldMap?.supplierCode, defaultFieldMap.supplierCode),
-    category: toFieldValue(supplier?.qrMapping?.fieldMap?.category, defaultFieldMap.category),
-    grossWeight: toFieldValue(supplier?.qrMapping?.fieldMap?.grossWeight, defaultFieldMap.grossWeight),
-    stoneWeight: toFieldValue(supplier?.qrMapping?.fieldMap?.stoneWeight, defaultFieldMap.stoneWeight),
-    netWeight: toFieldValue(supplier?.qrMapping?.fieldMap?.netWeight, defaultFieldMap.netWeight),
+    supplierCode: toFieldValue(
+      supplier?.qrMapping?.fieldMap?.supplierCode,
+      defaultFieldMap.supplierCode
+    ),
+    category: toFieldValue(
+      supplier?.qrMapping?.fieldMap?.category,
+      defaultFieldMap.category
+    ),
+    grossWeight: toFieldValue(
+      supplier?.qrMapping?.fieldMap?.grossWeight,
+      defaultFieldMap.grossWeight
+    ),
+    stoneWeight: toFieldValue(
+      supplier?.qrMapping?.fieldMap?.stoneWeight,
+      defaultFieldMap.stoneWeight
+    ),
+    netWeight: toFieldValue(
+      supplier?.qrMapping?.fieldMap?.netWeight,
+      defaultFieldMap.netWeight
+    ),
   },
 })
-
-const parseCategories = (value) =>
-  value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
 
 const parseInteger = (value, fallback = 0) => {
   const parsed = Number.parseInt(value, 10)
   return Number.isNaN(parsed) ? fallback : parsed
+}
+
+const helperTextByStrategy = {
+  delimiter:
+    'Use this for positional QR strings split by a symbol like / or |. Best for Adinath and Utsav-like inputs.',
+  key_value:
+    'Use this when QR text has labels like GW, SS, NW, KT. Category may still need manual business input.',
+  venzora:
+    'Use this for Venzora tokenized strings like G16.970 / N16.654 / CH-435A.',
 }
 
 export default function SupplierFormPage() {
@@ -83,7 +121,9 @@ export default function SupplierFormPage() {
   const location = useLocation()
   const supplier = useMemo(() => location.state?.supplier ?? null, [location.state])
   const isEditing = Boolean(supplier?._id)
-  const [form, setForm] = useState(() => (isEditing ? supplierToForm(supplier) : createEmptyForm()))
+  const [form, setForm] = useState(() =>
+    isEditing ? supplierToForm(supplier) : createEmptyForm()
+  )
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -109,6 +149,26 @@ export default function SupplierFormPage() {
     }))
   }
 
+  const handleAddCategory = () => {
+    const nextCategory = form.categoryDraft.trim()
+    if (!nextCategory) return
+
+    setForm((current) => ({
+      ...current,
+      categories: current.categories.includes(nextCategory)
+        ? current.categories
+        : [...current.categories, nextCategory],
+      categoryDraft: '',
+    }))
+  }
+
+  const handleRemoveCategory = (category) => {
+    setForm((current) => ({
+      ...current,
+      categories: current.categories.filter((item) => item !== category),
+    }))
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
 
@@ -129,10 +189,16 @@ export default function SupplierFormPage() {
       gst: form.gst.trim(),
       address: form.address.trim(),
       paymentMode: form.paymentMode,
-      categories: parseCategories(form.categories),
+      categories: form.categories,
       isActive: form.isActive,
+      detectionPattern: form.detectionPattern.trim()
+        ? {
+            type: form.detectionType,
+            pattern: form.detectionPattern.trim(),
+          }
+        : null,
       qrMapping: {
-        strategy: 'delimiter',
+        strategy: form.strategy,
         delimiter: form.delimiter || '|',
         fieldMap: {
           supplierCode: parseInteger(form.fieldMap.supplierCode, 0),
@@ -160,7 +226,10 @@ export default function SupplierFormPage() {
         state: { successMessage: `Created ${trimmedName}.` },
       })
     } catch (err) {
-      const message = err instanceof ApiError ? err.error : err?.message || 'Failed to save supplier.'
+      const message =
+        err instanceof ApiError
+          ? err.error
+          : err?.message || 'Failed to save supplier.'
       setError(message)
     } finally {
       setIsSaving(false)
@@ -169,12 +238,11 @@ export default function SupplierFormPage() {
 
   return (
     <div className="page-shell space-y-8">
-      {/* Page header */}
       <PageHeader
         eyebrow="Supplier Setup"
         title={isEditing ? `Edit ${supplier?.name || 'Supplier'}` : 'Add Supplier'}
-        description="Create or update supplier profiles, settlement mode, and QR mappings in one dedicated page."
-          actions={(
+        description="Create supplier profiles, choose the parser strategy, and keep business categories separate from design codes."
+        actions={
           <button
             type="button"
             onClick={() => navigate('/suppliers')}
@@ -183,26 +251,37 @@ export default function SupplierFormPage() {
           >
             Back to Suppliers
           </button>
-        )}
+        }
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)] gap-8 items-start">
-        {/* Overview rail */}
         <aside className="space-y-6 xl:sticky xl:top-6">
           <SectionCard eyebrow="Snapshot" title="Supplier summary" className="!mb-0">
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-2xl surface-panel-soft panel-border p-4">
                 <div className="text-[10px] uppercase text-muted font-bold mb-1">Mode</div>
-                <div className="text-lg font-bold text-heading capitalize">{form.paymentMode || 'cash'}</div>
+                <div className="text-lg font-bold text-heading capitalize">
+                  {form.paymentMode || 'cash'}
+                </div>
               </div>
               <div className="rounded-2xl surface-panel-soft panel-border p-4">
                 <div className="text-[10px] uppercase text-muted font-bold mb-1">Active</div>
-                <div className="text-lg font-bold text-primary">{form.isActive ? 'Yes' : 'No'}</div>
+                <div className="text-lg font-bold text-primary">
+                  {form.isActive ? 'Yes' : 'No'}
+                </div>
               </div>
             </div>
             <div className="mt-4 rounded-2xl surface-panel-faint panel-border p-4">
-              <div className="text-[10px] uppercase text-muted font-bold mb-1">QR delimiter</div>
-              <div className="text-2xl font-bold font-mono text-primary">{form.delimiter || '|'}</div>
+              <div className="text-[10px] uppercase text-muted font-bold mb-1">Parser</div>
+              <div className="text-lg font-bold text-primary capitalize">
+                {form.strategy.replace('_', ' ')}
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl surface-panel-faint panel-border p-4">
+              <div className="text-[10px] uppercase text-muted font-bold mb-1">Category policy</div>
+              <div className="text-sm text-muted">
+                Salesman gets suggestions from supplier categories, but category remains a required business field.
+              </div>
             </div>
           </SectionCard>
 
@@ -210,16 +289,16 @@ export default function SupplierFormPage() {
             <ul className="space-y-3 text-sm text-muted leading-relaxed">
               <li>• Use a short unique supplier code.</li>
               <li>• Settlement mode can be cash or credit.</li>
-              <li>• Keep QR mapping only for delimiter-based suppliers.</li>
+              <li>• Some suppliers provide only item/design code, not business category.</li>
+              <li>• Unknown or partial QR formats should still allow manual sale completion.</li>
             </ul>
           </SectionCard>
         </aside>
 
-        {/* Supplier form */}
         <SectionCard
           eyebrow="Supplier Details"
           title="Supplier Profile"
-          description="Keep the profile clean and configure QR mapping only if the supplier uses delimiter parsing."
+          description="Configure parsing behavior, supplier detection, and category suggestions in one place."
           className="!mb-0"
         >
           <form className="space-y-8" onSubmit={handleSubmit} noValidate>
@@ -272,9 +351,63 @@ export default function SupplierFormPage() {
                   ))}
                 </select>
               </label>
+
+              <label className="field">
+                <span className="field-label">Parser Strategy</span>
+                <select
+                  className="input"
+                  value={form.strategy}
+                  onChange={(event) => handleFormChange('strategy', event.target.value)}
+                  aria-label="QR parser strategy"
+                >
+                  {strategyOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span className="field-label">Detection Type</span>
+                <select
+                  className="input"
+                  value={form.detectionType}
+                  onChange={(event) => handleFormChange('detectionType', event.target.value)}
+                  aria-label="Supplier detection type"
+                >
+                  {detectionTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-[1fr_280px] gap-6">
+            <label className="field mb-0">
+              <span className="field-label">Detection Pattern</span>
+              <input
+                className="input"
+                value={form.detectionPattern}
+                onChange={(event) => handleFormChange('detectionPattern', event.target.value)}
+                placeholder={
+                  form.detectionType === 'regex'
+                    ? 'e.g. ^JFC\\d+'
+                    : form.detectionType === 'prefix'
+                      ? 'e.g. USV'
+                      : 'e.g. SWNK'
+                }
+                aria-label="Supplier detection pattern"
+              />
+            </label>
+
+            <div className="rounded-2xl surface-panel-faint panel-border p-4 text-sm text-muted">
+              <strong className="text-heading">Strategy note:</strong>{' '}
+              {helperTextByStrategy[form.strategy]}
+            </div>
+
+            <div className="grid grid-cols-1 xl:grid-cols-[1fr_320px] gap-6">
               <label className="field mb-0">
                 <span className="field-label">Registered Address</span>
                 <textarea
@@ -289,25 +422,70 @@ export default function SupplierFormPage() {
 
               <div className="surface-panel-faint panel-border rounded-2xl p-5 flex flex-col gap-4">
                 <div>
-                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-bold">Active Categories</div>
-                  <p className="mt-2 text-sm text-muted">Add one or more store categories for quick filtering.</p>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-bold">
+                    Allowed Categories
+                  </div>
+                  <p className="mt-2 text-sm text-muted">
+                    Maintain business categories here. Salesman will get a dropdown with manual fallback.
+                  </p>
                 </div>
-                <input
-                  className="input"
-                  value={form.categories}
-                  onChange={(event) => handleFormChange('categories', event.target.value)}
-                  placeholder="Ring, Necklace, Bracelet"
-                  aria-label="Active categories"
-                />
+                <div className="flex gap-3">
+                  <input
+                    className="input"
+                    value={form.categoryDraft}
+                    onChange={(event) => handleFormChange('categoryDraft', event.target.value)}
+                    placeholder="Add category"
+                    aria-label="Add supplier category"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        handleAddCategory()
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCategory}
+                    className="luxury-button bg-white/5 text-on-accent hover:bg-white/10 border border-white/10"
+                    aria-label="Add supplier category"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {form.categories.length === 0 ? (
+                    <span className="text-sm text-muted">
+                      No categories configured yet.
+                    </span>
+                  ) : (
+                    form.categories.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => handleRemoveCategory(category)}
+                        className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-on-accent hover:border-gold-500/30 hover:bg-gold-600/10"
+                        aria-label={`Remove category ${category}`}
+                      >
+                        {category} ×
+                      </button>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
 
             <div className="surface-panel-soft panel-border rounded-2xl p-5 md:p-6 space-y-6">
               <div className="flex justify-between items-center border-b panel-border pb-4">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-heading">QR Delimiter Mapping</h3>
+                <h3 className="text-xs font-bold uppercase tracking-widest text-heading">
+                  Delimiter Mapping
+                </h3>
                 <span className="text-[10px] text-muted font-bold tracking-widest bg-white/5 px-2 py-1 rounded">
-                  Legacy Mode
+                  {form.strategy === 'delimiter' ? 'Editable' : 'Disabled for current strategy'}
                 </span>
+              </div>
+
+              <div className="rounded-2xl surface-panel-faint panel-border p-4 text-sm text-muted">
+                Use these index fields only for delimiter-style suppliers. For suppliers that do not provide category in QR, keep business category suggestions above and let salesman choose during sale entry.
               </div>
 
               <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5">
@@ -319,6 +497,7 @@ export default function SupplierFormPage() {
                     onChange={(event) => handleFormChange('delimiter', event.target.value)}
                     placeholder="|"
                     aria-label="QR delimiter"
+                    disabled={form.strategy !== 'delimiter'}
                   />
                 </label>
 
@@ -332,6 +511,7 @@ export default function SupplierFormPage() {
                       onChange={(event) => handleFieldMapChange(item.key, event.target.value)}
                       placeholder={defaultFieldMap[item.key]}
                       aria-label={item.label}
+                      disabled={form.strategy !== 'delimiter'}
                     />
                   </label>
                 ))}
@@ -339,7 +519,10 @@ export default function SupplierFormPage() {
             </div>
 
             {error ? (
-              <p className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-4 rounded-xl font-bold" role="alert">
+              <p
+                className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-4 rounded-xl font-bold"
+                role="alert"
+              >
                 {error}
               </p>
             ) : null}

@@ -1,0 +1,24 @@
+# Supplier: Venzora
+# Delimiter: /
+#
+# TOKEN FORMAT:
+#   [0] = item code
+#   [1] = purity (e.g. 18KT)
+#   [2] = gross weight prefixed with G
+#   [3] = diamond weight prefixed with L
+#   [4] = net weight prefixed with N
+#   [5] = Rs... charge token (ignored)
+#   [6] = design code prefixed with CH-
+#
+# PARSER NOTES:
+# - itemCode comes from token[0] and is normalized to uppercase
+# - purity comes from the 18KT token
+# - grossWeight comes from G...
+# - diamondWeight comes from L...
+# - netWeight comes from N...
+# - designCode comes from CH-...
+# - Rs token is ignored
+#
+# REAL QR SAMPLES
+307285/18KT/G16.970/L0.316/N16.654/Rs.379/CH-435A
+5046cb/18KT/G19.630/L0.0/N19.630/Rs0.0/CH-465A

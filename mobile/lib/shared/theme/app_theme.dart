@@ -84,7 +84,7 @@ class AppColors {
     borderStrong: Color(0x3A7B6254),
     accent: Color(0xFFC87368),
     accentSoft: Color(0xFFE9B7AC),
-    accentOn: Color(0xFF261C18),
+    accentOn: Color(0xFFFFFAF5),
     success: Color(0xFF2F8A64),
     successSoft: Color(0xFFDCEFE6),
     warning: Color(0xFFB97A3A),
@@ -166,11 +166,32 @@ class AppTheme {
       surfaceTint: colors.accent,
     );
 
+    final baseTextTheme = (isDark ? ThemeData.dark() : ThemeData.light()).textTheme;
+    final textTheme = baseTextTheme.apply(
+      bodyColor: colors.textPrimary,
+      displayColor: colors.textPrimary,
+    ).copyWith(
+      bodyMedium: baseTextTheme.bodyMedium?.copyWith(color: colors.textSecondary),
+      bodySmall: baseTextTheme.bodySmall?.copyWith(color: colors.textMuted),
+      titleMedium: baseTextTheme.titleMedium?.copyWith(color: colors.textPrimary),
+      titleSmall: baseTextTheme.titleSmall?.copyWith(color: colors.textSecondary),
+      labelMedium: baseTextTheme.labelMedium?.copyWith(
+        color: colors.textSecondary,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+
     return ThemeData(
       useMaterial3: true,
       brightness: colorScheme.brightness,
       colorScheme: colorScheme,
       scaffoldBackgroundColor: colors.background,
+      canvasColor: colors.surface,
+      cardColor: colors.surface,
+      textTheme: textTheme,
+      primaryTextTheme: textTheme,
+      iconTheme: IconThemeData(color: colors.textPrimary),
+      primaryIconTheme: IconThemeData(color: colors.textPrimary),
       appBarTheme: AppBarTheme(
         centerTitle: false,
         backgroundColor: colors.background,
@@ -209,6 +230,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colors.surfaceAlt,
+        labelStyle: TextStyle(color: colors.textSecondary),
+        hintStyle: TextStyle(color: colors.textFaint),
+        helperStyle: TextStyle(color: colors.textFaint),
+        errorStyle: TextStyle(color: colors.danger),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide(color: colors.border),
@@ -234,6 +259,31 @@ class AppTheme {
       dividerTheme: DividerThemeData(
         color: colors.border,
         thickness: 1,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colors.accent,
+        circularTrackColor: colors.surfaceStrong,
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colors.surfaceStrong,
+        contentTextStyle: TextStyle(color: colors.textPrimary),
+        actionTextColor: colors.accent,
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colors.surface,
+        textStyle: TextStyle(color: colors.textPrimary),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: colors.border),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colors.surface,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: colors.border),
+        ),
       ),
     );
   }

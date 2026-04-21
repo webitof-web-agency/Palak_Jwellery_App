@@ -68,6 +68,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(themeControllerProvider);
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState.isLoading;
 
@@ -102,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           children: [
                             const Align(
                               alignment: Alignment.centerLeft,
-                              child: AppLogo(size: 72),
+                              child: AppLogo(size: 78),
                             ),
                             SizedBox(height: 20),
                             Text(

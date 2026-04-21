@@ -500,11 +500,24 @@ export default function SuppliersPage() {
               {qrResult && (
                 <div className="mt-10 p-6 surface-panel-soft rounded-2xl panel-border animate-zoom-in duration-200">
                   <div className="flex justify-between items-center mb-6 border-b panel-border pb-4">
-                    <h3 className="font-bold text-heading">
-                      {getCombinedQrErrors(qrResult.parseResult).length === 0
-                        ? "Parse Successful"
-                        : "Validation Warn"}
-                    </h3>
+                    <div>
+                      <h3 className="font-bold text-heading">
+                        {getCombinedQrErrors(qrResult.parseResult).length === 0
+                          ? "Parse Successful"
+                          : "Validation Warn"}
+                      </h3>
+                      <p className="mt-1 text-xs text-muted">
+                        Supplier:{' '}
+                        <span className="text-primary font-semibold">
+                          {qrResult.supplier?.name || 'Unknown supplier'}
+                        </span>
+                        {' • '}
+                        Strategy:{' '}
+                        <span className="text-primary font-semibold">
+                          {qrResult.parseResult?.meta?.strategy || 'unknown'}
+                        </span>
+                      </p>
+                    </div>
                     <div
                       className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
                         getCombinedQrErrors(qrResult.parseResult).length === 0
@@ -514,9 +527,15 @@ export default function SuppliersPage() {
                     >
                       {getCombinedQrErrors(qrResult.parseResult).length === 0
                         ? "TRUSTED"
-                        : "PARTIAL"}
+                        : "MANUAL CHECK"}
                     </div>
                   </div>
+
+                  {!qrResult.supplier && (
+                    <div className="mb-6 rounded-2xl border border-gold-500/10 bg-gold-500/5 p-4 text-sm text-muted">
+                      Supplier detection did not match a known configuration. Salesman can still continue with manual completion on mobile.
+                    </div>
+                  )}
 
                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
                     {[

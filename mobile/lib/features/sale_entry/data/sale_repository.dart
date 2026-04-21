@@ -225,6 +225,8 @@ class CreatedSale {
     required this.totalValue,
     required this.saleDate,
     this.isDuplicate = false,
+    this.category,
+    this.supplierName,
   });
 
   final String id;
@@ -232,6 +234,8 @@ class CreatedSale {
   final double totalValue;
   final DateTime saleDate;
   final bool isDuplicate;
+  final String? category;
+  final String? supplierName;
 
   factory CreatedSale.fromJson(Map<String, dynamic> json) {
     return CreatedSale(
@@ -242,8 +246,24 @@ class CreatedSale {
           ? DateTime.parse(json['saleDate'].toString())
           : DateTime.now(),
       isDuplicate: json['isDuplicate'] == true,
+      category: json['category']?.toString(),
+      supplierName: _asMap(json['supplier'])?['name']?.toString(),
     );
   }
+}
+
+class RecentSalesPage {
+  const RecentSalesPage({
+    required this.sales,
+    required this.total,
+    required this.page,
+    required this.pages,
+  });
+
+  final List<CreatedSale> sales;
+  final int total;
+  final int page;
+  final int pages;
 }
 
 /// Result from GET /sales/summary/today
@@ -444,20 +464,37 @@ class SaleRepository {
   }
 
   /// Get recent sale history
-  Future<List<CreatedSale>> getRecentSales() async {
+  Future<RecentSalesPage> getRecentSales({
+    int page = 1,
+    int limit = 10,
+  }) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>(_salesPath);
+      final response = await _dio.get<Map<String, dynamic>>(
+        _salesPath,
+        queryParameters: {
+          'page': page,
+          'limit': limit,
+          'sortBy': 'saleDate',
+          'sortOrder': 'desc',
+        },
+      );
       final body = response.data;
-      final list = body?['data'] as List?;
+      final data = body?['data'] as Map<String, dynamic>?;
+      final list = data?['sales'] as List?;
 
-      if (body?['success'] != true || list == null) {
+      if (body?['success'] != true || list == null || data == null) {
         throw const SaleException('Failed to load recent sales');
       }
 
-      return list
-          .whereType<Map<String, dynamic>>()
-          .map(CreatedSale.fromJson)
-          .toList();
+      return RecentSalesPage(
+        sales: list
+            .whereType<Map<String, dynamic>>()
+            .map(CreatedSale.fromJson)
+            .toList(),
+        total: (data['total'] as num?)?.toInt() ?? 0,
+        page: (data['page'] as num?)?.toInt() ?? page,
+        pages: (data['pages'] as num?)?.toInt() ?? 1,
+      );
     } on DioException catch (e) {
       throw _mapDio(e);
     }

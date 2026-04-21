@@ -13,6 +13,109 @@ const sendError = (res, status, error, code, extra = {}) => {
   return res.status(status).json({ success: false, error, code, ...extra })
 }
 
+const normalizeSort = (sortBy, sortOrder) => {
+  const field = typeof sortBy === 'string' ? sortBy.trim() : 'saleDate'
+  const order = String(sortOrder || 'desc').toLowerCase() === 'asc' ? 1 : -1
+
+  switch (field) {
+    case 'saleDate':
+      return { saleDate: order }
+    case 'totalValue':
+      return { totalValue: order, saleDate: -1 }
+    case 'netWeight':
+      return { netWeight: order, saleDate: -1 }
+    default:
+      return { saleDate: -1 }
+  }
+}
+
+const buildSalesQuery = async ({ user, supplier, salesman, startDate, endDate }) => {
+  const query = {}
+
+  if (user.role !== 'admin') {
+    query.salesman = user.id
+  } else if (salesman) {
+    if (mongoose.isValidObjectId(salesman)) {
+      query.salesman = salesman
+    } else {
+      const matches = await User.find(
+        { name: { $regex: salesman, $options: 'i' } },
+        { _id: 1 }
+      ).lean()
+      query.salesman = { $in: matches.map((u) => u._id) }
+    }
+  }
+
+  if (supplier) {
+    if (mongoose.isValidObjectId(supplier)) {
+      query.supplier = supplier
+    } else {
+      const matches = await Supplier.find(
+        { name: { $regex: supplier, $options: 'i' } },
+        { _id: 1 }
+      ).lean()
+      query.supplier = { $in: matches.map((s) => s._id) }
+    }
+  }
+
+  if (startDate || endDate) {
+    query.saleDate = {}
+    if (startDate) query.saleDate.$gte = new Date(startDate)
+    if (endDate) {
+      const end = new Date(endDate)
+      end.setHours(23, 59, 59, 999)
+      query.saleDate.$lte = end
+    }
+  }
+
+  return query
+}
+
+const toSaleRef = (id) => '#' + id.toString().slice(-6).toUpperCase()
+
+const escapeCsv = (value) => {
+  if (value === null || value === undefined) return ''
+  const text = String(value)
+  if (/[",\n]/.test(text)) {
+    return `"${text.replace(/"/g, '""')}"`
+  }
+  return text
+}
+
+const buildSalesCsv = (sales) => {
+  const header = [
+    'Reference',
+    'Sale Date',
+    'Salesman',
+    'Supplier',
+    'Category',
+    'Gross Weight',
+    'Stone Weight',
+    'Net Weight',
+    'Rate Per Gram',
+    'Total Value',
+    'Duplicate',
+  ]
+
+  const rows = sales.map((sale) => [
+    toSaleRef(sale._id),
+    sale.saleDate instanceof Date ? sale.saleDate.toISOString() : sale.saleDate,
+    sale.salesman?.name || '',
+    sale.supplier?.name || '',
+    sale.category || '',
+    sale.grossWeight ?? '',
+    sale.stoneWeight ?? '',
+    sale.netWeight ?? '',
+    sale.ratePerGram ?? '',
+    sale.totalValue ?? '',
+    sale.isDuplicate ? 'Yes' : 'No',
+  ])
+
+  return [header, ...rows]
+    .map((row) => row.map(escapeCsv).join(','))
+    .join('\n')
+}
+
 // POST /api/v1/sales
 export const createSale = async (req, res) => {
   try {
@@ -212,55 +315,30 @@ export const listSales = async (req, res) => {
   try {
     const { 
       page = 1, 
-      limit = 20, 
+      limit = 10, 
       supplier, 
       salesman, 
       startDate, 
-      endDate 
+      endDate,
+      sortBy = 'saleDate',
+      sortOrder = 'desc',
     } = req.query
 
     const p = Math.max(1, parseInt(page))
     const l = Math.max(1, Math.min(100, parseInt(limit)))
     const skip = (p - 1) * l
-
-    const query = {}
-
-    // Security scope & Filter
-    if (req.user.role !== 'admin') {
-      query.salesman = req.user.id
-    } else if (salesman) {
-      if (mongoose.isValidObjectId(salesman)) {
-        query.salesman = salesman
-      } else {
-        const matches = await User.find(
-          { name: { $regex: salesman, $options: 'i' } },
-          { _id: 1 }
-        ).lean()
-        query.salesman = { $in: matches.map(u => u._id) }
-      }
-    }
-
-    if (supplier) {
-      if (mongoose.isValidObjectId(supplier)) {
-        query.supplier = supplier
-      } else {
-        const matches = await Supplier.find(
-          { name: { $regex: supplier, $options: 'i' } },
-          { _id: 1 }
-        ).lean()
-        query.supplier = { $in: matches.map(s => s._id) }
-      }
-    }
-
-    if (startDate || endDate) {
-      query.saleDate = {}
-      if (startDate) query.saleDate.$gte = new Date(startDate)
-      if (endDate) query.saleDate.$lte = new Date(endDate)
-    }
+    const query = await buildSalesQuery({
+      user: req.user,
+      supplier,
+      salesman,
+      startDate,
+      endDate,
+    })
+    const sort = normalizeSort(sortBy, sortOrder)
 
     const [sales, total] = await Promise.all([
       Sale.find(query)
-        .sort({ saleDate: -1 })
+        .sort(sort)
         .skip(skip)
         .limit(l)
         .populate('supplier', 'name code')
@@ -271,17 +349,72 @@ export const listSales = async (req, res) => {
 
     const salesWithRef = sales.map(s => ({
       ...s,
-      ref: '#' + s._id.toString().slice(-6).toUpperCase()
+      ref: toSaleRef(s._id)
     }))
 
     return sendSuccess(res, {
       sales: salesWithRef,
       total,
       page: p,
-      pages: Math.ceil(total / l)
+      pages: Math.ceil(total / l),
+      sortBy,
+      sortOrder: sortOrder === 'asc' ? 'asc' : 'desc',
     })
   } catch (error) {
     console.error('listSales error:', error)
     return sendError(res, 500, 'Failed to load sales', 'SERVER_ERROR')
+  }
+}
+
+// GET /api/v1/sales/export
+export const exportSales = async (req, res) => {
+  try {
+    const {
+      supplier,
+      salesman,
+      startDate,
+      endDate,
+      sortBy = 'saleDate',
+      sortOrder = 'desc',
+      scope = 'filtered',
+    } = req.query
+
+    const query = scope === 'all'
+      ? await buildSalesQuery({
+          user: req.user,
+          supplier: undefined,
+          salesman: undefined,
+          startDate: undefined,
+          endDate: undefined,
+        })
+      : await buildSalesQuery({
+          user: req.user,
+          supplier,
+          salesman,
+          startDate,
+          endDate,
+        })
+
+    const sort = normalizeSort(sortBy, sortOrder)
+
+    const sales = await Sale.find(query)
+      .sort(sort)
+      .populate('supplier', 'name code')
+      .populate('salesman', 'name')
+      .lean()
+
+    const csv = buildSalesCsv(sales)
+    const timestamp = new Date().toISOString().slice(0, 10)
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8')
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="sales-${scope}-${timestamp}.csv"`
+    )
+
+    return res.status(200).send(csv)
+  } catch (error) {
+    console.error('exportSales error:', error)
+    return sendError(res, 500, 'Failed to export sales', 'SERVER_ERROR')
   }
 }

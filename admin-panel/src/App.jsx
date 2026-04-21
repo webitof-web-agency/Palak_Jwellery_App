@@ -4,6 +4,8 @@ import { useAuthStore } from './store/authStore'
 import LoginPage from './pages/auth/LoginPage'
 import { Layout } from './components/Layout'
 import FullScreenLoader from './components/ui/FullScreenLoader'
+import BackendFallbackPage from './components/system/BackendFallbackPage'
+import { useBackendBootStatus } from './hooks/useBackendBootStatus'
 import './index.css'
 
 const SuppliersPage = lazy(() => import('./pages/suppliers/SuppliersPage'))
@@ -38,6 +40,16 @@ const AdminRoute = ({ children }) => {
 }
 
 function App() {
+  const { status, error, retry } = useBackendBootStatus()
+
+  if (status === 'checking') {
+    return <FullScreenLoader label="Checking backend status" />
+  }
+
+  if (status === 'unavailable') {
+    return <BackendFallbackPage error={error} onRetry={retry} />
+  }
+
   return (
     <BrowserRouter>
       <Suspense fallback={<FullScreenLoader />}>

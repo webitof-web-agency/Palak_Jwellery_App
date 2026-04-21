@@ -2,13 +2,17 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'core/system/backend_status.dart';
 import 'features/auth/presentation/auth_notifier.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
 import 'features/sale_entry/presentation/sale_entry_screen.dart';
+import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_logo.dart';
+import 'shared/widgets/backend_fallback_screen.dart';
 import 'shared/widgets/theme_toggle_button.dart';
 
 void main() {
@@ -50,6 +54,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return sale == null ? const DashboardScreen() : SaleSuccessScreen(sale: sale);
         },
       ),
+      GoRoute(
+        path: '/sales-history',
+        builder: (context, state) => const SalesHistoryScreen(),
+      ),
     ],
     redirect: (context, state) {
       if (authSession.isLoading) {
@@ -79,16 +87,33 @@ class JewelleryApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authSession = ref.watch(authSessionProvider);
+    final backendStatus = ref.watch(backendStatusProvider);
     final router = ref.watch(appRouterProvider);
     final themePreset = ref.watch(themeControllerProvider);
     activePreset = themePreset;
     final theme = AppTheme.theme(themePreset);
 
-    if (authSession.isLoading) {
+    if (authSession.isLoading || backendStatus.isLoading) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: theme,
         home: const _BootScreen(),
+      );
+    }
+
+    if (backendStatus.hasError) {
+      final errorMessage = backendStatus.whenOrNull(
+            error: (error, _) => error.toString(),
+          ) ??
+          'Could not connect to the backend. Check the server and try again.';
+
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: theme,
+        home: BackendFallbackScreen(
+          error: errorMessage,
+          onRetry: () => ref.invalidate(backendStatusProvider),
+        ),
       );
     }
 
@@ -120,9 +145,75 @@ class _BootScreen extends StatelessWidget {
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
+          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
+          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AppLogo(size: 52),
+              const SizedBox(height: 16),
+              Text(
+                'Sign out?',
+                style: TextStyle(
+                  color: AppColors.accent,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'You will be returned to the login screen. Unsaved sale entry changes will be lost.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
+              height: 1.5,
+            ),
+          ),
+          actions: [
+            SizedBox(
+              width: double.infinity,
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(true),
+                      child: const Text('Yes, sign out'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLogout == true) {
+      ref.read(authSessionProvider.notifier).clearSession();
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(themeControllerProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
+    final recentSalesAsync = ref.watch(recentSalesPageProvider(1));
 
     return Scaffold(
       appBar: AppBar(
@@ -133,7 +224,7 @@ class DashboardScreen extends ConsumerWidget {
             child: ThemeToggleButton(size: 40),
           ),
           IconButton(
-            onPressed: () => ref.read(authSessionProvider.notifier).clearSession(),
+            onPressed: () => _confirmLogout(context, ref),
             icon: Icon(Icons.logout_rounded),
             tooltip: 'Sign out',
           ),
@@ -160,7 +251,7 @@ class DashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const AppLogo(size: 56),
+                    const AppLogo(size: 60),
                     SizedBox(height: 16),
                     Text(
                       'Jewellery Sales Management',
@@ -229,6 +320,87 @@ class DashboardScreen extends ConsumerWidget {
                 child: Text(
                   'Sale entry flow is ready. Dashboard metrics will come in the next slice.',
                   style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                ),
+              ),
+              SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: recentSalesAsync.when(
+                  loading: () => Row(
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Loading your entries...',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  error: (error, stackTrace) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Entries',
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Could not load entry count right now.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                  data: (page) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your Entries',
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${page.total}',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'See how many sales you have already recorded.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => context.push('/sales-history'),
+                          icon: const Icon(Icons.receipt_long_rounded),
+                          label: const Text('View entries'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
