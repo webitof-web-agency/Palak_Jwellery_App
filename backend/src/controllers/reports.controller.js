@@ -4,8 +4,6 @@ import { Sale } from '../models/Sale.js'
 const sendSuccess = (res, data, status = 200) => res.status(status).json({ success: true, data })
 const sendError = (res, status, error, code) => res.status(status).json({ success: false, error, code })
 
-const roundMonetary = (val) => Math.round(val * 100) / 100
-
 const getISTRange = (fromStr, toStr) => {
   const todayIST = new Date(Date.now() + 330 * 60000)
   const from = fromStr || todayIST.toISOString().split('T')[0]
@@ -38,7 +36,6 @@ export const getAdminSummary = async (req, res) => {
           totalSales: { $sum: 1 },
           totalNetWeight: { $sum: '$netWeight' },
           totalGrossWeight: { $sum: '$grossWeight' },
-          totalRevenue: { $sum: '$totalValue' }
         }
       }
     ])
@@ -47,7 +44,6 @@ export const getAdminSummary = async (req, res) => {
       totalSales: 0,
       totalNetWeight: 0,
       totalGrossWeight: 0,
-      totalRevenue: 0
     }
 
     // 2. By Supplier
@@ -58,7 +54,7 @@ export const getAdminSummary = async (req, res) => {
           _id: '$supplier',
           salesCount: { $sum: 1 },
           netWeight: { $sum: '$netWeight' },
-          revenue: { $sum: '$totalValue' }
+          grossWeight: { $sum: '$grossWeight' },
         }
       },
       {
@@ -75,10 +71,10 @@ export const getAdminSummary = async (req, res) => {
           name: { $ifNull: ['$supplierInfo.name', 'Unknown'] },
           salesCount: 1,
           netWeight: 1,
-          revenue: 1
+          grossWeight: 1,
         }
       },
-      { $sort: { revenue: -1 } }
+      { $sort: { netWeight: -1 } }
     ])
 
     // 3. By Salesman
@@ -89,7 +85,6 @@ export const getAdminSummary = async (req, res) => {
           _id: '$salesman',
           salesCount: { $sum: 1 },
           netWeight: { $sum: '$netWeight' },
-          revenue: { $sum: '$totalValue' }
         }
       },
       {
@@ -106,10 +101,9 @@ export const getAdminSummary = async (req, res) => {
           name: { $ifNull: ['$salesmanInfo.name', 'Unknown'] },
           salesCount: 1,
           netWeight: 1,
-          revenue: 1
         }
       },
-      { $sort: { revenue: -1 } }
+      { $sort: { netWeight: -1 } }
     ])
 
     // 4. By Category
@@ -120,7 +114,6 @@ export const getAdminSummary = async (req, res) => {
           _id: '$category',
           salesCount: { $sum: 1 },
           netWeight: { $sum: '$netWeight' },
-          revenue: { $sum: '$totalValue' }
         }
       },
       {
@@ -128,24 +121,22 @@ export const getAdminSummary = async (req, res) => {
           name: { $ifNull: ['$_id', 'Unknown'] },
           salesCount: 1,
           netWeight: 1,
-          revenue: 1
         }
       },
-      { $sort: { revenue: -1 } }
+      { $sort: { netWeight: -1 } }
     ])
 
     const formatBreakdown = (list) => list.map(item => ({
       name: item.name || 'Unknown',
       salesCount: item.salesCount,
       netWeight: item.netWeight,
-      revenue: roundMonetary(item.revenue)
+      grossWeight: item.grossWeight,
     }))
 
     return sendSuccess(res, {
       totalSales: overall.totalSales,
       totalNetWeight: overall.totalNetWeight,
       totalGrossWeight: overall.totalGrossWeight,
-      totalRevenue: roundMonetary(overall.totalRevenue),
       bySupplier: formatBreakdown(bySupplierRaw) || [],
       bySalesman: formatBreakdown(bySalesmanRaw) || [],
       byCategory: formatBreakdown(byCategoryRaw) || [],
@@ -172,17 +163,15 @@ export const getMySummary = async (req, res) => {
           _id: null,
           todaySales: { $sum: 1 },
           todayNetWeight: { $sum: '$netWeight' },
-          todayRevenue: { $sum: '$totalValue' }
         }
       }
     ])
 
-    const data = summary[0] || { todaySales: 0, todayNetWeight: 0, todayRevenue: 0 }
+    const data = summary[0] || { todaySales: 0, todayNetWeight: 0 }
     
     return sendSuccess(res, {
       todaySales: data.todaySales,
       todayNetWeight: data.todayNetWeight,
-      todayRevenue: roundMonetary(data.todayRevenue)
     })
   } catch (error) {
     console.error('getMySummary error:', error)

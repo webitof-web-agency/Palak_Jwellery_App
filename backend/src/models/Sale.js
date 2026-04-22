@@ -35,8 +35,33 @@ const saleSchema = new Schema(
     },
     category: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
+      default: null,
+    },
+    itemCode: {
+      type: String,
+      required: false,
+      trim: true,
+      default: null,
+    },
+    metalType: {
+      type: String,
+      required: false,
+      trim: true,
+      default: null,
+    },
+    purity: {
+      type: String,
+      required: false,
+      trim: true,
+      default: null,
+    },
+    notes: {
+      type: String,
+      required: false,
+      trim: true,
+      default: null,
     },
     grossWeight: {
       type: Number,

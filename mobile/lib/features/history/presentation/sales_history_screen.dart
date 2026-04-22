@@ -143,7 +143,7 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                               ],
                               const SizedBox(height: 10),
                               Text(
-                                'Total: Rs ${sale.totalValue.toStringAsFixed(2)}',
+                                'Net weight: ${_formatWeight(sale.netWeight)}',
                                 style: TextStyle(
                                   color: AppColors.textPrimary,
                                   fontWeight: FontWeight.w700,
@@ -197,5 +197,10 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     final month = date.month.toString().padLeft(2, '0');
     final year = date.year.toString();
     return '$day/$month/$year';
+  }
+
+  String _formatWeight(double? value) {
+    if (value == null) return '-';
+    return '${value.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '')} g';
   }
 }

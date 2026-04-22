@@ -287,10 +287,10 @@ export default function SupplierFormPage() {
 
           <SectionCard eyebrow="Checklist" title="Before saving" className="!mb-0">
             <ul className="space-y-3 text-sm text-muted leading-relaxed">
-              <li>• Use a short unique supplier code.</li>
-              <li>• Settlement mode can be cash or credit.</li>
-              <li>• Some suppliers provide only item/design code, not business category.</li>
-              <li>• Unknown or partial QR formats should still allow manual sale completion.</li>
+                            <li>- Use a short unique supplier code.</li>
+                            <li>- Settlement mode can be cash or credit.</li>
+                            <li>- Some suppliers provide only item/design code, not business category.</li>
+                            <li>- Unknown or partial QR formats should still allow manual sale completion.</li>
             </ul>
           </SectionCard>
         </aside>
@@ -466,7 +466,7 @@ export default function SupplierFormPage() {
                         className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-on-accent hover:border-gold-500/30 hover:bg-gold-600/10"
                         aria-label={`Remove category ${category}`}
                       >
-                        {category} ×
+                                                {category} x
                       </button>
                     ))
                   )}

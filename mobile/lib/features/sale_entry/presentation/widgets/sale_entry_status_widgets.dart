@@ -4,13 +4,17 @@ import '../../data/sale_repository.dart';
 import '../../../../shared/theme/app_theme.dart';
 import '../utils/sale_entry_formatters.dart';
 
-class TotalCard extends StatelessWidget {
-  const TotalCard({
+class WeightSummaryCard extends StatelessWidget {
+  const WeightSummaryCard({
     super.key,
-    required this.total,
+    required this.grossWeight,
+    required this.stoneWeight,
+    required this.netWeight,
   });
 
-  final double total;
+  final double? grossWeight;
+  final double? stoneWeight;
+  final double? netWeight;
 
   @override
   Widget build(BuildContext context) {
@@ -31,36 +35,57 @@ class TotalCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'ESTIMATED TOTAL',
-                style: TextStyle(
-                  fontSize: 11,
-                  letterSpacing: 1.2,
-                  color: AppColors.accent,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Net Weight x Rate',
-                style: TextStyle(color: AppColors.textFaint, fontSize: 12),
-              ),
-            ],
+          _WeightMetric(
+            label: 'Gross',
+            value: grossWeight,
           ),
-          Text(
-            'Rs ${formatMoney(total)}',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: AppColors.accent,
-              letterSpacing: -0.5,
-            ),
+          _WeightMetric(
+            label: 'Stone',
+            value: stoneWeight,
+          ),
+          _WeightMetric(
+            label: 'Net',
+            value: netWeight,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _WeightMetric extends StatelessWidget {
+  const _WeightMetric({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final double? value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 10,
+            letterSpacing: 1.1,
+            color: AppColors.accent,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value == null ? '-' : formatWeight(value!),
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -134,11 +159,21 @@ class ParseStatusChip extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Icon(icon, color: color, size: 16),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(label, style: TextStyle(color: color, fontSize: 13)),
+            child: Text(
+              label,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),

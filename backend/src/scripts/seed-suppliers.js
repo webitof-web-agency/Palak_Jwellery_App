@@ -11,15 +11,22 @@ const defaultSuppliers = [
     categories: [],
     isActive: true,
     detectionPattern: {
-      type: 'regex',
-      pattern: '(GW|SS|MS|OW|NW|KT)',
+      type: 'contains',
+      pattern: 'SWNK',
     },
     qrMapping: {
-      strategy: 'key_value',
+      strategy: 'delimiter',
+      delimiter: '/',
+      fieldMap: {
+        grossWeight: 3,
+        stoneWeight: { sumIndices: [4, 14] },
+        netWeight: 5,
+        category: 7,
+      },
     },
   },
   {
-    name: 'Adinath',
+    name: 'Aadinath',
     code: 'ADINATH',
     gst: '',
     address: '',
@@ -28,14 +35,14 @@ const defaultSuppliers = [
     isActive: true,
     detectionPattern: {
       type: 'regex',
-      pattern: 'TM-\\d+',
+      pattern: '(BG|LR)-\\d+',
     },
     qrMapping: {
       strategy: 'delimiter',
       delimiter: '/',
       fieldMap: {
         grossWeight: 0,
-        stoneWeight: 1,
+        stoneWeight: { sumIndices: [1, 2] },
         netWeight: 6,
         category: 7,
       },
@@ -59,9 +66,9 @@ const defaultSuppliers = [
       fieldMap: {
         supplierCode: 8,
         category: 0,
-        grossWeight: 1,
-        stoneWeight: 3,
-        netWeight: 2,
+        grossWeight: { index: 1, stripPrefix: 'GWT-' },
+        stoneWeight: { index: 3, stripPrefix: 'SWT-' },
+        netWeight: { index: 2, stripPrefix: 'NWT-' },
       },
     },
   },

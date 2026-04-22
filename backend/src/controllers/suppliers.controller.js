@@ -317,7 +317,7 @@ export const deleteSupplier = async (req, res) => {
 
 export const parseSupplierQr = async (req, res) => {
   try {
-    const raw = req.body.raw ?? req.body.rawQr ?? req.body.qrRaw ?? req.body.qr ?? req.body.string
+    const raw = req.body.raw ?? req.body.rawQr ?? req.body.rawQR ?? req.body.qrRaw ?? req.body.qr ?? req.body.string
     const rawString = typeof raw === 'string' ? raw : ''
 
     if (!rawString.trim()) {

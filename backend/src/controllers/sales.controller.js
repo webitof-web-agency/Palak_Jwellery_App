@@ -20,8 +20,6 @@ const normalizeSort = (sortBy, sortOrder) => {
   switch (field) {
     case 'saleDate':
       return { saleDate: order }
-    case 'totalValue':
-      return { totalValue: order, saleDate: -1 }
     case 'netWeight':
       return { netWeight: order, saleDate: -1 }
     default:
@@ -89,11 +87,13 @@ const buildSalesCsv = (sales) => {
     'Salesman',
     'Supplier',
     'Category',
+    'Item Code',
+    'Metal Type',
+    'Purity',
     'Gross Weight',
     'Stone Weight',
     'Net Weight',
-    'Rate Per Gram',
-    'Total Value',
+    'Notes',
     'Duplicate',
   ]
 
@@ -103,11 +103,13 @@ const buildSalesCsv = (sales) => {
     sale.salesman?.name || '',
     sale.supplier?.name || '',
     sale.category || '',
+    sale.itemCode || '',
+    sale.metalType || '',
+    sale.purity || '',
     sale.grossWeight ?? '',
     sale.stoneWeight ?? '',
     sale.netWeight ?? '',
-    sale.ratePerGram ?? '',
-    sale.totalValue ?? '',
+    sale.notes || '',
     sale.isDuplicate ? 'Yes' : 'No',
   ])
 
@@ -122,10 +124,13 @@ export const createSale = async (req, res) => {
     const {
       supplierId,
       category,
+      itemCode,
+      metalType,
+      purity,
+      notes,
       grossWeight,
       stoneWeight,
       netWeight,
-      ratePerGram,
       qrRaw,
       overrideDuplicate,
     } = req.body
@@ -142,9 +147,14 @@ export const createSale = async (req, res) => {
           {
             _id: existingRequest._id,
             ref: '#' + existingRequest._id.toString().slice(-6).toUpperCase(),
-            totalValue: existingRequest.totalValue,
             saleDate: existingRequest.saleDate,
             isDuplicate: existingRequest.isDuplicate,
+            category: existingRequest.category ?? null,
+            itemCode: existingRequest.itemCode ?? null,
+            metalType: existingRequest.metalType ?? null,
+            purity: existingRequest.purity ?? null,
+            notes: existingRequest.notes ?? null,
+            netWeight: existingRequest.netWeight ?? null,
           },
           'Sale recorded successfully (Indempotent cached response)',
           201
@@ -156,23 +166,15 @@ export const createSale = async (req, res) => {
     if (!supplierId || !mongoose.isValidObjectId(supplierId)) {
       return sendError(res, 400, 'Valid supplierId is required', 'MISSING_FIELDS')
     }
-    if (!category || typeof category !== 'string' || !category.trim()) {
-      return sendError(res, 400, 'Category is required', 'MISSING_FIELDS')
-    }
     if (grossWeight === undefined || grossWeight === null || isNaN(Number(grossWeight))) {
       return sendError(res, 400, 'grossWeight is required and must be a number', 'MISSING_FIELDS')
     }
     if (netWeight === undefined || netWeight === null || isNaN(Number(netWeight))) {
       return sendError(res, 400, 'netWeight is required and must be a number', 'MISSING_FIELDS')
     }
-    if (ratePerGram === undefined || ratePerGram === null || isNaN(Number(ratePerGram)) || Number(ratePerGram) <= 0) {
-      return sendError(res, 400, 'ratePerGram is required and must be a positive number', 'MISSING_FIELDS')
-    }
-
     const gw = Number(grossWeight)
     const sw = Number(stoneWeight ?? 0)
     const nw = Number(netWeight)
-    const rate = Number(ratePerGram)
 
     // Strict weight validations derived from Gemini Review
     if (gw <= 0) {
@@ -216,7 +218,6 @@ export const createSale = async (req, res) => {
           previousSale: {
             _id: existingSale._id,
             saleDate: existingSale.saleDate,
-            totalValue: existingSale.totalValue,
             salesman: existingSale.salesman?.name || 'Unknown',
           },
         })
@@ -227,9 +228,6 @@ export const createSale = async (req, res) => {
       isDuplicate = true
     }
 
-    // --- Compute total (Server-side calculation) ---
-    const totalValue = Math.round(nw * rate * 100) / 100
-
     // --- Save ---
     const sale = await Sale.create({
       qrRaw: qrRaw || null,
@@ -237,12 +235,18 @@ export const createSale = async (req, res) => {
       idempotencyKey: idempotencyKey || null,
       salesman: req.user.id,
       supplier: supplierId,
-      category: category.trim(),
+      category: category && typeof category === 'string' && category.trim() ? category.trim() : null,
+      itemCode: itemCode && typeof itemCode === 'string' && itemCode.trim() ? itemCode.trim() : null,
+      metalType: metalType && typeof metalType === 'string' && metalType.trim() ? metalType.trim() : null,
+      purity: purity && typeof purity === 'string' && purity.trim() ? purity.trim() : null,
+      notes: notes && typeof notes === 'string' && notes.trim() ? notes.trim() : null,
       grossWeight: gw,
       stoneWeight: sw,
       netWeight: nw,
-      ratePerGram: rate,
-      totalValue,
+      // Amounts are intentionally not used in the current product slice.
+      // Kept as zero for backward-compatible schema requirements.
+      ratePerGram: 0,
+      totalValue: 0,
       isDuplicate,
       wasManuallyEdited: !qrRaw,
       saleDate: new Date(),
@@ -253,9 +257,14 @@ export const createSale = async (req, res) => {
       {
         _id: sale._id,
         ref: '#' + sale._id.toString().slice(-6).toUpperCase(),
-        totalValue: sale.totalValue,
         saleDate: sale.saleDate,
         isDuplicate: sale.isDuplicate,
+        category: sale.category,
+        itemCode: sale.itemCode,
+        metalType: sale.metalType,
+        purity: sale.purity,
+        notes: sale.notes,
+        netWeight: sale.netWeight,
       },
       'Sale recorded successfully',
       201
@@ -295,12 +304,11 @@ export const getTodaySummary = async (req, res) => {
           count: { $sum: 1 },
           totalGrossWeight: { $sum: '$grossWeight' },
           totalNetWeight: { $sum: '$netWeight' },
-          totalRevenue: { $sum: '$totalValue' },
         },
       },
     ])
 
-    const data = summary.length > 0 ? summary[0] : { count: 0, totalGrossWeight: 0, totalNetWeight: 0, totalRevenue: 0 }
+    const data = summary.length > 0 ? summary[0] : { count: 0, totalGrossWeight: 0, totalNetWeight: 0 }
     delete data._id
 
     return sendSuccess(res, data)
@@ -347,9 +355,9 @@ export const listSales = async (req, res) => {
       Sale.countDocuments(query)
     ])
 
-    const salesWithRef = sales.map(s => ({
-      ...s,
-      ref: toSaleRef(s._id)
+    const salesWithRef = sales.map(({ ratePerGram, totalValue, ...sale }) => ({
+      ...sale,
+      ref: toSaleRef(sale._id)
     }))
 
     return sendSuccess(res, {

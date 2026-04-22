@@ -169,6 +169,7 @@ const applyStripPrefix = (str, prefix) => {
 const YUG_LABELS = ['GW', 'SS', 'MS', 'OW', 'NW', 'KT']
 const YUG_LINE_PATTERN = new RegExp(`^\\s*(?:${YUG_LABELS.join('|')})\\b`, 'i')
 const ADINATH_PATTERN = /\/\/\/\/\//
+const ADINATH_ITEM_CODE_PATTERN = /(?:TM|BG|LR)-\d+/i
 const VENZORA_PATTERN = /CH-[A-Z0-9]+/i
 const VENZORA_TOKEN_PATTERNS = {
   grossWeight: /^G\d+(\.\d+)?$/,
@@ -217,12 +218,12 @@ const isLikelyYugRaw = (raw) => {
 
 const isLikelyAdinathRaw = (raw) => {
   const text = normalizeRaw(raw)
-  return ADINATH_PATTERN.test(text) && /TM-\d+/i.test(text)
+  return ADINATH_PATTERN.test(text) && ADINATH_ITEM_CODE_PATTERN.test(text)
 }
 
 const isLikelyUtsavRaw = (raw) => {
   const text = normalizeRaw(raw)
-  return /TM-\d+/i.test(text) && /GWT-/i.test(text) && /NWT-/i.test(text) && /SWT-/i.test(text)
+  return /^[A-Z]+-\d+/i.test(text) && /GWT-/i.test(text) && /NWT-/i.test(text) && /SWT-/i.test(text)
 }
 
 const isLikelyVenzoraRaw = (raw) => {
@@ -271,7 +272,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const grossRaw = getTokenValue('GWT-')
     const netRaw = getTokenValue('NWT-')
     const stoneRaw = getTokenValue('SWT-')
-    const categoryRaw = tokens.find((part) => /^TM-\d+/i.test(part)) || null
+    const categoryRaw = tokens.find((part) => /^[A-Z]+-\d+/i.test(part)) || null
     const supplierCodeRaw = tokens.find((part) => part.toUpperCase() === 'USV') || null
 
     if (grossRaw === null) {
@@ -763,9 +764,15 @@ export const detectSupplier = (rawQRString, suppliers = []) => {
   const raw = normalizeRaw(rawQRString)
   if (!raw || !Array.isArray(suppliers) || suppliers.length === 0) return null
 
-  const venzoraMatch = suppliers.find(
-    (supplier) => supplier?.name?.toLowerCase() === 'venzora' && isLikelyVenzoraRaw(raw)
-  )
+  const venzoraMatch = suppliers.find((supplier) => {
+    if (!isLikelyVenzoraRaw(raw)) return false
+
+    const supplierName = toText(supplier?.name)?.toLowerCase()
+    const supplierCode = toText(supplier?.code)?.toLowerCase()
+    const strategy = toText(supplier?.qrMapping?.strategy)?.toLowerCase()
+
+    return supplierName === 'venzora' || supplierCode === 'venzora' || strategy === 'venzora'
+  })
   if (venzoraMatch) return { supplier: venzoraMatch, matchType: 'contains' }
 
   const utsavMatch = suppliers.find(
@@ -773,9 +780,17 @@ export const detectSupplier = (rawQRString, suppliers = []) => {
   )
   if (utsavMatch) return { supplier: utsavMatch, matchType: 'contains' }
 
-  const adinathMatch = suppliers.find(
-    (supplier) => supplier?.name?.toLowerCase() === 'adinath' && isLikelyAdinathRaw(raw)
-  )
+  const adinathMatch = suppliers.find((supplier) => {
+    if (!isLikelyAdinathRaw(raw)) return false
+
+    const supplierName = toText(supplier?.name)?.toLowerCase()
+    const supplierCode = toText(supplier?.code)?.toLowerCase()
+
+    return supplierName === 'adinath' ||
+      supplierName === 'aadinath' ||
+      supplierCode === 'adinath' ||
+      supplierCode === 'aadinath'
+  })
   if (adinathMatch) return { supplier: adinathMatch, matchType: 'contains' }
 
   const regexMatch = suppliers.find((supplier) => matchesRegex(raw, supplier))

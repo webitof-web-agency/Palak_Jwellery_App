@@ -51,32 +51,67 @@ class AuthRepository {
 
   Future<AuthSession> login(String email, String password) async {
     try {
-      final response = await _dio.post<Map<String, dynamic>>(
-        '/api/v1/auth/login',
-        data: {
-          'email': email,
-          'password': password,
-        },
-      );
-
-      final body = response.data;
-      final payload = body?['data'];
-
-      if (body == null || body['success'] != true || payload is! Map<String, dynamic>) {
-        throw const AuthException('Unexpected login response', code: 'INVALID_RESPONSE');
-      }
-
-      final token = payload['token']?.toString();
-      final userJson = payload['user'];
-
-      if (token == null || token.isEmpty || userJson is! Map<String, dynamic>) {
-        throw const AuthException('Login response missing token', code: 'INVALID_RESPONSE');
-      }
-
-      return AuthSession(token: token, user: AuthUser.fromJson(userJson));
+      final response = await _postLogin(email, password);
+      return _sessionFromResponse(response);
     } on DioException catch (error) {
+      if (_isTransientNetworkError(error)) {
+        try {
+          final response = await _postLogin(email, password);
+          return _sessionFromResponse(response);
+        } on DioException catch (retryError) {
+          throw _mapDioError(retryError);
+        }
+      }
+
       throw _mapDioError(error);
     }
+  }
+
+  Future<Response<Map<String, dynamic>>> _postLogin(
+    String email,
+    String password,
+  ) {
+    return _dio.post<Map<String, dynamic>>(
+      '/api/v1/auth/login',
+      data: {
+        'email': email,
+        'password': password,
+      },
+    );
+  }
+
+  AuthSession _sessionFromResponse(Response<Map<String, dynamic>> response) {
+    final body = response.data;
+    final payload = body?['data'];
+
+    if (body == null ||
+        body['success'] != true ||
+        payload is! Map<String, dynamic>) {
+      throw const AuthException(
+        'Unexpected login response',
+        code: 'INVALID_RESPONSE',
+      );
+    }
+
+    final token = payload['token']?.toString();
+    final userJson = payload['user'];
+
+    if (token == null || token.isEmpty || userJson is! Map<String, dynamic>) {
+      throw const AuthException(
+        'Login response missing token',
+        code: 'INVALID_RESPONSE',
+      );
+    }
+
+    return AuthSession(token: token, user: AuthUser.fromJson(userJson));
+  }
+
+  bool _isTransientNetworkError(DioException error) {
+    return error.response == null &&
+        (error.type == DioExceptionType.connectionError ||
+            error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.receiveTimeout ||
+            error.type == DioExceptionType.sendTimeout);
   }
 
   Future<AuthUser> getMe() async {

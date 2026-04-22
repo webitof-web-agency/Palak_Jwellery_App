@@ -68,6 +68,50 @@ const getQrDebugField = (result, key) => {
   return { value: null, parsed: false };
 };
 
+const formatMappingValue = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  if (Array.isArray(value)) {
+    return value.join(", ");
+  }
+
+  if (typeof value === "object") {
+    if (Array.isArray(value.sumIndices)) {
+      return `sum: ${value.sumIndices.join(" + ")}`;
+    }
+
+    if (Array.isArray(value.indices)) {
+      return `idx: ${value.indices.join(", ")}`;
+    }
+
+    if (typeof value.index === "number" && value.stripPrefix) {
+      return `idx: ${value.index} · prefix: ${value.stripPrefix}`;
+    }
+
+    if (typeof value.index === "number" && value.stripSuffix) {
+      return `idx: ${value.index} · suffix: ${value.stripSuffix}`;
+    }
+
+    if (typeof value.index === "number" && value.prefix) {
+      return `idx: ${value.index} · prefix: ${value.prefix}`;
+    }
+
+    if (typeof value.index === "number") {
+      return `idx: ${value.index}`;
+    }
+
+    if ("value" in value) {
+      return String(value.value);
+    }
+
+    return JSON.stringify(value);
+  }
+
+  return String(value);
+};
+
 const SupplierCard = ({ supplier, onEdit, onDelete, deletingId }) => (
   <article
     className={`p-6 surface-panel panel-border rounded-2xl premium-shadow hover:border-gold-600/30 transition-all group ${
@@ -129,7 +173,9 @@ const SupplierCard = ({ supplier, onEdit, onDelete, deletingId }) => (
               <div className="text-[8px] uppercase text-muted font-bold mb-1">
                 {key.replace("Weight", "")}
               </div>
-              <div className="text-xs font-bold text-gold-500">{val}</div>
+              <div className="text-xs font-bold text-gold-500">
+                {formatMappingValue(val)}
+              </div>
             </div>
           ))}
       </div>
@@ -138,11 +184,11 @@ const SupplierCard = ({ supplier, onEdit, onDelete, deletingId }) => (
     <div className="flex gap-2 pt-4 border-t panel-border">
       <button
         type="button"
-        className="flex-1 py-2 text-xs font-bold bg-white/5 hover:bg-white/10 rounded-xl transition-all text-on-accent"
+        className="flex-1 py-2 text-xs font-bold rounded-xl transition-all border border-gold-500/20 bg-gold-500/10 text-heading hover:bg-gold-500/15"
         onClick={() => onEdit(supplier)}
         aria-label={`Edit supplier ${supplier.name}`}
       >
-        Edit
+        Edit profile
       </button>
       <button
         type="button"
@@ -172,6 +218,9 @@ export default function SuppliersPage() {
   const [isTesting, setIsTesting] = useState(false);
   const [qrError, setQrError] = useState("");
   const [qrResult, setQrResult] = useState(null);
+
+  const dismissSuccessMessage = () => setSuccessMessage("");
+  const dismissErrorMessage = () => setErrorMessage("");
 
   useEffect(() => {
     if (location.state?.successMessage) {
@@ -280,7 +329,6 @@ export default function SuppliersPage() {
 
   const selectedSupplier =
     suppliers.find((supplier) => supplier._id === qrSupplierId) || null;
-
   return (
     <main className="page-shell">
       {/* Page header */}
@@ -307,22 +355,40 @@ export default function SuppliersPage() {
 
       {/* Alerts */}
       {successMessage && (
-        <div className="mb-6 bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl animate-fade-in duration-300">
-          {successMessage}
+        <div className="mb-6 bg-green-500/10 border border-green-500/20 text-green-400 p-4 rounded-2xl flex items-start justify-between gap-4 animate-fade-in duration-300">
+          <p>{successMessage}</p>
+          <button
+            type="button"
+            className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary"
+            onClick={dismissSuccessMessage}
+            aria-label="Dismiss success message"
+          >
+            ×
+          </button>
         </div>
       )}
 
       {errorMessage && (
-        <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex justify-between items-center transition-all">
+        <div className="mb-6 bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-2xl flex justify-between items-start gap-4 transition-all">
           <p>{errorMessage}</p>
-          <button
-            type="button"
-            className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary"
-            onClick={() => setReloadTick((value) => value + 1)}
-            aria-label="Retry loading suppliers"
-          >
-            Retry
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary"
+              onClick={() => setReloadTick((value) => value + 1)}
+              aria-label="Retry loading suppliers"
+            >
+              Retry
+            </button>
+            <button
+              type="button"
+              className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary"
+              onClick={dismissErrorMessage}
+              aria-label="Dismiss error message"
+            >
+              ×
+            </button>
+          </div>
         </div>
       )}
 

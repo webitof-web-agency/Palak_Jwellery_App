@@ -5,7 +5,7 @@ import { config } from '../config/env.js'
 const signToken = (userId) =>
   jwt.sign({ userId }, config.jwtSecret, { expiresIn: config.jwtExpiry })
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body
 

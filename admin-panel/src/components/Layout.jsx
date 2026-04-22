@@ -22,7 +22,11 @@ export const Layout = () => {
     { name: "Dashboard", path: "/dashboard" },
     { name: "Sales", path: "/sales" },
     { name: "Suppliers", path: "/suppliers" },
-    ...(user?.role === "admin" ? [{ name: "Users", path: "/users" }] : []),
+    ...(user?.role === "admin"
+      ? [
+          { name: "Users", path: "/users" },
+        ]
+      : []),
   ];
 
   const handleLogout = () => {

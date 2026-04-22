@@ -10,6 +10,7 @@ import 'features/sale_entry/data/sale_repository.dart';
 import 'features/sale_entry/presentation/sale_entry_screen.dart';
 import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
+import 'shared/constants/app_brand.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_logo.dart';
 import 'shared/widgets/backend_fallback_screen.dart';
@@ -254,7 +255,7 @@ class DashboardScreen extends ConsumerWidget {
                     const AppLogo(size: 60),
                     SizedBox(height: 16),
                     Text(
-                      'Jewellery Sales Management',
+                      AppBrand.mobileDashboardTitle,
                       style: TextStyle(
                         color: AppColors.accent,
                         letterSpacing: 1.2,

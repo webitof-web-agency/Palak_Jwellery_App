@@ -5,7 +5,7 @@ import MetricCard from '../../components/ui/MetricCard'
 import PageHeader from '../../components/ui/PageHeader'
 import SectionCard from '../../components/ui/SectionCard'
 import TableSkeleton from '../../components/ui/TableSkeleton'
-import { formatCurrency, formatNumber, formatWeight, toNumber } from '../../utils/formatters'
+import { formatNumber, formatWeight, toNumber } from '../../utils/formatters'
 
 const getMetricValue = (row = {}, keys = [], fallback = 0) => {
   for (const key of keys) {
@@ -17,8 +17,6 @@ const getMetricValue = (row = {}, keys = [], fallback = 0) => {
 
   return fallback
 }
-
-const formatRevenue = (value) => formatCurrency(value)
 
 export default function DashboardPage() {
   const [summary, setSummary] = useState(null)
@@ -72,8 +70,6 @@ export default function DashboardPage() {
 
   const totalSales = toNumber(summary?.totalSales)
   const totalNetWeight = toNumber(summary?.totalNetWeight)
-  const totalRevenue = toNumber(summary?.totalRevenue)
-
   return (
     <div className="page-shell space-y-8">
       {/* Page header */}
@@ -110,8 +106,8 @@ export default function DashboardPage() {
           loading={loading}
         />
         <MetricCard
-          title="Total Revenue"
-          value={loading ? '' : formatRevenue(totalRevenue)}
+          title="Total Gross Weight (g)"
+          value={loading ? '' : formatWeight(toNumber(summary?.totalGrossWeight))}
           loading={loading}
         />
       </section>
@@ -135,7 +131,7 @@ export default function DashboardPage() {
                     <th className="py-4 pr-4">Name</th>
                     <th className="py-4 pr-4">Sales Count</th>
                     <th className="py-4 pr-4">Net Weight (g)</th>
-                    <th className="py-4 text-right">Revenue</th>
+                    <th className="py-4 text-right">Gross Weight (g)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -152,7 +148,7 @@ export default function DashboardPage() {
                           {formatWeight(getMetricValue(row, ['netWeight', 'totalWeight'], 0))}
                         </td>
                         <td className="py-4 text-right font-semibold text-gold-500">
-                          {formatRevenue(getMetricValue(row, ['revenue', 'totalRevenue'], 0))}
+                          {formatWeight(getMetricValue(row, ['grossWeight', 'totalGrossWeight'], 0))}
                         </td>
                       </tr>
                     )
@@ -179,7 +175,7 @@ export default function DashboardPage() {
                   <tr className="text-[10px] uppercase tracking-[0.18em] text-muted border-b border-white/10">
                     <th className="py-4 pr-4">Name</th>
                     <th className="py-4 pr-4">Sales Count</th>
-                    <th className="py-4 text-right">Revenue</th>
+                    <th className="py-4 text-right">Net Weight (g)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -193,7 +189,7 @@ export default function DashboardPage() {
                           {formatNumber(getMetricValue(row, ['salesCount', 'count'], 0))}
                         </td>
                         <td className="py-4 text-right font-semibold text-gold-500">
-                          {formatRevenue(getMetricValue(row, ['revenue', 'totalRevenue'], 0))}
+                          {formatWeight(getMetricValue(row, ['netWeight', 'totalWeight'], 0))}
                         </td>
                       </tr>
                     )

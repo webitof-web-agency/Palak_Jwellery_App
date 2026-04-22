@@ -92,6 +92,27 @@ class QrDebugPanel extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if ((parseResult.itemCode.value ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'ITEM / DESIGN CODE',
+                      style: TextStyle(
+                        fontSize: 10,
+                        letterSpacing: 1.2,
+                        color: AppColors.textFaint,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      parseResult.itemCode.value!,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                   if (parseResult.errors.isNotEmpty) ...[
                     const SizedBox(height: 12),
                     Text(

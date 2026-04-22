@@ -115,7 +115,9 @@ class ParseQrResult {
   const ParseQrResult({
     required this.success,
     required this.raw,
+    required this.itemCode,
     required this.category,
+    required this.purity,
     required this.grossWeight,
     required this.stoneWeight,
     required this.netWeight,
@@ -126,7 +128,9 @@ class ParseQrResult {
 
   final bool success;
   final String raw;
+  final ParsedField<String> itemCode;
   final ParsedField<String> category;
+  final ParsedField<String> purity;
   final ParsedField<double> grossWeight;
   final ParsedField<double> stoneWeight;
   final ParsedField<double> netWeight;
@@ -177,16 +181,18 @@ class ParseQrResult {
     return ParseQrResult(
       success: parseResult != null && _collectParseErrors(parseResult).isEmpty,
       raw: raw,
-      category: isLegacy
-          ? fieldString([
-              ['category'],
-              ['meta', 'itemCode'],
-            ])
-          : fieldString([
-              ['itemCode'],
-              ['category'],
-              ['meta', 'itemCode'],
-            ]),
+      itemCode: fieldString([
+        ['itemCode'],
+        ['meta', 'itemCode'],
+        if (isLegacy) ['category'],
+      ]),
+      category: fieldString([
+        ['category'],
+      ]),
+      purity: fieldString([
+        ['purity'],
+        ['meta', 'purity'],
+      ]),
       grossWeight: fieldDouble([
         ['grossWeight'],
       ]),
@@ -207,7 +213,9 @@ class ParseQrResult {
     return ParseQrResult(
       success: false,
       raw: raw,
+      itemCode: const ParsedField(value: null, parsed: false),
       category: const ParsedField(value: null, parsed: false),
+      purity: const ParsedField(value: null, parsed: false),
       grossWeight: const ParsedField(value: null, parsed: false),
       stoneWeight: const ParsedField(value: null, parsed: false),
       netWeight: const ParsedField(value: null, parsed: false),
@@ -222,32 +230,44 @@ class CreatedSale {
   const CreatedSale({
     required this.id,
     required this.ref,
-    required this.totalValue,
     required this.saleDate,
     this.isDuplicate = false,
+    this.itemCode,
     this.category,
+    this.metalType,
+    this.purity,
     this.supplierName,
+    this.netWeight,
+    this.notes,
   });
 
   final String id;
   final String ref;
-  final double totalValue;
   final DateTime saleDate;
   final bool isDuplicate;
+  final String? itemCode;
   final String? category;
+  final String? metalType;
+  final String? purity;
   final String? supplierName;
+  final double? netWeight;
+  final String? notes;
 
   factory CreatedSale.fromJson(Map<String, dynamic> json) {
     return CreatedSale(
       id: json['_id']?.toString() ?? '',
       ref: json['ref']?.toString() ?? '',
-      totalValue: (json['totalValue'] as num?)?.toDouble() ?? 0,
       saleDate: json['saleDate'] != null
           ? DateTime.parse(json['saleDate'].toString())
           : DateTime.now(),
       isDuplicate: json['isDuplicate'] == true,
+      itemCode: json['itemCode']?.toString(),
       category: json['category']?.toString(),
+      metalType: json['metalType']?.toString(),
+      purity: json['purity']?.toString(),
       supplierName: _asMap(json['supplier'])?['name']?.toString(),
+      netWeight: (json['netWeight'] as num?)?.toDouble(),
+      notes: json['notes']?.toString(),
     );
   }
 }
@@ -271,18 +291,15 @@ class SaleSummary {
   const SaleSummary({
     required this.count,
     required this.totalNetWeight,
-    required this.totalRevenue,
   });
 
   final int count;
   final double totalNetWeight;
-  final double totalRevenue;
 
   factory SaleSummary.fromJson(Map<String, dynamic> json) {
     return SaleSummary(
       count: json['count'] as int? ?? 0,
       totalNetWeight: (json['totalNetWeight'] as num?)?.toDouble() ?? 0.0,
-      totalRevenue: (json['totalRevenue'] as num?)?.toDouble() ?? 0.0,
     );
   }
 }
@@ -340,7 +357,7 @@ class SaleRepository {
   /// Parse a QR string (auto-detect supplier or manual supplier ID)
   Future<ParseQrResult> parseQr(String rawQr, {String? supplierId}) async {
     try {
-      final body = <String, dynamic>{'rawQR': rawQr};
+      final body = <String, dynamic>{'rawQr': rawQr};
       if (supplierId != null && supplierId.isNotEmpty) {
         body['supplierId'] = supplierId;
       }
@@ -378,11 +395,14 @@ class SaleRepository {
   /// Save a sale. Throws [DuplicateQrException] on 409, [SaleException] on other errors.
   Future<CreatedSale> createSale({
     required String supplierId,
-    required String category,
+    String? category,
+    String? itemCode,
+    String? metalType,
+    String? purity,
+    String? notes,
     required double grossWeight,
     required double stoneWeight,
     required double netWeight,
-    required double ratePerGram,
     String? qrRaw,
     bool overrideDuplicate = false,
     String? idempotencyKey,
@@ -394,11 +414,14 @@ class SaleRepository {
         _salesPath,
         data: {
           'supplierId': supplierId,
-          'category': category,
+          if (category != null && category.isNotEmpty) 'category': category,
+          if (itemCode != null && itemCode.isNotEmpty) 'itemCode': itemCode,
+          if (metalType != null && metalType.isNotEmpty) 'metalType': metalType,
+          if (purity != null && purity.isNotEmpty) 'purity': purity,
+          if (notes != null && notes.isNotEmpty) 'notes': notes,
           'grossWeight': grossWeight,
           'stoneWeight': stoneWeight,
           'netWeight': netWeight,
-          'ratePerGram': ratePerGram,
           if (qrRaw != null && qrRaw.isNotEmpty) 'qrRaw': qrRaw,
           if (overrideDuplicate) 'overrideDuplicate': true,
         },

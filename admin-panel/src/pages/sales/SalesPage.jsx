@@ -4,7 +4,6 @@ import EmptyState from '../../components/ui/EmptyState'
 import PageHeader from '../../components/ui/PageHeader'
 import SectionCard from '../../components/ui/SectionCard'
 import {
-  formatCurrency,
   formatDateTime,
   formatNumber,
   formatWeight,
@@ -13,8 +12,6 @@ import {
 const sortOptions = [
   { value: 'saleDate:desc', label: 'Date newest first' },
   { value: 'saleDate:asc', label: 'Date oldest first' },
-  { value: 'totalValue:desc', label: 'Total high to low' },
-  { value: 'totalValue:asc', label: 'Total low to high' },
   { value: 'netWeight:desc', label: 'Net weight high to low' },
   { value: 'netWeight:asc', label: 'Net weight low to high' },
 ]
@@ -41,7 +38,7 @@ const LoadingRows = () => (
   <tbody className="divide-y divide-white/5">
     {[...Array(6)].map((_, rowIndex) => (
       <tr key={rowIndex}>
-        {[...Array(9)].map((__, cellIndex) => (
+        {[...Array(7)].map((__, cellIndex) => (
           <td key={cellIndex} className="px-5 py-4">
             <div className="h-4 rounded bg-white/10 animate-pulse" />
           </td>
@@ -335,8 +332,6 @@ export default function SalesPage() {
                 <th className="px-5 py-4">Supplier</th>
                 <th className="px-5 py-4">Category</th>
                 <th className="px-5 py-4 text-right">Net Wt</th>
-                <th className="px-5 py-4 text-right">Rate</th>
-                <th className="px-5 py-4 text-right">Total</th>
                 <th className="px-5 py-4 text-right">Duplicate</th>
               </tr>
             </thead>
@@ -346,7 +341,7 @@ export default function SalesPage() {
             ) : sales.length === 0 ? (
               <tbody>
                 <tr>
-                  <td colSpan="9" className="px-5 py-6">
+                  <td colSpan="7" className="px-5 py-6">
                     <EmptyState
                       title="No sales found"
                       description="Try widening the date range or clearing a filter."
@@ -379,12 +374,6 @@ export default function SalesPage() {
                       </td>
                       <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
                         {formatWeight(netWeight)}
-                      </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
-                        {formatCurrency(sale.ratePerGram)}
-                      </td>
-                      <td className="px-5 py-4 text-right whitespace-nowrap font-semibold text-gold-500">
-                        {formatCurrency(sale.totalValue)}
                       </td>
                       <td className="px-5 py-4 text-right whitespace-nowrap">
                         {isDuplicate ? (

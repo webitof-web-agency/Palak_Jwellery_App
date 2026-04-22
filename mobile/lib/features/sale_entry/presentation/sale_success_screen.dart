@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../data/sale_repository.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/app_logo.dart';
-import 'utils/sale_entry_formatters.dart';
 
 class SaleSuccessScreen extends ConsumerWidget {
   const SaleSuccessScreen({
@@ -56,25 +55,15 @@ class SaleSuccessScreen extends ConsumerWidget {
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
-                'Total value',
+                'Weight entry saved successfully',
                 style: TextStyle(
-                  color: AppColors.textMuted,
+                  color: AppColors.textSecondary,
                   fontSize: 14,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Rs ${formatMoney(sale.totalValue)}',
-                style: TextStyle(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.accent,
-                  letterSpacing: -1,
-                ),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 12),
               Text(
                 sale.ref,
                 style: TextStyle(

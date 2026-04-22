@@ -12,10 +12,7 @@ import 'widgets/sale_entry_form_widgets.dart';
 import 'widgets/sale_entry_status_widgets.dart';
 
 class SaleEntryScreen extends ConsumerStatefulWidget {
-  const SaleEntryScreen({
-    super.key,
-    required this.parseResult,
-  });
+  const SaleEntryScreen({super.key, required this.parseResult});
 
   final ParseQrResult parseResult;
 
@@ -27,17 +24,23 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
   final _formKey = GlobalKey<FormState>();
 
   late final TextEditingController _categoryCtrl;
+  late final TextEditingController _itemCodeCtrl;
+  late final TextEditingController _metalTypeCtrl;
+  late final TextEditingController _purityCtrl;
+  late final TextEditingController _notesCtrl;
   late final TextEditingController _grossCtrl;
   late final TextEditingController _stoneCtrl;
   late final TextEditingController _netCtrl;
-  late final TextEditingController _rateCtrl;
 
   String? _supplierId;
   String? _supplierName;
   bool _useCustomCategory = false;
+  bool _useCustomMetal = false;
   bool _debugExpanded = false;
 
   late final bool _categoryParsed;
+  late final bool _itemCodeParsed;
+  late final bool _purityParsed;
   late final bool _grossParsed;
   late final bool _stoneParsed;
   late final bool _netParsed;
@@ -52,49 +55,53 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
     });
 
     _categoryParsed = pr.category.parsed;
+    _itemCodeParsed = pr.itemCode.parsed;
+    _purityParsed = pr.purity.parsed;
     _grossParsed = pr.grossWeight.parsed;
     _stoneParsed = pr.stoneWeight.parsed;
     _netParsed = pr.netWeight.parsed;
 
     _categoryCtrl = TextEditingController(text: pr.category.value ?? '');
+    _itemCodeCtrl = TextEditingController(text: pr.itemCode.value ?? '');
+    _metalTypeCtrl = TextEditingController();
+    _purityCtrl = TextEditingController(text: pr.purity.value ?? '');
+    _notesCtrl = TextEditingController();
     _grossCtrl = TextEditingController(
-      text: pr.grossWeight.value != null ? _formatNumber(pr.grossWeight.value!) : '',
+      text: pr.grossWeight.value != null
+          ? _formatNumber(pr.grossWeight.value!)
+          : '',
     );
     _stoneCtrl = TextEditingController(
-      text: pr.stoneWeight.value != null ? _formatNumber(pr.stoneWeight.value!) : '',
+      text: pr.stoneWeight.value != null
+          ? _formatNumber(pr.stoneWeight.value!)
+          : '',
     );
     _netCtrl = TextEditingController(
-      text: pr.netWeight.value != null ? _formatNumber(pr.netWeight.value!) : '',
+      text: pr.netWeight.value != null
+          ? _formatNumber(pr.netWeight.value!)
+          : '',
     );
-    _rateCtrl = TextEditingController();
-
     if (pr.supplierDetected) {
       _supplierId = pr.supplier!.id;
       _supplierName = pr.supplier!.name;
     }
   }
 
-  String _formatNumber(double value) =>
-      value == value.truncateToDouble() ? value.toInt().toString() : value.toString();
+  String _formatNumber(double value) => value == value.truncateToDouble()
+      ? value.toInt().toString()
+      : value.toString();
 
   @override
   void dispose() {
     _categoryCtrl.dispose();
+    _itemCodeCtrl.dispose();
+    _metalTypeCtrl.dispose();
+    _purityCtrl.dispose();
+    _notesCtrl.dispose();
     _grossCtrl.dispose();
     _stoneCtrl.dispose();
     _netCtrl.dispose();
-    _rateCtrl.dispose();
     super.dispose();
-  }
-
-  double? get _net => double.tryParse(_netCtrl.text);
-  double? get _rate => double.tryParse(_rateCtrl.text);
-
-  double get _total {
-    final net = _net;
-    final rate = _rate;
-    if (net == null || rate == null) return 0;
-    return net * rate;
   }
 
   SupplierModel? _findSupplierById(List<SupplierModel> suppliers, String? id) {
@@ -132,6 +139,32 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
 
   void _onFieldChanged() => setState(() {});
 
+  void _resetForm() {
+    setState(() {
+      final pr = widget.parseResult;
+      _categoryCtrl.text = pr.category.value ?? '';
+      _itemCodeCtrl.text = pr.itemCode.value ?? '';
+      _metalTypeCtrl.clear();
+      _purityCtrl.text = pr.purity.value ?? '';
+      _notesCtrl.clear();
+      _grossCtrl.text = pr.grossWeight.value != null
+          ? _formatNumber(pr.grossWeight.value!)
+          : '';
+      _stoneCtrl.text = pr.stoneWeight.value != null
+          ? _formatNumber(pr.stoneWeight.value!)
+          : '';
+      _netCtrl.text = pr.netWeight.value != null
+          ? _formatNumber(pr.netWeight.value!)
+          : '';
+      _supplierId = pr.supplierDetected ? pr.supplier!.id : null;
+      _supplierName = pr.supplierDetected ? pr.supplier!.name : null;
+      _useCustomCategory = false;
+      _useCustomMetal = false;
+      _debugExpanded = false;
+      ref.read(saleEntryProvider.notifier).setParseResult(pr);
+    });
+  }
+
   Future<void> _submit({bool overrideDuplicate = false}) async {
     if (_supplierId == null) {
       _showSnack('Please select a supplier', isError: true);
@@ -152,7 +185,10 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
       return;
     }
     if (netWeight > grossWeight) {
-      _showSnack('Net Weight cannot be greater than Gross Weight.', isError: true);
+      _showSnack(
+        'Net Weight cannot be greater than Gross Weight.',
+        isError: true,
+      );
       return;
     }
     if (stoneWeight >= grossWeight) {
@@ -163,11 +199,20 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
     final notifier = ref.read(saleEntryProvider.notifier);
     await notifier.submit(
       supplierId: _supplierId!,
-      category: _categoryCtrl.text.trim(),
+      category: _categoryCtrl.text.trim().isEmpty
+          ? null
+          : _categoryCtrl.text.trim(),
+      itemCode: _itemCodeCtrl.text.trim().isEmpty
+          ? null
+          : _itemCodeCtrl.text.trim(),
+      metalType: _metalTypeCtrl.text.trim().isEmpty
+          ? null
+          : _metalTypeCtrl.text.trim(),
+      purity: _purityCtrl.text.trim().isEmpty ? null : _purityCtrl.text.trim(),
+      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       grossWeight: grossWeight,
       stoneWeight: stoneWeight,
       netWeight: netWeight,
-      ratePerGram: double.tryParse(_rateCtrl.text) ?? 0,
       qrRaw: widget.parseResult.raw.isNotEmpty ? widget.parseResult.raw : null,
       overrideDuplicate: overrideDuplicate,
     );
@@ -177,11 +222,20 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
     final notifier = ref.read(saleEntryProvider.notifier);
     await notifier.confirmDuplicate(
       supplierId: _supplierId!,
-      category: _categoryCtrl.text.trim(),
+      category: _categoryCtrl.text.trim().isEmpty
+          ? null
+          : _categoryCtrl.text.trim(),
+      itemCode: _itemCodeCtrl.text.trim().isEmpty
+          ? null
+          : _itemCodeCtrl.text.trim(),
+      metalType: _metalTypeCtrl.text.trim().isEmpty
+          ? null
+          : _metalTypeCtrl.text.trim(),
+      purity: _purityCtrl.text.trim().isEmpty ? null : _purityCtrl.text.trim(),
+      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
       grossWeight: double.tryParse(_grossCtrl.text) ?? 0,
       stoneWeight: double.tryParse(_stoneCtrl.text) ?? 0,
       netWeight: double.tryParse(_netCtrl.text) ?? 0,
-      ratePerGram: double.tryParse(_rateCtrl.text) ?? 0,
       qrRaw: widget.parseResult.raw.isNotEmpty ? widget.parseResult.raw : null,
     );
   }
@@ -243,6 +297,42 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
         ),
         actions: [
           TextButton(
+            onPressed: isLoading ? null : _resetForm,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.accent,
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(right: 8, top: 2, bottom: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AppColors.accent, width: 1.4),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.restart_alt_rounded,
+                    size: 16,
+                    color: AppColors.accent,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Reset',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppColors.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          TextButton(
             onPressed: isLoading ? null : () => _submit(),
             child: Text(
               'Save',
@@ -269,11 +359,13 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                     DuplicateWarningBanner(
                       date: submitState.duplicateDate!,
                       onSaveAnyway: _confirmDuplicate,
-                      onCancel: () => ref.read(saleEntryProvider.notifier).reset(),
+                      onCancel: () =>
+                          ref.read(saleEntryProvider.notifier).reset(),
                     ),
                   if (submitState.status == SaleSubmitStatus.error)
                     ErrorBanner(
-                      message: submitState.errorMessage ?? 'Failed to save sale',
+                      message:
+                          submitState.errorMessage ?? 'Failed to save sale',
                       retryCount: submitState.retryCount,
                       onRetry: () => _submit(),
                     ),
@@ -281,43 +373,107 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                   const SizedBox(height: 16),
                   const SectionLabel('Supplier'),
                   const SizedBox(height: 8),
-                  SizedBox(
-                    width: double.infinity,
-                    child: _supplierId != null
-                      ? SupplierChip(
-                          name: _supplierName ?? '',
-                          onClear: () => _setSupplier(null, null, const []),
-                        )
-                        : SupplierDropdown(
-                            selectedId: _supplierId,
-                            onSelected: (id, name) {
-                              final supplier = _findSupplierById(suppliers, id);
-                              _setSupplier(id, name, supplier?.categories ?? const []);
-                            },
-                          ),
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: _supplierId != null
+                          ? SupplierChip(
+                              name: _supplierName ?? '',
+                              onClear: () => _setSupplier(null, null, const []),
+                            )
+                          : SupplierDropdown(
+                              selectedId: _supplierId,
+                              onSelected: (id, name) {
+                                final supplier = _findSupplierById(
+                                  suppliers,
+                                  id,
+                                );
+                                _setSupplier(
+                                  id,
+                                  name,
+                                  supplier?.categories ?? const [],
+                                );
+                              },
+                            ),
+                    ),
                   ),
                   const SizedBox(height: 20),
                   const SectionLabel('Item Details'),
                   const SizedBox(height: 12),
-                  CategorySelector(
-                    controller: _categoryCtrl,
-                    parsed: _categoryParsed,
-                    categories: selectedCategories,
-                    useCustomCategory: _useCustomCategory,
-                    onUseCustomChanged: (value) {
-                      setState(() {
-                        _useCustomCategory = value;
-                        if (!value &&
-                            selectedCategories.isNotEmpty &&
-                            !selectedCategories.contains(_categoryCtrl.text.trim())) {
-                          _categoryCtrl.text = selectedCategories.first;
-                        }
-                      });
-                    },
-                    onCategorySelected: (value) {
-                      _categoryCtrl.text = value;
-                      _onFieldChanged();
-                    },
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: CategorySelector(
+                        controller: _categoryCtrl,
+                        parsed: _categoryParsed,
+                        showParseState: false,
+                        categories: selectedCategories,
+                        useCustomCategory: _useCustomCategory,
+                        onUseCustomChanged: (value) {
+                          setState(() {
+                            _useCustomCategory = value;
+                            if (!value &&
+                                selectedCategories.isNotEmpty &&
+                                !selectedCategories.contains(
+                                  _categoryCtrl.text.trim(),
+                                )) {
+                              _categoryCtrl.text = selectedCategories.first;
+                            }
+                          });
+                        },
+                        onCategorySelected: (value) {
+                          _categoryCtrl.text = value;
+                          _onFieldChanged();
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  const SectionLabel('Classification'),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SaleField(
+                          label: 'Item / Design No',
+                          controller: _itemCodeCtrl,
+                          parsed: _itemCodeParsed,
+                          showParseState: false,
+                          onChanged: _onFieldChanged,
+                          hint: 'Optional',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SaleField(
+                          label: 'Purity',
+                          controller: _purityCtrl,
+                          parsed: _purityParsed,
+                          showParseState: false,
+                          onChanged: _onFieldChanged,
+                          hint: '18KT, 22KT, 925',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.center,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 320),
+                      child: MetalSelector(
+                        controller: _metalTypeCtrl,
+                        useCustomMetal: _useCustomMetal,
+                        onUseCustomChanged: (value) {
+                          setState(() {
+                            _useCustomMetal = value;
+                          });
+                        },
+                        onChanged: _onFieldChanged,
+                      ),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -327,6 +483,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                           label: 'Gross Weight (g)',
                           controller: _grossCtrl,
                           parsed: _grossParsed,
+                          onChanged: _onFieldChanged,
                           hint: '0.0',
                           numeric: true,
                         ),
@@ -337,6 +494,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                           label: 'Stone Weight (g)',
                           controller: _stoneCtrl,
                           parsed: _stoneParsed,
+                          onChanged: _onFieldChanged,
                           hint: '0.0',
                           numeric: true,
                         ),
@@ -348,28 +506,36 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                     label: 'Net Weight (g)',
                     controller: _netCtrl,
                     parsed: _netParsed,
+                    onChanged: _onFieldChanged,
                     hint: '0.0',
                     numeric: true,
                     required: true,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
                   SaleField(
-                    label: 'Rate per Gram (Rs)',
-                    controller: _rateCtrl,
+                    label: 'Notes',
+                    controller: _notesCtrl,
                     parsed: false,
-                    parsedOverride: true,
-                    hint: 'Enter gold rate',
-                    numeric: true,
-                    required: true,
+                    showParseState: false,
+                    onChanged: _onFieldChanged,
+                    hint: 'Optional remarks',
+                    expandOnFocus: true,
+                    maxLines: 4,
                   ),
                   const SizedBox(height: 24),
-                  TotalCard(total: _total),
+                  WeightSummaryCard(
+                    grossWeight: double.tryParse(_grossCtrl.text),
+                    stoneWeight: double.tryParse(_stoneCtrl.text),
+                    netWeight: double.tryParse(_netCtrl.text),
+                  ),
                   const SizedBox(height: 24),
-                  if (widget.parseResult.raw.isNotEmpty || widget.parseResult.hasErrors)
+                  if (widget.parseResult.raw.isNotEmpty ||
+                      widget.parseResult.hasErrors)
                     QrDebugPanel(
                       parseResult: widget.parseResult,
                       expanded: _debugExpanded,
-                      onToggle: () => setState(() => _debugExpanded = !_debugExpanded),
+                      onToggle: () =>
+                          setState(() => _debugExpanded = !_debugExpanded),
                     ),
                   const SizedBox(height: 32),
                 ],
@@ -380,11 +546,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
             bottom: 0,
             left: 0,
             right: 0,
-            child: SaveBar(
-              isLoading: isLoading,
-              total: _total,
-              onSave: () => _submit(),
-            ),
+            child: SaveBar(isLoading: isLoading, onSave: () => _submit()),
           ),
         ],
       ),

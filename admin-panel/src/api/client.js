@@ -94,6 +94,14 @@ export async function request(path, options = {}) {
       payload?.error || payload?.message || response.statusText || 'Request failed'
     const errorCode = payload?.code || 'API_ERROR'
 
+    if (
+      response.status === 401 &&
+      token &&
+      !String(path).includes('/api/v1/auth/login')
+    ) {
+      useAuthStore.getState().clearAuth()
+    }
+
     throw new ApiError(errorMessage, errorCode, response.status, payload)
   }
 

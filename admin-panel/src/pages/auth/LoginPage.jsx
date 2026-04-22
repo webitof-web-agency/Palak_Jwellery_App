@@ -5,6 +5,7 @@ import { login as loginRequest } from "../../api/auth.api";
 import LogoBadge from "../../components/ui/LogoBadge";
 import PasswordField from "../../components/ui/PasswordField";
 import ThemeToggleButton from "../../components/ui/ThemeToggleButton";
+import BrandDoodleBackground from "../../components/ui/BrandDoodleBackground";
 import { useAuthStore } from "../../store/authStore";
 import { APP_BRAND_NAME, loadTheme, toggleTheme } from "../../theme/theme";
 
@@ -61,9 +62,7 @@ const LoginPage = () => {
         className="absolute right-4 top-4 z-20 backdrop-blur-sm"
       />
 
-      {/* Background Ambience */}
-      <div className="absolute top-0 right-0 w-[1000px] h-[1000px] bg-gold-600/5 rounded-full blur-[200px] pointer-events-none -translate-y-1/2 translate-x-1/4" />
-      <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gold-700/5 rounded-full blur-[150px] pointer-events-none translate-y-1/2 -translate-x-1/4" />
+      <BrandDoodleBackground />
 
       <section className="auth-shell relative z-10">
         <div className="auth-marketing">
@@ -114,7 +113,7 @@ const LoginPage = () => {
                   : "/logo-dark.png"
               }
               alt="Brand Mark"
-              wrapperClassName="brand-mark brand-mark--lg"
+              wrapperClassName="brand-mark border-0 border-gold-600/5 brand-mark--lg"
             />
           </div>
 
