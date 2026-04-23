@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../constants/app_brand.dart';
 import '../theme/app_theme.dart';
 
 class AppLogo extends ConsumerWidget {
@@ -13,8 +14,8 @@ class AppLogo extends ConsumerWidget {
     final preset = ref.watch(themeControllerProvider);
     final colors = AppColors.colorsFor(preset);
     final logoPath = preset == AppThemePreset.roseLight
-        ? 'assets/images/app_logo_light_clean.png'
-        : 'assets/images/app_logo_dark.png';
+        ? AppBrand.logoLightAsset
+        : AppBrand.logoDarkAsset;
 
     final image = ClipOval(
       child: Image.asset(

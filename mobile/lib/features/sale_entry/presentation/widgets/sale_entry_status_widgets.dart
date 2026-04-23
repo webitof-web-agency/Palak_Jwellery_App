@@ -77,14 +77,24 @@ class _WeightMetric extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          value == null ? '-' : formatWeight(value!),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w900,
-            color: AppColors.textPrimary,
+        if (value == null)
+          Text(
+            '—',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              color: AppColors.textFaint,
+            ),
+          )
+        else
+          Text(
+            formatWeight(value!),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
-        ),
       ],
     );
   }

@@ -9,6 +9,8 @@ import 'widgets/sale_entry_banners.dart';
 import 'widgets/sale_entry_debug_panel.dart';
 import 'widgets/sale_entry_footer.dart';
 import 'widgets/sale_entry_form_widgets.dart';
+import 'widgets/sale_entry_picker_sheet.dart';
+import 'widgets/sale_entry_selectors.dart';
 import 'widgets/sale_entry_status_widgets.dart';
 
 class SaleEntryScreen extends ConsumerStatefulWidget {
@@ -163,6 +165,8 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
       _debugExpanded = false;
       ref.read(saleEntryProvider.notifier).setParseResult(pr);
     });
+
+    _showSnack('Form reset');
   }
 
   Future<void> _submit({bool overrideDuplicate = false}) async {
@@ -240,10 +244,31 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
     );
   }
 
-  void _showSnack(String msg, {bool isError = false}) {
+  void _showSnack(
+    String msg, {
+    bool isError = false,
+    bool showCloseButton = true,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        content: Row(
+          children: [
+            Expanded(child: Text(msg)),
+            if (showCloseButton)
+              IconButton(
+                onPressed: () =>
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar(),
+                icon: const Icon(Icons.close_rounded, size: 18),
+                tooltip: 'Dismiss',
+                color: AppColors.accent,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              ),
+          ],
+        ),
         backgroundColor: isError ? AppColors.danger : null,
       ),
     );
@@ -370,13 +395,13 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                       onRetry: () => _submit(),
                     ),
                   ParseStatusChip(parseResult: widget.parseResult),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   const SectionLabel('Supplier'),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.center,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
+                      constraints: const BoxConstraints(maxWidth: 360),
                       child: _supplierId != null
                           ? SupplierChip(
                               name: _supplierName ?? '',
@@ -404,7 +429,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                   Align(
                     alignment: Alignment.center,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
+                      constraints: const BoxConstraints(maxWidth: 360),
                       child: CategorySelector(
                         controller: _categoryCtrl,
                         parsed: _categoryParsed,
@@ -462,7 +487,7 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
                   Align(
                     alignment: Alignment.center,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 320),
+                      constraints: const BoxConstraints(maxWidth: 360),
                       child: MetalSelector(
                         controller: _metalTypeCtrl,
                         useCustomMetal: _useCustomMetal,

@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../../features/auth/presentation/auth_notifier.dart';
 import '../data/sale_repository.dart';
 
@@ -15,13 +14,7 @@ final suppliersProvider = FutureProvider<List<SupplierModel>>((ref) {
 
 // ─── Sale Entry State ─────────────────────────────────────────────────────────
 
-enum SaleSubmitStatus {
-  idle,
-  loading,
-  duplicateWarning,
-  success,
-  error,
-}
+enum SaleSubmitStatus { idle, loading, duplicateWarning, success, error }
 
 class SaleEntryState {
   const SaleEntryState({
@@ -70,12 +63,14 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
   }
 
   void setParseResult(ParseQrResult parseResult) {
-    state = AsyncData((state.value ?? const SaleEntryState()).copyWith(
-      parseResult: parseResult,
-      status: SaleSubmitStatus.idle,
-      errorMessage: null,
-      duplicateDate: null,
-    ));
+    state = AsyncData(
+      (state.value ?? const SaleEntryState()).copyWith(
+        parseResult: parseResult,
+        status: SaleSubmitStatus.idle,
+        errorMessage: null,
+        duplicateDate: null,
+      ),
+    );
   }
 
   /// Submit a sale. Handles duplicates, retries, and all error states.
@@ -98,10 +93,9 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
     final currentKey =
         idempotencyKey ?? DateTime.now().microsecondsSinceEpoch.toString();
 
-    state = AsyncData(current.copyWith(
-      status: SaleSubmitStatus.loading,
-      errorMessage: null,
-    ));
+    state = AsyncData(
+      current.copyWith(status: SaleSubmitStatus.loading, errorMessage: null),
+    );
 
     try {
       final repo = ref.read(saleRepositoryProvider);
@@ -120,34 +114,42 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
         idempotencyKey: currentKey,
       );
 
-      state = AsyncData(SaleEntryState(
-        status: SaleSubmitStatus.success,
-        createdSale: created,
-        parseResult: current.parseResult,
-      ));
+      state = AsyncData(
+        SaleEntryState(
+          status: SaleSubmitStatus.success,
+          createdSale: created,
+          parseResult: current.parseResult,
+        ),
+      );
     } on DuplicateQrException catch (e) {
-      state = AsyncData(SaleEntryState(
-        status: SaleSubmitStatus.duplicateWarning,
-        duplicateDate: e.previousSaleDate,
-        errorMessage: e.message,
-        parseResult: current.parseResult,
-        retryCount: 0,
-      ));
+      state = AsyncData(
+        SaleEntryState(
+          status: SaleSubmitStatus.duplicateWarning,
+          duplicateDate: e.previousSaleDate,
+          errorMessage: e.message,
+          parseResult: current.parseResult,
+          retryCount: 0,
+        ),
+      );
     } on SaleException catch (e) {
       final newRetry = retryCount + 1;
-      state = AsyncData(SaleEntryState(
-        status: SaleSubmitStatus.error,
-        errorMessage: e.message,
-        parseResult: current.parseResult,
-        retryCount: newRetry,
-      ));
+      state = AsyncData(
+        SaleEntryState(
+          status: SaleSubmitStatus.error,
+          errorMessage: e.message,
+          parseResult: current.parseResult,
+          retryCount: newRetry,
+        ),
+      );
     } catch (e) {
-      state = AsyncData(SaleEntryState(
-        status: SaleSubmitStatus.error,
-        errorMessage: e.toString(),
-        parseResult: current.parseResult,
-        retryCount: retryCount + 1,
-      ));
+      state = AsyncData(
+        SaleEntryState(
+          status: SaleSubmitStatus.error,
+          errorMessage: e.toString(),
+          parseResult: current.parseResult,
+          retryCount: retryCount + 1,
+        ),
+      );
     }
   }
 
@@ -180,6 +182,7 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
   }
 }
 
-final saleEntryProvider = AsyncNotifierProvider<SaleEntryNotifier, SaleEntryState>(
-  SaleEntryNotifier.new,
-);
+final saleEntryProvider =
+    AsyncNotifierProvider<SaleEntryNotifier, SaleEntryState>(
+      SaleEntryNotifier.new,
+    );

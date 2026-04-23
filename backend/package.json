@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
+    "dev": "node server.js",
+    "dev:watch": "node --watch server.js",
     "seed": "node src/scripts/seed.js",
     "seed:suppliers": "node src/scripts/seed-suppliers.js"
   },

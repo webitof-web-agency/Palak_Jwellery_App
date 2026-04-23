@@ -145,7 +145,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
           MobileScanner(
             controller: _controller,
             onDetect: _onDetect,
-            errorBuilder: (context, error, child) {
+            errorBuilder: (context, error) {
               return _CameraErrorView(
                 error: 'Camera error: ${error.errorDetails?.message ?? error.errorCode.name}',
                 onManualEntry: _enterManually,

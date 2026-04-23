@@ -1,10 +1,10 @@
 const escapeHtml = (value) =>
-  String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 
 export const renderStatusPage = ({
   appName,
@@ -12,159 +12,281 @@ export const renderStatusPage = ({
   apiPath,
   uptime,
   timestamp,
+  environment,
 }) => `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>${escapeHtml(appName)} Status</title>
+    <title>${escapeHtml(appName)} · API Status</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <style>
+      /* ─── Design tokens ─────────────────────────────────────────────── */
       :root {
-        color-scheme: light;
-        --bg: #fbf6f0;
-        --surface: rgba(255, 250, 245, 0.92);
-        --surface-strong: #f3e8da;
-        --border: rgba(92, 70, 56, 0.16);
-        --text: #261c18;
-        --muted: rgba(38, 28, 24, 0.66);
-        --heading: #b95c58;
-        --accent: #c87368;
-        --success: #2f8a64;
-        --shadow: 0 22px 54px rgba(76, 53, 43, 0.12);
+        --bg:            #FBF6F0;
+        --surface:       #FFFAF5;
+        --surface-alt:   #F5EBDD;
+        --surface-strong:#E9D6C4;
+        --border:        rgba(123, 98, 84, 0.16);
+        --border-strong: rgba(123, 98, 84, 0.24);
+        --text-primary:  #261C18;
+        --text-secondary:#5A463D;
+        --text-muted:    #806A5F;
+        --text-faint:    #A18E84;
+        --accent:        #C87368;
+        --accent-soft:   rgba(200, 115, 104, 0.12);
+        --success:       #2F8A64;
+        --success-soft:  #DCF0E6;
+        --warning:       #B97A3A;
+        --warning-soft:  #F8E5C8;
+        --shadow:        0 24px 56px rgba(76, 53, 43, 0.10);
       }
 
-      * {
-        box-sizing: border-box;
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg:            #030811;
+          --surface:       #07111F;
+          --surface-alt:   #0B1524;
+          --surface-strong:#0E1828;
+          --border:        rgba(255, 255, 255, 0.10);
+          --border-strong: rgba(255, 255, 255, 0.18);
+          --text-primary:  #F4F0EA;
+          --text-secondary:#D8D1C7;
+          --text-muted:    #B9B1A7;
+          --text-faint:    #958B81;
+          --accent:        #D6A24F;
+          --accent-soft:   rgba(214, 162, 79, 0.12);
+          --success:       #27AE60;
+          --success-soft:  #0E2A1A;
+          --warning:       #E57C1A;
+          --warning-soft:  rgba(229, 124, 26, 0.12);
+          --shadow:        0 24px 56px rgba(0, 0, 0, 0.36);
+        }
       }
 
+      /* ─── Reset ─────────────────────────────────────────────────────── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      /* ─── Layout ─────────────────────────────────────────────────────── */
       body {
-        margin: 0;
         min-height: 100vh;
-        font-family: Inter, "Segoe UI", system-ui, sans-serif;
+        font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+        font-size: 15px;
         background:
-          radial-gradient(circle at 0% 0%, rgba(200, 115, 104, 0.12) 0%, transparent 46%),
-          radial-gradient(circle at 100% 0%, rgba(185, 92, 88, 0.08) 0%, transparent 42%),
+          radial-gradient(ellipse at 0% 0%,   rgba(200, 115, 104, 0.10) 0%, transparent 50%),
+          radial-gradient(ellipse at 100% 100%, rgba(185,  92,  88, 0.07) 0%, transparent 50%),
           var(--bg);
-        color: var(--text);
+        color: var(--text-primary);
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 24px;
+        padding: 28px 20px;
+        gap: 0;
       }
 
+      /* ─── Main card ──────────────────────────────────────────────────── */
       .panel {
-        width: min(680px, 100%);
+        width: min(660px, 100%);
         background: var(--surface);
-        border: 1px solid var(--border);
+        border: 1px solid var(--border-strong);
         border-radius: 28px;
-        padding: 32px;
+        padding: 36px 32px 30px;
         box-shadow: var(--shadow);
-        backdrop-filter: blur(16px);
       }
 
+      /* ─── Eyebrow pill ───────────────────────────────────────────────── */
       .eyebrow {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 6px 10px;
+        gap: 6px;
+        padding: 5px 12px;
         border-radius: 999px;
-        background: rgba(200, 115, 104, 0.1);
-        color: var(--heading);
+        background: var(--accent-soft);
+        border: 1px solid var(--border-strong);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.16em;
         text-transform: uppercase;
-        letter-spacing: 0.18em;
-        font-size: 12px;
-        font-weight: 800;
       }
 
+      /* ─── Heading ────────────────────────────────────────────────────── */
       h1 {
-        margin: 18px 0 10px;
-        font-size: clamp(32px, 5vw, 46px);
-        line-height: 1.05;
-        color: var(--heading);
+        margin-top: 16px;
+        font-size: clamp(28px, 5vw, 42px);
+        font-weight: 800;
+        line-height: 1.08;
+        color: var(--text-primary);
+        letter-spacing: -0.02em;
       }
 
-      p {
-        margin: 0;
-        color: var(--muted);
-        line-height: 1.7;
+      h1 span {
+        color: var(--accent);
       }
 
-      .status-row {
-        margin-top: 24px;
+      .subtitle {
+        margin-top: 10px;
+        color: var(--text-muted);
+        font-size: 14px;
+        line-height: 1.65;
+      }
+
+      /* ─── Divider ────────────────────────────────────────────────────── */
+      hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 24px 0;
+      }
+
+      /* ─── Status grid ────────────────────────────────────────────────── */
+      .grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
       }
 
       .card {
-        padding: 18px;
+        padding: 16px 18px;
         border-radius: 18px;
-        background: rgba(255, 255, 255, 0.6);
+        background: var(--surface-alt);
         border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
       }
 
-      .label {
-        display: block;
-        font-size: 11px;
-        font-weight: 800;
+      .card-label {
+        font-size: 10px;
+        font-weight: 600;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: var(--muted);
-        margin-bottom: 8px;
+        color: var(--text-faint);
       }
 
-      .value {
-        font-size: 18px;
-        font-weight: 800;
-        color: var(--text);
+      .card-value {
+        font-size: 17px;
+        font-weight: 700;
+        color: var(--text-primary);
         word-break: break-word;
+        line-height: 1.2;
       }
 
-      .value--healthy {
+      .card-value--healthy {
         color: var(--success);
       }
 
+      .card-value--warn {
+        color: var(--warning);
+      }
+
+      /* Env badge inside card */
+      .env-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 600;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--border-strong);
+      }
+
+      /* Smaller value variant for dense text like timestamps */
+      .card-value--sm {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-secondary);
+      }
+
+      /* ─── Footer ─────────────────────────────────────────────────────── */
       .footer {
         margin-top: 22px;
-        padding-top: 20px;
+        padding-top: 18px;
         border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .footer p {
+        font-size: 13px;
+        color: var(--text-muted);
+        line-height: 1.5;
       }
 
       a {
         color: var(--accent);
-        font-weight: 700;
+        font-weight: 600;
         text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--success);
+        box-shadow: 0 0 0 3px rgba(47, 138, 100, 0.20);
+        flex-shrink: 0;
+        vertical-align: middle;
+        margin-right: 6px;
       }
     </style>
   </head>
   <body>
     <main class="panel">
-      <span class="eyebrow">Backend Status</span>
-      <h1>${escapeHtml(appName)}</h1>
-      <p>The API is running and ready to accept requests from the admin panel and mobile app.</p>
 
-      <section class="status-row">
-        <article class="card">
-          <span class="label">Status</span>
-          <span class="value value--healthy">${escapeHtml(status)}</span>
-        </article>
-        <article class="card">
-          <span class="label">API Health</span>
-          <span class="value">${escapeHtml(apiPath)}</span>
-        </article>
-        <article class="card">
-          <span class="label">Uptime</span>
-          <span class="value">${escapeHtml(uptime)}</span>
-        </article>
-        <article class="card">
-          <span class="label">Timestamp</span>
-          <span class="value">${escapeHtml(timestamp)}</span>
-        </article>
-      </section>
+      <span class="eyebrow">✦ API Status</span>
+
+      <h1><span>${escapeHtml(appName.split(" ")[0])}</span> ${escapeHtml(appName.split(" ").slice(1).join(" "))}</h1>
+      <p class="subtitle">
+        REST API — serving the admin panel and salesman mobile app.
+        All protected routes require a valid Bearer token.
+      </p>
+
+      <hr />
+
+      <div class="grid">
+        <div class="card">
+          <span class="card-label">Status</span>
+          <span class="card-value card-value--healthy">
+            <span class="dot"></span>${escapeHtml(status)}
+          </span>
+        </div>
+
+        <div class="card">
+          <span class="card-label">Uptime</span>
+          <span class="card-value">${escapeHtml(uptime)}</span>
+        </div>
+
+        <div class="card">
+          <span class="card-label">Environment</span>
+          <span class="card-value">
+            <span class="env-badge">${escapeHtml(environment ?? "development")}</span>
+          </span>
+        </div>
+
+        <div class="card">
+          <span class="card-label">Timestamp</span>
+          <span class="card-value card-value--sm">${escapeHtml(timestamp)}</span>
+        </div>
+      </div>
 
       <div class="footer">
-        <p>For automated checks, use <a href="${escapeHtml(apiPath)}">${escapeHtml(apiPath)}</a>.</p>
+        <p>Health endpoint: <a href="${escapeHtml(apiPath)}">${escapeHtml(apiPath)}</a></p>
+        <p style="color:var(--text-faint);font-size:12px;">Palak Jewellers &copy; ${new Date().getFullYear()} | Developed by: <a href="https://webitoft.com">Webitoft ❤️</a></p>
       </div>
+
     </main>
   </body>
-</html>`
+</html>`;

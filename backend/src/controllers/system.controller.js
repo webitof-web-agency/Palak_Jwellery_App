@@ -55,10 +55,11 @@ export const getHealth = async (_req, res) => {
 
 export const getStatusPage = (_req, res) => {
   const html = renderStatusPage({
-    appName: 'Jewellery Management Backend',
+    appName: 'PALAK Jewellers',
     status: 'Healthy',
     apiPath: '/api/v1/health',
     uptime: formatUptime(process.uptime()),
+    environment: process.env.NODE_ENV ?? 'development',
     timestamp: new Date().toLocaleString('en-IN', {
       dateStyle: 'medium',
       timeStyle: 'medium',
