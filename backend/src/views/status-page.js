@@ -6,6 +6,26 @@ const escapeHtml = (value) =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const createStatusFavicon = (mode) => {
+  const isDark = mode === "dark";
+  const background = isDark ? "#07111F" : "#FFFAF5";
+  const accent = isDark ? "#D6A24F" : "#C87368";
+  const accentSoft = isDark ? "#1A1720" : "#F7E7E2";
+  const stroke = isDark ? "#F4E7C1" : "#8A5A54";
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+      <rect width="64" height="64" rx="18" fill="${background}" />
+      <circle cx="32" cy="32" r="20" fill="${accentSoft}" stroke="${accent}" stroke-width="2" />
+      <path d="M32 18C28.2 22.2 25.5 26.3 25.5 30.2C25.5 35 28.4 39 32 43.2C35.6 39 38.5 35 38.5 30.2C38.5 26.3 35.8 22.2 32 18Z" fill="${accent}" />
+      <path d="M20 31.5C24 27.2 27.9 25 32 25C36.1 25 40 27.2 44 31.5C40 35.8 36.1 38 32 38C27.9 38 24 35.8 20 31.5Z" fill="${stroke}" opacity="0.9" />
+      <circle cx="32" cy="32" r="4.2" fill="${background}" stroke="${accent}" stroke-width="2" />
+    </svg>
+  `;
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
 export const renderStatusPage = ({
   appName,
   status,
@@ -18,6 +38,10 @@ export const renderStatusPage = ({
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="${createStatusFavicon("light")}" type="image/svg+xml" media="(prefers-color-scheme: light)" />
+    <link rel="icon" href="${createStatusFavicon("dark")}" type="image/svg+xml" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="${createStatusFavicon("light")}" type="image/svg+xml" />
     <title>${escapeHtml(appName)} · API Status</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

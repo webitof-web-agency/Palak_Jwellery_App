@@ -2,48 +2,54 @@
 
 Monorepo for a jewellery sales workflow with a Node.js API, React admin panel, and Flutter mobile app.
 
-## What It Does
+## Overview
 
-- Admin login and role-based access
-- Salesman login on mobile
-- Supplier setup and QR parsing
-- QR ingestion with parsed, final, and review states
-- Mobile QR scan to sale-entry flow
-- Admin sales and supplier management screens
+This project is split into three parts:
+
+- `backend/` - REST API, authentication, suppliers, sales, QR parsing
+- `admin-panel/` - React admin dashboard for suppliers, users, and sales
+- `mobile/` - Flutter Android app for salesman login, scanner, and sale entry
 
 ## Repository Layout
 
 ```text
 JwelleryCustomApp/
-├── backend/       Node.js + Express API
-├── admin-panel/   React 19 + Vite admin dashboard
-├── mobile/        Flutter 3.41.6 Android app
-├── docs/          PRD, TRD, and prompt docs
-├── qr-samples/    Sample QR formats used for parser testing
-└── app logos/     Logo and favicon variants
+├── backend/         Node.js + Express API
+├── admin-panel/     React 19 + Vite admin dashboard
+├── mobile/          Flutter 3.41.6 Android app
+├── docs/            PRD, TRD, and project notes
+├── qr-samples/      Sample QR formats for parser testing
+└── app logos/       Logo and favicon variants
 ```
 
 ## Tech Stack
 
 - Backend: Node.js, Express, MongoDB, Mongoose, JWT, bcrypt
-- Admin Panel: React 19, Vite, Tailwind CSS v4, Zustand, React Router v7
-- Mobile App: Flutter 3.41.6, Riverpod 2.x, Dio, flutter_secure_storage, mobile_scanner
+- Admin Panel: React 19, Vite, Tailwind CSS v4, Zustand, React Router
+- Mobile App: Flutter 3.41.6, Riverpod, Dio, flutter_secure_storage, mobile_scanner
 
 ## Current Scope
 
-This repo currently includes:
+- Admin login and role-based access
+- Salesman login on mobile
+- Supplier setup and QR test tooling in the admin panel
+- QR parsing and normalization
+- Mobile QR scan to sale-entry flow
+- Admin sales and supplier management
 
-- Authentication for admin and salesman users
-- Supplier CRUD and QR test tooling in the admin panel
-- QR parsers for supported supplier formats
-- QR normalization and ingestion flow
-- Mobile login, scanner, and sale-entry flow
+## Prerequisites
+
+- Node.js 20+
+- npm
+- Flutter 3.41.6 stable
+- Android Studio or Android platform tools
+- MongoDB locally or a hosted MongoDB URI
 
 ## Quick Start
 
 ### 1. Backend
 
-```bash
+```powershell
 cd backend
 npm install
 npm run dev
@@ -51,7 +57,7 @@ npm run dev
 
 ### 2. Admin Panel
 
-```bash
+```powershell
 cd admin-panel
 npm install
 npm run dev
@@ -59,11 +65,79 @@ npm run dev
 
 ### 3. Mobile App
 
-```bash
+```powershell
 cd mobile
 flutter pub get
 flutter run
 ```
+
+## Mobile API Configuration
+
+The mobile app reads the backend URL from:
+
+- `mobile/lib/core/constants/api_constants.dart`
+
+Current setup:
+
+- Default dev URL is used when no build-time override is provided
+- You can override the backend URL at build time with `--dart-define`
+
+Examples:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://192.168.1.37:3000
+flutter build apk --release --dart-define=API_BASE_URL=https://your-host.com
+```
+
+## Flutter Commands
+
+### Run
+
+```powershell
+cd mobile
+flutter run
+```
+
+If you want to override the backend URL while running:
+
+```powershell
+flutter run --dart-define=API_BASE_URL=http://192.168.1.37:3000
+```
+
+### Debug Build
+
+```powershell
+cd mobile
+flutter build apk --debug
+```
+
+### Release Build
+
+```powershell
+cd mobile
+flutter build apk --release --dart-define=API_BASE_URL=https://your-host.com
+```
+
+### Release App Bundle
+
+```powershell
+cd mobile
+flutter build appbundle --release --dart-define=API_BASE_URL=https://your-host.com
+```
+
+### Clean
+
+```powershell
+cd mobile
+flutter clean
+flutter pub get
+```
+
+## Output Files
+
+- Debug APK: `mobile/build/app/outputs/flutter-apk/app-debug.apk`
+- Release APK: `mobile/build/app/outputs/flutter-apk/app-release.apk`
+- Release AAB: `mobile/build/app/outputs/bundle/release/app-release.aab`
 
 ## Environment Variables
 
@@ -87,22 +161,12 @@ Create `admin-panel/.env` with:
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
-### Mobile App
-
-Set the API base URL in:
-
-- `mobile/lib/core/constants/api_constants.dart`
-
-Use:
-
-- `http://10.0.2.2:3000` for Android emulator
-- `http://<your-laptop-ip>:3000` for a real phone on the same Wi-Fi
-
 ## Useful Scripts
 
 ### Backend
 
-- `npm run dev` - start API in watch mode
+- `npm run dev` - start API in normal mode
+- `npm run dev:watch` - start API with file watch
 - `npm run start` - start API normally
 - `npm run seed` - seed initial data
 
@@ -116,7 +180,7 @@ Use:
 
 Sample QR strings live in `qr-samples/`.
 
-Backend parser checks:
+Backend parser test helpers:
 
 - `backend/src/scripts/test-qr-parser.js`
 - `backend/src/scripts/test-qr-ingestion.js`
@@ -125,12 +189,11 @@ Backend parser checks:
 
 - The project is built in slices and is still under active development.
 - QR parsing is supplier-specific and designed to fail safely.
-- The admin panel and mobile app both support light and dark theme variants.
-- Mobile app assets use secure storage for JWTs.
+- The admin panel and mobile app both support light and dark themes.
+- Mobile JWTs are stored in secure storage.
 
 ## Documentation
 
 - `docs/PRD.md` - product requirements
 - `docs/TRD.md` - technical requirements
 - `AGENTS.md` - project operating instructions for agents
-
