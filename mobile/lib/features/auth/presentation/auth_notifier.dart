@@ -61,11 +61,11 @@ class AuthNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(String identifier, String password) async {
     state = const AsyncLoading();
 
     try {
-      final session = await ref.read(authRepositoryProvider).login(email, password);
+      final session = await ref.read(authRepositoryProvider).login(identifier, password);
       await ref.read(authSessionProvider.notifier).setSession(session);
       state = const AsyncData(null);
     } catch (error, stackTrace) {

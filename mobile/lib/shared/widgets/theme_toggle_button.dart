@@ -28,7 +28,9 @@ class ThemeToggleButton extends ConsumerWidget {
           elevation: 0,
           child: InkWell(
             customBorder: const CircleBorder(),
-            onTap: () => ref.read(themeControllerProvider.notifier).toggle(),
+            onTap: () async {
+              await ref.read(themeControllerProvider.notifier).toggle();
+            },
             child: Container(
               width: size,
               height: size,

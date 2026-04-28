@@ -9,11 +9,13 @@ class WeightSummaryCard extends StatelessWidget {
     super.key,
     required this.grossWeight,
     required this.stoneWeight,
+    this.otherWeight,
     required this.netWeight,
   });
 
   final double? grossWeight;
   final double? stoneWeight;
+  final double? otherWeight;
   final double? netWeight;
 
   @override
@@ -32,8 +34,10 @@ class WeightSummaryCard extends StatelessWidget {
           color: AppColors.accent.withValues(alpha: 0.3),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        runSpacing: 14,
+        spacing: 12,
         children: [
           _WeightMetric(
             label: 'Gross',
@@ -43,6 +47,11 @@ class WeightSummaryCard extends StatelessWidget {
             label: 'Stone',
             value: stoneWeight,
           ),
+          if (otherWeight != null)
+            _WeightMetric(
+              label: 'Other',
+              value: otherWeight,
+            ),
           _WeightMetric(
             label: 'Net',
             value: netWeight,
@@ -71,15 +80,15 @@ class _WeightMetric extends StatelessWidget {
           label.toUpperCase(),
           style: TextStyle(
             fontSize: 10,
-            letterSpacing: 1.1,
+            letterSpacing: 1.0,
             color: AppColors.accent,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
           ),
         ),
         const SizedBox(height: 4),
         if (value == null)
           Text(
-            '—',
+            '-',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w400,
@@ -87,14 +96,14 @@ class _WeightMetric extends StatelessWidget {
             ),
           )
         else
-          Text(
-            formatWeight(value!),
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+            Text(
+              formatWeight(value!),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
       ],
     );
   }
@@ -131,9 +140,9 @@ class ParseStatusChip extends StatelessWidget {
     if (parseResult.success && parseResult.errors.isEmpty) {
       return _chip(
         icon: Icons.qr_code_scanner_rounded,
-        label: 'QR parsed fully',
-        color: AppColors.success,
-        bg: AppColors.successSoft,
+              label: 'QR parsed fully',
+              color: AppColors.success,
+              bg: AppColors.successSoft,
       );
     }
 
@@ -181,7 +190,7 @@ class ParseStatusChip extends StatelessWidget {
               style: TextStyle(
                 color: color,
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),

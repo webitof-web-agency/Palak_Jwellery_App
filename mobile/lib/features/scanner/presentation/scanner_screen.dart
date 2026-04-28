@@ -5,6 +5,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../sale_entry/data/sale_repository.dart';
 import '../../sale_entry/presentation/sale_entry_provider.dart';
+import '../../../shared/navigation/app_route_observer.dart';
 import '../../../shared/theme/app_theme.dart';
 import 'widgets/scanner_widgets.dart';
 
@@ -16,25 +17,21 @@ class ScannerScreen extends ConsumerStatefulWidget {
 }
 
 class _ScannerScreenState extends ConsumerState<ScannerScreen>
-    with WidgetsBindingObserver, TickerProviderStateMixin {
-  late final MobileScannerController _controller;
+    with WidgetsBindingObserver, RouteAware, TickerProviderStateMixin {
+  late MobileScannerController _controller;
   late final AnimationController _scanLineController;
   late final AnimationController _pulseController;
 
   bool _torchOn = false;
   bool _processing = false;
   bool _detected = false;
+  int _cameraSession = 0;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.noDuplicates,
-      facing: CameraFacing.back,
-      formats: const [BarcodeFormat.qrCode],
-      torchEnabled: false,
-    );
+    _createController();
     _scanLineController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1800),
@@ -45,10 +42,15 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       lowerBound: 0.96,
       upperBound: 1.02,
     )..repeat(reverse: true);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startController();
+    });
   }
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     _scanLineController.dispose();
@@ -57,13 +59,78 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic>) {
+      appRouteObserver.unsubscribe(this);
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!_controller.value.isInitialized) return;
     if (state == AppLifecycleState.paused) {
       _controller.stop();
     } else if (state == AppLifecycleState.resumed) {
-      _controller.start();
+      _startController();
     }
+  }
+
+  @override
+  void didPopNext() {
+    _restartCameraAfterVisible();
+  }
+
+  @override
+  void didPush() {
+    _restartCameraAfterVisible();
+  }
+
+  Future<void> _startController() async {
+    if (!mounted) return;
+    final delays = <Duration>[
+      const Duration(milliseconds: 120),
+      const Duration(milliseconds: 220),
+      const Duration(milliseconds: 320),
+    ];
+
+    for (final delay in delays) {
+      await Future<void>.delayed(delay);
+      if (!mounted) return;
+
+      try {
+        await _controller.start();
+        return;
+      } catch (_) {
+        // Ignore camera start races while the route settles and retry once more.
+      }
+    }
+  }
+
+  Future<void> _restartCameraAfterVisible() async {
+    await _controller.stop();
+    _controller.dispose();
+    _createController();
+    if (!mounted) return;
+
+    setState(() {
+      _cameraSession += 1;
+      _torchOn = false;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await _startController();
+  }
+
+  void _createController() {
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+      formats: const [BarcodeFormat.qrCode],
+      torchEnabled: false,
+    );
   }
 
   Future<void> _onDetect(BarcodeCapture capture) async {
@@ -127,11 +194,11 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     setState(() {
       _processing = false;
       _detected = false;
+      _torchOn = false;
+      _cameraSession += 1;
     });
 
-    if (mounted) {
-      await _controller.start();
-    }
+    await _restartCameraAfterVisible();
   }
 
   @override
@@ -142,47 +209,82 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-            errorBuilder: (context, error) {
-              return _CameraErrorView(
-                error: 'Camera error: ${error.errorDetails?.message ?? error.errorCode.name}',
-                onManualEntry: _enterManually,
-              );
-            },
+          Positioned.fill(
+            child: Container(color: AppColors.background),
           ),
-          ScannerDetectedOverlay(visible: _detected),
           SafeArea(
-            child: AnimatedBuilder(
-              animation: Listenable.merge([
-                _scanLineController,
-                _pulseController,
-              ]),
-              builder: (context, child) {
-                return Column(
-                  children: [
-                    ScannerTopBar(
-                      onBack: () => context.pop(),
-                      onToggleTorch: _toggleTorch,
-                      torchOn: _torchOn,
+            child: Column(
+              children: [
+                ScannerTopBar(
+                  onBack: () => context.pop(),
+                  onToggleTorch: _toggleTorch,
+                  torchOn: _torchOn,
+                ),
+                const SizedBox(height: 8),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 380),
+                        child: AspectRatio(
+                          aspectRatio: 0.78,
+                          child: AnimatedBuilder(
+                            animation: Listenable.merge([
+                              _scanLineController,
+                              _pulseController,
+                            ]),
+                            builder: (context, child) {
+                              return ClipRRect(
+                                borderRadius: BorderRadius.circular(30),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    if (child != null) ...[child],
+                                    Center(
+                                      child: ScannerFrame(
+                                        progress: _scanLineController.value,
+                                        pulseScale: _pulseController.value,
+                                        active: !_processing,
+                                        detected: _detected,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                KeyedSubtree(
+                                  key: ValueKey(_cameraSession),
+                                  child: MobileScanner(
+                                    controller: _controller,
+                                    onDetect: _onDetect,
+                                    errorBuilder: (context, error) {
+                                      return _CameraErrorView(
+                                        error:
+                                            'Camera error: ${error.errorDetails?.message ?? error.errorCode.name}',
+                                        onManualEntry: _enterManually,
+                                      );
+                                    },
+                                  ),
+                                ),
+                                ScannerDetectedOverlay(visible: _detected),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    const Spacer(),
-                    ScannerFrame(
-                      progress: _scanLineController.value,
-                      pulseScale: _pulseController.value,
-                      active: !_processing,
-                      detected: _detected,
-                    ),
-                    const Spacer(),
-                    ScannerBottomPanel(
-                      processing: _processing,
-                      detected: _detected,
-                      onManualEntry: _enterManually,
-                    ),
-                  ],
-                );
-              },
+                  ),
+                ),
+                ScannerBottomPanel(
+                  processing: _processing,
+                  detected: _detected,
+                  onManualEntry: _enterManually,
+                ),
+              ],
             ),
           ),
         ],

@@ -1,9 +1,9 @@
 import { request } from './client'
 
-export async function login(email, password) {
+export async function login(identifier, password) {
   const response = await request('/api/v1/auth/login', {
     method: 'POST',
-    body: { email, password },
+    body: { email: identifier, password },
   })
 
   if (!response?.data) {

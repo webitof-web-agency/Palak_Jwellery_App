@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../data/sale_repository.dart';
+import '../presentation/sale_entry_provider.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/widgets/app_logo.dart';
 
@@ -105,7 +106,17 @@ class SaleSuccessScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               TextButton(
-                onPressed: () => context.go('/scanner'),
+                onPressed: () {
+                  ref.read(saleEntryProvider.notifier).reset();
+                  final router = GoRouter.of(context);
+                  router.go('/dashboard');
+                  Future<void>.delayed(const Duration(milliseconds: 200), () {
+                    router.push(
+                      '/scanner',
+                      extra: DateTime.now().microsecondsSinceEpoch,
+                    );
+                  });
+                },
                 child: const Text('Scan Another'),
               ),
             ],

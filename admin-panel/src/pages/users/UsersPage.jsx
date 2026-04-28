@@ -11,6 +11,7 @@ import DeleteUserDialog from './components/DeleteUserDialog'
 const initialFormData = {
   name: '',
   email: '',
+  phone: '',
   password: '',
   role: 'salesman',
 }
@@ -19,6 +20,7 @@ export default function UsersPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [searchTerm, setSearchTerm] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -26,15 +28,19 @@ export default function UsersPage() {
   const [formData, setFormData] = useState(initialFormData)
 
   useEffect(() => {
-    fetchUsers()
-  }, [])
+    const timer = setTimeout(() => {
+      void fetchUsers(searchTerm)
+    }, 250)
 
-  const fetchUsers = async () => {
+    return () => clearTimeout(timer)
+  }, [searchTerm])
+
+  const fetchUsers = async (query = '') => {
     setLoading(true)
     setError(null)
 
     try {
-      const res = await usersApi.listUsers()
+      const res = await usersApi.listUsers(query ? { q: query } : undefined)
       if (res.success) {
         setUsers(Array.isArray(res.data) ? res.data : [])
       } else {
@@ -120,6 +126,39 @@ export default function UsersPage() {
 
       {/* Users table */}
       <SectionCard className="!p-0 overflow-hidden">
+        <div className="surface-panel-faint border-b border-white/10 px-6 py-5">
+          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold font-display text-heading">
+                  Search users
+                </h2>
+                <button
+                  type="button"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted hover:text-primary hover:border-gold-500/30 hover:bg-white/10"
+                  title="Search by name, email, or phone number."
+                  aria-label="Search help"
+                >
+                  i
+                </button>
+              </div>
+              <p className="mt-1 text-sm text-muted">
+                Find users by name, email, or phone number.
+              </p>
+            </div>
+            <div className="w-full max-w-xl">
+              <input
+                className="input"
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Search by name, email, or phone"
+                aria-label="Search users"
+              />
+            </div>
+          </div>
+        </div>
+
         {loading ? (
           <div className="px-8 py-8">
             <TableSkeleton columns={5} rows={5} />

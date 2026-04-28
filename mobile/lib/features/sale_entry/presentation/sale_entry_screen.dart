@@ -5,13 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../sale_entry/data/sale_repository.dart';
 import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../../../shared/theme/app_theme.dart';
-import 'widgets/sale_entry_banners.dart';
-import 'widgets/sale_entry_debug_panel.dart';
-import 'widgets/sale_entry_footer.dart';
-import 'widgets/sale_entry_form_widgets.dart';
-import 'widgets/sale_entry_picker_sheet.dart';
-import 'widgets/sale_entry_selectors.dart';
-import 'widgets/sale_entry_status_widgets.dart';
+import 'widgets/sale_entry_app_bar.dart';
+import 'widgets/sale_entry_form_body.dart';
 
 class SaleEntryScreen extends ConsumerStatefulWidget {
   const SaleEntryScreen({super.key, required this.parseResult});
@@ -302,278 +297,68 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
     final submitState = saleState.value ?? const SaleEntryState();
     final isLoading = submitState.status == SaleSubmitStatus.loading;
 
-    ref.listen(saleEntryProvider, (previous, next) {
-      final nextState = next.value;
-      final previousStatus = previous?.value?.status;
-      if (previousStatus != SaleSubmitStatus.success &&
-          nextState?.status == SaleSubmitStatus.success &&
-          nextState?.createdSale != null) {
-        context.pushReplacement('/sale-success', extra: nextState!.createdSale);
-      }
-    });
-
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: const Text('New Sale'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => context.pop(),
-        ),
-        actions: [
-          TextButton(
-            onPressed: isLoading ? null : _resetForm,
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.accent,
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Container(
-              margin: const EdgeInsets.only(right: 8, top: 2, bottom: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: AppColors.accent, width: 1.4),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.restart_alt_rounded,
-                    size: 16,
-                    color: AppColors.accent,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Reset',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 13,
-                      color: AppColors.accent,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: isLoading ? null : () => _submit(),
-            child: Text(
-              'Save',
-              style: TextStyle(
-                color: AppColors.accent,
-                fontWeight: FontWeight.w700,
-                fontSize: 16,
-              ),
-            ),
-          ),
-        ],
+      appBar: SaleEntryAppBar(
+        isLoading: isLoading,
+        onReset: _resetForm,
+        onSave: () => _submit(),
+        onBack: () => context.pop(),
       ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
-            child: Form(
-              key: _formKey,
-              onChanged: _onFieldChanged,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (submitState.status == SaleSubmitStatus.duplicateWarning)
-                    DuplicateWarningBanner(
-                      date: submitState.duplicateDate!,
-                      onSaveAnyway: _confirmDuplicate,
-                      onCancel: () =>
-                          ref.read(saleEntryProvider.notifier).reset(),
-                    ),
-                  if (submitState.status == SaleSubmitStatus.error)
-                    ErrorBanner(
-                      message:
-                          submitState.errorMessage ?? 'Failed to save sale',
-                      retryCount: submitState.retryCount,
-                      onRetry: () => _submit(),
-                    ),
-                  ParseStatusChip(parseResult: widget.parseResult),
-                  const SizedBox(height: 20),
-                  const SectionLabel('Supplier'),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 360),
-                      child: _supplierId != null
-                          ? SupplierChip(
-                              name: _supplierName ?? '',
-                              onClear: () => _setSupplier(null, null, const []),
-                            )
-                          : SupplierDropdown(
-                              selectedId: _supplierId,
-                              onSelected: (id, name) {
-                                final supplier = _findSupplierById(
-                                  suppliers,
-                                  id,
-                                );
-                                _setSupplier(
-                                  id,
-                                  name,
-                                  supplier?.categories ?? const [],
-                                );
-                              },
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const SectionLabel('Item Details'),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 360),
-                      child: CategorySelector(
-                        controller: _categoryCtrl,
-                        parsed: _categoryParsed,
-                        showParseState: false,
-                        categories: selectedCategories,
-                        useCustomCategory: _useCustomCategory,
-                        onUseCustomChanged: (value) {
-                          setState(() {
-                            _useCustomCategory = value;
-                            if (!value &&
-                                selectedCategories.isNotEmpty &&
-                                !selectedCategories.contains(
-                                  _categoryCtrl.text.trim(),
-                                )) {
-                              _categoryCtrl.text = selectedCategories.first;
-                            }
-                          });
-                        },
-                        onCategorySelected: (value) {
-                          _categoryCtrl.text = value;
-                          _onFieldChanged();
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const SectionLabel('Classification'),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SaleField(
-                          label: 'Item / Design No',
-                          controller: _itemCodeCtrl,
-                          parsed: _itemCodeParsed,
-                          showParseState: false,
-                          onChanged: _onFieldChanged,
-                          hint: 'Optional',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SaleField(
-                          label: 'Purity',
-                          controller: _purityCtrl,
-                          parsed: _purityParsed,
-                          showParseState: false,
-                          onChanged: _onFieldChanged,
-                          hint: '18KT, 22KT, 925',
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.center,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 360),
-                      child: MetalSelector(
-                        controller: _metalTypeCtrl,
-                        useCustomMetal: _useCustomMetal,
-                        onUseCustomChanged: (value) {
-                          setState(() {
-                            _useCustomMetal = value;
-                          });
-                        },
-                        onChanged: _onFieldChanged,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: SaleField(
-                          label: 'Gross Weight (g)',
-                          controller: _grossCtrl,
-                          parsed: _grossParsed,
-                          onChanged: _onFieldChanged,
-                          hint: '0.0',
-                          numeric: true,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: SaleField(
-                          label: 'Stone Weight (g)',
-                          controller: _stoneCtrl,
-                          parsed: _stoneParsed,
-                          onChanged: _onFieldChanged,
-                          hint: '0.0',
-                          numeric: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SaleField(
-                    label: 'Net Weight (g)',
-                    controller: _netCtrl,
-                    parsed: _netParsed,
-                    onChanged: _onFieldChanged,
-                    hint: '0.0',
-                    numeric: true,
-                    required: true,
-                  ),
-                  const SizedBox(height: 24),
-                  SaleField(
-                    label: 'Notes',
-                    controller: _notesCtrl,
-                    parsed: false,
-                    showParseState: false,
-                    onChanged: _onFieldChanged,
-                    hint: 'Optional remarks',
-                    expandOnFocus: true,
-                    maxLines: 4,
-                  ),
-                  const SizedBox(height: 24),
-                  WeightSummaryCard(
-                    grossWeight: double.tryParse(_grossCtrl.text),
-                    stoneWeight: double.tryParse(_stoneCtrl.text),
-                    netWeight: double.tryParse(_netCtrl.text),
-                  ),
-                  const SizedBox(height: 24),
-                  if (widget.parseResult.raw.isNotEmpty ||
-                      widget.parseResult.hasErrors)
-                    QrDebugPanel(
-                      parseResult: widget.parseResult,
-                      expanded: _debugExpanded,
-                      onToggle: () =>
-                          setState(() => _debugExpanded = !_debugExpanded),
-                    ),
-                  const SizedBox(height: 32),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            child: SaveBar(isLoading: isLoading, onSave: () => _submit()),
-          ),
-        ],
+      body: SaleEntryFormBody(
+        formKey: _formKey,
+        parseResult: widget.parseResult,
+        suppliers: suppliers,
+        supplierId: _supplierId,
+        supplierName: _supplierName,
+        selectedCategories: selectedCategories,
+        categoryController: _categoryCtrl,
+        itemCodeController: _itemCodeCtrl,
+        metalTypeController: _metalTypeCtrl,
+        purityController: _purityCtrl,
+        notesController: _notesCtrl,
+        grossController: _grossCtrl,
+        stoneController: _stoneCtrl,
+        netController: _netCtrl,
+        categoryParsed: _categoryParsed,
+        itemCodeParsed: _itemCodeParsed,
+        purityParsed: _purityParsed,
+        grossParsed: _grossParsed,
+        stoneParsed: _stoneParsed,
+        netParsed: _netParsed,
+        useCustomCategory: _useCustomCategory,
+        useCustomMetal: _useCustomMetal,
+        debugExpanded: _debugExpanded,
+        isLoading: isLoading,
+        onSupplierChanged: (id, name, categories) {
+          _setSupplier(id, name, categories);
+        },
+        onSupplierCleared: () => _setSupplier(null, null, const []),
+        onUseCustomCategoryChanged: (value) {
+          setState(() {
+            _useCustomCategory = value;
+            if (!value &&
+                selectedCategories.isNotEmpty &&
+                !selectedCategories.contains(_categoryCtrl.text.trim())) {
+              _categoryCtrl.text = selectedCategories.first;
+            }
+          });
+        },
+        onCategorySelected: (value) {
+          _categoryCtrl.text = value;
+          _onFieldChanged();
+        },
+        onUseCustomMetalChanged: (value) {
+          setState(() {
+            _useCustomMetal = value;
+          });
+        },
+        onFieldChanged: _onFieldChanged,
+        onSubmit: _submit,
+        onConfirmDuplicate: _confirmDuplicate,
+        onRetry: () => _submit(),
+        onToggleDebug: () =>
+            setState(() => _debugExpanded = !_debugExpanded),
       ),
     );
   }

@@ -18,14 +18,14 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _passwordVisible = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -40,7 +40,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     try {
       await authNotifier.login(
-        _emailController.text.trim(),
+        _identifierController.text.trim(),
         _passwordController.text,
       );
 
@@ -146,25 +146,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                       ),
                                       const SizedBox(height: 24),
                                       TextFormField(
-                                        controller: _emailController,
-                                        keyboardType:
-                                            TextInputType.emailAddress,
+                                        controller: _identifierController,
+                                        keyboardType: TextInputType.text,
                                         textInputAction: TextInputAction.next,
                                         autofillHints: const [
-                                          AutofillHints.email,
+                                          AutofillHints.username,
                                         ],
                                         decoration: const InputDecoration(
-                                          labelText: 'Email',
-                                          hintText: 'salesman@example.com',
+                                          labelText: 'Email or phone',
+                                          hintText: 'Email or phone',
                                         ),
                                         validator: (value) {
                                           final text = value?.trim() ?? '';
                                           if (text.isEmpty) {
-                                            return 'Email is required';
-                                          }
-
-                                          if (!text.contains('@')) {
-                                            return 'Enter a valid email';
+                                            return 'Email or phone is required';
                                           }
 
                                           return null;

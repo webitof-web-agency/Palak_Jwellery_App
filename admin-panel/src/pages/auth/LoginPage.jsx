@@ -12,7 +12,7 @@ import { APP_BRAND_NAME, loadTheme, toggleTheme } from "../../theme/theme";
 const LoginPage = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,10 +26,10 @@ const LoginPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    const normalizedEmail = email.trim();
+    const normalizedIdentifier = identifier.trim();
 
-    if (!normalizedEmail || !password) {
-      setErrorMessage("Please enter your email and password.");
+    if (!normalizedIdentifier || !password) {
+      setErrorMessage("Please enter your email or phone and password.");
       return;
     }
 
@@ -37,7 +37,7 @@ const LoginPage = () => {
     setErrorMessage("");
 
     try {
-      const session = await loginRequest(normalizedEmail, password);
+      const session = await loginRequest(normalizedIdentifier, password);
       setAuth(session);
       navigate("/dashboard", { replace: true });
     } catch (error) {
@@ -119,15 +119,15 @@ const LoginPage = () => {
 
           <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="field">
-              <span className="field-label">Email Address</span>
+              <span className="field-label">Email or Phone</span>
               <input
                 className="input"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="admin@jewellery.com"
+                type="text"
+                autoComplete="username"
+                inputMode="text"
+                value={identifier}
+                onChange={(event) => setIdentifier(event.target.value)}
+                placeholder="Email or phone"
               />
             </div>
 

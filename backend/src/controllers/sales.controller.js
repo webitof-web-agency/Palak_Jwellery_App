@@ -27,7 +27,16 @@ const normalizeSort = (sortBy, sortOrder) => {
   }
 }
 
-const buildSalesQuery = async ({ user, supplier, salesman, startDate, endDate }) => {
+const buildSalesQuery = async ({
+  user,
+  supplier,
+  salesman,
+  startDate,
+  endDate,
+  q,
+  searchScope,
+  duplicatesOnly,
+}) => {
   const query = {}
 
   if (user.role !== 'admin') {
@@ -63,6 +72,61 @@ const buildSalesQuery = async ({ user, supplier, salesman, startDate, endDate })
       const end = new Date(endDate)
       end.setHours(23, 59, 59, 999)
       query.saleDate.$lte = end
+    }
+  }
+
+  if (duplicatesOnly) {
+    query.isDuplicate = true
+  }
+
+  const searchText = String(q || '').trim()
+  if (searchText) {
+    const scope = String(searchScope || 'all').toLowerCase()
+    const orConditions = []
+
+    if (scope === 'all' || scope === 'details') {
+      orConditions.push(
+        { category: { $regex: searchText, $options: 'i' } },
+        { itemCode: { $regex: searchText, $options: 'i' } },
+        { notes: { $regex: searchText, $options: 'i' } },
+      )
+    }
+
+    if (scope === 'all' || scope === 'salesman') {
+      const matches = await User.find(
+        {
+          $or: [
+            { name: { $regex: searchText, $options: 'i' } },
+            { email: { $regex: searchText, $options: 'i' } },
+            { phone: { $regex: searchText, $options: 'i' } },
+          ],
+        },
+        { _id: 1 },
+      ).lean()
+
+      if (matches.length > 0) {
+        orConditions.push({ salesman: { $in: matches.map((u) => u._id) } })
+      }
+    }
+
+    if (scope === 'all' || scope === 'supplier') {
+      const matches = await Supplier.find(
+        {
+          $or: [
+            { name: { $regex: searchText, $options: 'i' } },
+            { code: { $regex: searchText, $options: 'i' } },
+          ],
+        },
+        { _id: 1 },
+      ).lean()
+
+      if (matches.length > 0) {
+        orConditions.push({ supplier: { $in: matches.map((s) => s._id) } })
+      }
+    }
+
+    if (orConditions.length > 0) {
+      query.$or = orConditions
     }
   }
 
@@ -328,6 +392,9 @@ export const listSales = async (req, res) => {
       salesman, 
       startDate, 
       endDate,
+      q,
+      searchScope,
+      duplicatesOnly,
       sortBy = 'saleDate',
       sortOrder = 'desc',
     } = req.query
@@ -341,6 +408,9 @@ export const listSales = async (req, res) => {
       salesman,
       startDate,
       endDate,
+      q,
+      searchScope,
+      duplicatesOnly: String(duplicatesOnly).toLowerCase() === 'true',
     })
     const sort = normalizeSort(sortBy, sortOrder)
 
@@ -382,6 +452,9 @@ export const exportSales = async (req, res) => {
       salesman,
       startDate,
       endDate,
+      q,
+      searchScope,
+      duplicatesOnly,
       sortBy = 'saleDate',
       sortOrder = 'desc',
       scope = 'filtered',
@@ -394,6 +467,9 @@ export const exportSales = async (req, res) => {
           salesman: undefined,
           startDate: undefined,
           endDate: undefined,
+          q: undefined,
+          searchScope: undefined,
+          duplicatesOnly: false,
         })
       : await buildSalesQuery({
           user: req.user,
@@ -401,6 +477,9 @@ export const exportSales = async (req, res) => {
           salesman,
           startDate,
           endDate,
+          q,
+          searchScope,
+          duplicatesOnly: String(duplicatesOnly).toLowerCase() === 'true',
         })
 
     const sort = normalizeSort(sortBy, sortOrder)

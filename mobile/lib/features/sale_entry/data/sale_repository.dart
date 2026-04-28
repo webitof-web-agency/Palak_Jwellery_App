@@ -120,6 +120,7 @@ class ParseQrResult {
     required this.purity,
     required this.grossWeight,
     required this.stoneWeight,
+    required this.otherWeight,
     required this.netWeight,
     required this.errors,
     this.supplier,
@@ -133,6 +134,7 @@ class ParseQrResult {
   final ParsedField<String> purity;
   final ParsedField<double> grossWeight;
   final ParsedField<double> stoneWeight;
+  final ParsedField<double> otherWeight;
   final ParsedField<double> netWeight;
   final List<ParseError> errors;
   final SupplierModel? supplier;
@@ -199,6 +201,10 @@ class ParseQrResult {
       stoneWeight: fieldDouble([
         ['stoneWeight'],
       ]),
+      otherWeight: fieldDouble([
+        ['otherWeight'],
+        ['meta', 'otherWeight'],
+      ]),
       netWeight: fieldDouble([
         ['netWeight'],
       ]),
@@ -218,6 +224,7 @@ class ParseQrResult {
       purity: const ParsedField(value: null, parsed: false),
       grossWeight: const ParsedField(value: null, parsed: false),
       stoneWeight: const ParsedField(value: null, parsed: false),
+      otherWeight: const ParsedField(value: null, parsed: false),
       netWeight: const ParsedField(value: null, parsed: false),
       errors: const [ParseError(field: 'all', reason: 'Parse failed')],
       supplier: null,
@@ -490,6 +497,11 @@ class SaleRepository {
   Future<RecentSalesPage> getRecentSales({
     int page = 1,
     int limit = 10,
+    String q = '',
+    String searchScope = 'all',
+    bool duplicatesOnly = false,
+    String sortBy = 'saleDate',
+    String sortOrder = 'desc',
   }) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -497,8 +509,11 @@ class SaleRepository {
         queryParameters: {
           'page': page,
           'limit': limit,
-          'sortBy': 'saleDate',
-          'sortOrder': 'desc',
+          'q': q,
+          'searchScope': searchScope,
+          'duplicatesOnly': duplicatesOnly,
+          'sortBy': sortBy,
+          'sortOrder': sortOrder,
         },
       );
       final body = response.data;

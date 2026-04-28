@@ -1,7 +1,14 @@
 import { request } from './client'
 
+const toQueryString = (params = {}) => {
+  const query = new URLSearchParams()
+  if (params.q) query.set('q', params.q)
+  const text = query.toString()
+  return text ? `?${text}` : ''
+}
+
 export const usersApi = {
-  listUsers: () => request('/api/v1/users'),
+  listUsers: (params = {}) => request(`/api/v1/users${toQueryString(params)}`),
   createUser: (data) => request('/api/v1/users', {
     method: 'POST',
     body: data

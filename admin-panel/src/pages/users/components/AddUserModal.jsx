@@ -48,14 +48,25 @@ export default function AddUserModal({
           </div>
 
           <div className="field">
-            <label className="field-label">Email Identity</label>
+            <label className="field-label">Email Address</label>
             <input
               required
               type="email"
               className="input"
-              placeholder="john@example.com"
+              placeholder="Email address"
               value={formData.email}
               onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+            />
+          </div>
+
+          <div className="field">
+            <label className="field-label">Phone Number</label>
+            <input
+              type="tel"
+              className="input"
+              placeholder="Optional phone number"
+              value={formData.phone || ''}
+              onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
             />
           </div>
 

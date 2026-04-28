@@ -55,12 +55,12 @@ class SaveBar extends StatelessWidget {
                           color: AppColors.textMuted,
                         ),
                       )
-                    : const Text(
-                        'Save Sale',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 16,
-                        ),
+                      : const Text(
+                          'Save Sale',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
                       ),
               ),
             ),

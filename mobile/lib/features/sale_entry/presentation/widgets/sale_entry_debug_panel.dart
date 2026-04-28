@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/sale_repository.dart';
 import '../../../../shared/theme/app_theme.dart';
+import '../utils/sale_entry_formatters.dart';
 
 class QrDebugPanel extends StatelessWidget {
   const QrDebugPanel({
@@ -106,6 +107,27 @@ class QrDebugPanel extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       parseResult.itemCode.value!,
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  if (parseResult.otherWeight.value != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'OTHER WEIGHT',
+                      style: TextStyle(
+                        fontSize: 10,
+                        letterSpacing: 1.2,
+                        color: AppColors.textFaint,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      formatWeight(parseResult.otherWeight.value!),
                       style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 13,

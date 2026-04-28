@@ -7,13 +7,20 @@ const signToken = (userId) =>
 
 export const login = async (req, res, next) => {
   try {
-    const { email, password } = req.body
+    const { email, phone, password } = req.body
 
-    if (!email || !password) {
-      return res.status(400).json({ success: false, error: 'Email and password are required', code: 'MISSING_FIELDS' })
+    const identifier = String(email || phone || '').trim().toLowerCase()
+
+    if (!identifier || !password) {
+      return res.status(400).json({ success: false, error: 'Email or phone and password are required', code: 'MISSING_FIELDS' })
     }
 
-    const user = await User.findOne({ email: email.toLowerCase().trim() })
+    const user = await User.findOne({
+      $or: [
+        { email: identifier },
+        { phone: identifier },
+      ],
+    })
     if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' })
     }

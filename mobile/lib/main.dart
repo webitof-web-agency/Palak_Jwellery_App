@@ -5,28 +5,35 @@ import 'package:go_router/go_router.dart';
 import 'core/system/backend_status.dart';
 import 'features/auth/presentation/auth_notifier.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/history/presentation/sales_history_provider.dart';
 import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
 import 'features/sale_entry/presentation/sale_entry_screen.dart';
 import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
 import 'shared/constants/app_brand.dart';
+import 'shared/navigation/app_route_observer.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/app_logo.dart';
 import 'shared/widgets/backend_fallback_screen.dart';
 import 'shared/widgets/theme_toggle_button.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final savedPreset = await ThemePreferences.loadPreset();
+  if (savedPreset != null) {
+    activePreset = savedPreset;
+  }
   runApp(const ProviderScope(child: JewelleryApp()));
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authSession = ref.watch(authSessionProvider);
 
-  return GoRouter(
-    initialLocation: '/login',
-    routes: [
+    return GoRouter(
+      observers: [appRouteObserver],
+      initialLocation: '/login',
+      routes: [
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
@@ -37,7 +44,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/scanner',
-        builder: (context, state) => const ScannerScreen(),
+        builder: (context, state) {
+          final sessionKey = state.extra?.toString() ?? 'default';
+          return ScannerScreen(key: ValueKey('scanner-$sessionKey'));
+        },
       ),
       GoRoute(
         path: '/sale-entry',
@@ -214,7 +224,18 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(themeControllerProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
-    final recentSalesAsync = ref.watch(recentSalesPageProvider(1));
+    final recentSalesAsync = ref.watch(
+      recentSalesPageProvider(
+        const SalesHistoryQuery(
+          page: 1,
+          searchTerm: '',
+          searchScope: 'all',
+          sortBy: 'saleDate',
+          sortOrder: 'desc',
+          duplicatesOnly: false,
+        ),
+      ),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -319,7 +340,7 @@ class DashboardScreen extends ConsumerWidget {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Text(
-                  'Sale entry flow is ready. Dashboard metrics will come in the next slice.',
+                  'Track today’s sales and start a new entry from here.',
                   style: TextStyle(color: AppColors.textSecondary, height: 1.5),
                 ),
               ),
@@ -342,7 +363,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        'Loading your entries...',
+                        'Loading entries...',
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                     ],
@@ -351,7 +372,7 @@ class DashboardScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your Entries',
+                        "Today's Entries",
                         style: TextStyle(
                           color: AppColors.accent,
                           fontSize: 12,
@@ -370,7 +391,7 @@ class DashboardScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your Entries',
+                        "Today's Entries",
                         style: TextStyle(
                           color: AppColors.accent,
                           fontSize: 12,
@@ -388,7 +409,7 @@ class DashboardScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'See how many sales you have already recorded.',
+                        'See how many sales have been recorded today.',
                         style: TextStyle(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 14),

@@ -8,6 +8,7 @@ const createEmptyFields = () => ({
   grossWeight: { value: null, parsed: false },
   stoneWeight: { value: null, parsed: false },
   netWeight: { value: null, parsed: false },
+  otherWeight: { value: null, parsed: false },
   purity: { value: null, parsed: false },
   diamondWeight: { value: null, parsed: false },
   designCode: { value: null, parsed: false },
@@ -667,6 +668,10 @@ const parseKeyValueStrategy = (raw) => {
     }
   }
 
+  if (otherWeight !== null) {
+    fields.otherWeight = { value: otherWeight, parsed: true }
+  }
+
   const nwRaw = extractValue('NW')
   if (nwRaw !== null) {
     const parsed = toNumber(nwRaw)
@@ -909,6 +914,7 @@ export const normalizeParsedQR = (parsedResult, supplier) => {
 
   const grossWeight = readNumber([['grossWeight']], 'grossWeight', true)
   const stoneWeight = readNumber([['stoneWeight']], 'stoneWeight', false)
+  const otherWeight = readNumber([['otherWeight']], 'otherWeight', false)
   const netWeight = readNumber([['netWeight']], 'netWeight', false)
   const diamondWeight = readNumber([['diamondWeight']], 'diamondWeight', false)
   const karat = toText(
@@ -937,6 +943,7 @@ export const normalizeParsedQR = (parsedResult, supplier) => {
     category: null,
     grossWeight,
     stoneWeight,
+    otherWeight,
     netWeight,
     purity,
     diamondWeight: normalizedDiamondWeight,

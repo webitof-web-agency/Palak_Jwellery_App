@@ -1,4 +1,4 @@
-import mongoose from 'mongoose'
+﻿import mongoose from 'mongoose'
 import { Supplier } from '../models/Supplier.js'
 import { detectSupplier, normalizeParsedQR, parseQR } from '../services/qrParser.service.js'
 
@@ -57,12 +57,70 @@ const normalizeCategories = (value) => {
   return []
 }
 
+const normalizeFieldMapValue = (value, fallback) => {
+  if (value === null || value === undefined || value === '') {
+    return fallback
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (!trimmed) return fallback
+
+    if (/^\d+$/.test(trimmed)) {
+      return Number(trimmed)
+    }
+
+    const sumMatch = trimmed.match(/^sum\s*:\s*(.+)$/i)
+    if (sumMatch) {
+      const sumIndices = sumMatch[1]
+        .split('+')
+        .map((item) => Number.parseInt(item.trim(), 10))
+        .filter((item) => Number.isInteger(item) && item >= 0)
+
+      if (sumIndices.length > 0) {
+        return { sumIndices }
+      }
+    }
+
+    const prefixMatch = trimmed.match(/^idx\s*:\s*(\d+)\s*(?:\u00b7|\||\.)\s*prefix\s*:\s*(.+)$/i)
+    if (prefixMatch) {
+      return {
+        index: Number.parseInt(prefixMatch[1], 10),
+        stripPrefix: prefixMatch[2].trim(),
+      }
+    }
+
+    const suffixMatch = trimmed.match(/^idx\s*:\s*(\d+)\s*(?:\u00b7|\||\.)\s*suffix\s*:\s*(.+)$/i)
+    if (suffixMatch) {
+      return {
+        index: Number.parseInt(suffixMatch[1], 10),
+        stripSuffix: suffixMatch[2].trim(),
+      }
+    }
+
+    const indexMatch = trimmed.match(/^idx\s*:\s*(\d+)$/i)
+    if (indexMatch) {
+      return Number.parseInt(indexMatch[1], 10)
+    }
+  }
+
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value
+  }
+
+  return fallback
+}
+
 const normalizeFieldMap = (fieldMap = {}, fallback = {}) => ({
-  supplierCode: Number.isInteger(Number(fieldMap.supplierCode)) ? Number(fieldMap.supplierCode) : fallback.supplierCode ?? 0,
-  category: Number.isInteger(Number(fieldMap.category)) ? Number(fieldMap.category) : fallback.category ?? 1,
-  grossWeight: Number.isInteger(Number(fieldMap.grossWeight)) ? Number(fieldMap.grossWeight) : fallback.grossWeight ?? 2,
-  stoneWeight: Number.isInteger(Number(fieldMap.stoneWeight)) ? Number(fieldMap.stoneWeight) : fallback.stoneWeight ?? 3,
-  netWeight: Number.isInteger(Number(fieldMap.netWeight)) ? Number(fieldMap.netWeight) : fallback.netWeight ?? 4,
+  supplierCode: normalizeFieldMapValue(fieldMap.supplierCode, fallback.supplierCode ?? 0),
+  category: normalizeFieldMapValue(fieldMap.category, fallback.category ?? 1),
+  grossWeight: normalizeFieldMapValue(fieldMap.grossWeight, fallback.grossWeight ?? 2),
+  stoneWeight: normalizeFieldMapValue(fieldMap.stoneWeight, fallback.stoneWeight ?? 3),
+  netWeight: normalizeFieldMapValue(fieldMap.netWeight, fallback.netWeight ?? 4),
 })
 
 const normalizeQrMapping = (input = {}, existing = {}, supplierName = '', supplierCode = '') => {
@@ -81,10 +139,10 @@ const normalizeQrMapping = (input = {}, existing = {}, supplierName = '', suppli
       strategy: 'delimiter',
       delimiter: '/',
       fieldMap: {
-        grossWeight: Number.isInteger(Number(input.fieldMap?.grossWeight)) ? Number(input.fieldMap.grossWeight) : (existing.fieldMap?.grossWeight ?? 0),
-        stoneWeight: Number.isInteger(Number(input.fieldMap?.stoneWeight)) ? Number(input.fieldMap.stoneWeight) : (existing.fieldMap?.stoneWeight ?? 1),
-        netWeight: Number.isInteger(Number(input.fieldMap?.netWeight)) ? Number(input.fieldMap.netWeight) : (existing.fieldMap?.netWeight ?? 6),
-        category: Number.isInteger(Number(input.fieldMap?.category)) ? Number(input.fieldMap.category) : (existing.fieldMap?.category ?? 7),
+        grossWeight: normalizeFieldMapValue(input.fieldMap?.grossWeight, existing.fieldMap?.grossWeight ?? 0),
+        stoneWeight: normalizeFieldMapValue(input.fieldMap?.stoneWeight, existing.fieldMap?.stoneWeight ?? 1),
+        netWeight: normalizeFieldMapValue(input.fieldMap?.netWeight, existing.fieldMap?.netWeight ?? 6),
+        category: normalizeFieldMapValue(input.fieldMap?.category, existing.fieldMap?.category ?? 7),
       },
     }
   }
@@ -360,3 +418,4 @@ export const parseSupplierQr = async (req, res) => {
     return sendError(res, 500, 'Failed to parse QR', 'SERVER_ERROR')
   }
 }
+

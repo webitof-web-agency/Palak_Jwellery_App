@@ -17,6 +17,9 @@ export default function UserRow({ user, onToggleStatus, onDelete }) {
           <div>
             <div className="text-primary font-bold">{user?.name || 'Unknown'}</div>
             <div className="text-[10px] text-muted font-bold">{user?.email || '-'}</div>
+            {user?.phone ? (
+              <div className="text-[10px] text-muted font-bold">{user.phone}</div>
+            ) : null}
           </div>
         </div>
       </td>

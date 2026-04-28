@@ -13,8 +13,8 @@ class SectionLabel extends StatelessWidget {
       text.toUpperCase(),
       style: TextStyle(
         fontSize: 11,
-        letterSpacing: 1.4,
-        fontWeight: FontWeight.w700,
+        letterSpacing: 1.2,
+        fontWeight: FontWeight.w600,
         color: AppColors.accent,
       ),
     );
@@ -115,7 +115,7 @@ Widget buildPickerField({
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: AppColors.textPrimary,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
           ),
         ),
       ),
@@ -183,7 +183,7 @@ Future<T?> showPickerSheet<T>({
                             style: TextStyle(
                               color: AppColors.textPrimary,
                               fontSize: 17,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -239,7 +239,8 @@ Future<T?> showPickerSheet<T>({
                                       customActionLabel,
                                       style: TextStyle(
                                         color: AppColors.accent,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 13,
                                       ),
                                     ),
                                   ),
@@ -276,7 +277,8 @@ Future<T?> showPickerSheet<T>({
                                         choice.label,
                                         style: TextStyle(
                                           color: AppColors.textPrimary,
-                                          fontWeight: FontWeight.w500,
+                                          fontWeight: FontWeight.w400,
+                                          fontSize: 14,
                                         ),
                                       ),
                                       if (choice.subtitle != null) ...[

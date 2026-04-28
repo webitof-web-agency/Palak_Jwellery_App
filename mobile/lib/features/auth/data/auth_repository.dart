@@ -49,14 +49,14 @@ class AuthRepository {
 
   final Dio _dio;
 
-  Future<AuthSession> login(String email, String password) async {
+  Future<AuthSession> login(String identifier, String password) async {
     try {
-      final response = await _postLogin(email, password);
+      final response = await _postLogin(identifier, password);
       return _sessionFromResponse(response);
     } on DioException catch (error) {
       if (_isTransientNetworkError(error)) {
         try {
-          final response = await _postLogin(email, password);
+          final response = await _postLogin(identifier, password);
           return _sessionFromResponse(response);
         } on DioException catch (retryError) {
           throw _mapDioError(retryError);
@@ -68,13 +68,13 @@ class AuthRepository {
   }
 
   Future<Response<Map<String, dynamic>>> _postLogin(
-    String email,
+    String identifier,
     String password,
   ) {
     return _dio.post<Map<String, dynamic>>(
       '/api/v1/auth/login',
       data: {
-        'email': email,
+        'email': identifier,
         'password': password,
       },
     );

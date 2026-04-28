@@ -1,9 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 enum AppThemePreset { roseLight, midnightRose }
 
 AppThemePreset activePreset = AppThemePreset.roseLight;
+
+class ThemePreferences {
+  const ThemePreferences._();
+
+  static const _themeKey = 'app_theme_preset';
+  static const _storage = FlutterSecureStorage();
+
+  static Future<AppThemePreset?> loadPreset() async {
+    final raw = await _storage.read(key: _themeKey);
+
+    switch (raw) {
+      case 'midnightRose':
+        return AppThemePreset.midnightRose;
+      case 'roseLight':
+        return AppThemePreset.roseLight;
+      default:
+        return null;
+    }
+  }
+
+  static Future<void> savePreset(AppThemePreset preset) {
+    return _storage.write(key: _themeKey, value: preset.name);
+  }
+}
 
 AppThemePreset toggleThemePreset(AppThemePreset preset) {
   return preset == AppThemePreset.midnightRose
@@ -15,9 +40,10 @@ class ThemeController extends Notifier<AppThemePreset> {
   @override
   AppThemePreset build() => activePreset;
 
-  void toggle() {
+  Future<void> toggle() async {
     state = toggleThemePreset(state);
     activePreset = state;
+    await ThemePreferences.savePreset(state);
   }
 }
 
