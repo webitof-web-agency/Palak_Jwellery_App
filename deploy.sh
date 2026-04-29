@@ -14,6 +14,6 @@ echo "📦 Installing dependencies..."
 npm install || exit 1
 
 echo "♻ Reloading PM2..."
-pm2 reload backend || exit 1
+pm2 reload jewellery_backend || exit 1
 
 echo "✅ Deploy successful"
