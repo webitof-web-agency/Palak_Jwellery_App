@@ -11,7 +11,7 @@ echo "🔄 Resetting to origin/main..."
 git reset --hard origin/main || exit 1
 
 echo "📦 Installing dependencies..."
-cd backend || exit 1
+cd /www/wwwroot/Palak_JewelleryBackend/backend || exit 1
 npm install || exit 1
 
 echo "♻ Reloading PM2..."
