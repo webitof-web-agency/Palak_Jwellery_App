@@ -1,0 +1,14 @@
+name: Deploy Backend
+
+on:
+  push:
+    paths:
+      - "backend/**"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        run: echo "Setup coming next"
