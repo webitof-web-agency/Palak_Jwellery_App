@@ -10,5 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        run: echo "Setup coming next"
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /www/wwwroot/Palak_JewelleryBackend
+            chmod +x deploy.sh
+            ./deploy.sh
