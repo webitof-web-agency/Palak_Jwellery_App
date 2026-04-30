@@ -612,7 +612,7 @@ export default function SupplierFormPage() {
                     ? 'e.g. ^JFC\\d+'
                     : form.detectionType === 'prefix'
                       ? 'e.g. USV'
-                      : 'e.g. SWNK'
+                    : 'e.g. SWMS'
                 }
                 aria-label="Supplier name, code, or pattern"
               />
@@ -818,7 +818,7 @@ export default function SupplierFormPage() {
                             ? 'e.g. ^JFC\\d+'
                             : form.detectionType === 'prefix'
                               ? 'e.g. USV'
-                              : 'e.g. SWNK'
+                            : 'e.g. SWMS'
                         }
                         aria-label="Supplier name, code, or pattern"
                       />

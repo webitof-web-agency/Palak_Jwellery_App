@@ -11,8 +11,8 @@ const defaultSuppliers = [
     categories: [],
     isActive: true,
     detectionPattern: {
-      type: 'contains',
-      pattern: 'SWNK',
+      type: 'regex',
+      pattern: 'SWMS|SWNK',
     },
     qrMapping: {
       strategy: 'delimiter',
