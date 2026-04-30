@@ -69,7 +69,7 @@ export default function ThemeToggleButton({
           ? "Switch to light mode"
           : "Switch to dark mode")
       }
-      className={`${positionClass} ${sizeClass} items-center justify-center rounded-full border panel-border surface-panel text-heading shadow-none lg:shadow-lg lg:shadow-black/20 backdrop-blur-sm ${className}`.trim()}
+      className={`${positionClass} ${sizeClass} items-center justify-center rounded-full border panel-border surface-panel text-heading shadow-none backdrop-blur-sm ${className}`.trim()}
     >
       <ThemeToggleIcon themeName={themeName} />
     </button>

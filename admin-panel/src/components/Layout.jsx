@@ -62,7 +62,7 @@ export const Layout = () => {
           <LogoBadge
             src={logoSrc}
             alt="Logo"
-            wrapperClassName="w-14 h-14 rounded-full border-gold-600/25 shadow-[0_0_0_1px_rgba(229,180,99,0.08)]"
+            wrapperClassName="w-14 h-14 rounded-full bg-[var(--jsm-panel-bg)] border border-gold-600/10 shadow-[0_0_0_1px_rgba(229,180,99,0.05)]"
             className="rounded-full"
           />
           <div className="flex flex-col">

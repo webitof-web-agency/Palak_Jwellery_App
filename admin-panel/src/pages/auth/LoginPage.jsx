@@ -12,6 +12,7 @@ import { APP_BRAND_NAME, loadTheme, toggleTheme } from "../../theme/theme";
 const LoginPage = () => {
   const navigate = useNavigate();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const clearAuth = useAuthStore((state) => state.clearAuth);
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -38,6 +39,15 @@ const LoginPage = () => {
 
     try {
       const session = await loginRequest(normalizedIdentifier, password);
+
+      if (session?.user?.role !== "admin") {
+        clearAuth();
+        setErrorMessage(
+          "Admin access only. Please use the mobile app for salesman login.",
+        );
+        return;
+      }
+
       setAuth(session);
       navigate("/dashboard", { replace: true });
     } catch (error) {
@@ -59,7 +69,7 @@ const LoginPage = () => {
       <ThemeToggleButton
         themeName={themeName}
         onClick={handleThemeToggle}
-        className="absolute right-4 top-4 z-20 backdrop-blur-sm"
+        className="absolute right-4 top-4 z-20 "
       />
 
       <BrandDoodleBackground />
@@ -72,8 +82,8 @@ const LoginPage = () => {
               Streamlined Sales <br />& Inventory Suite.
             </h1>
             <p className="text-muted max-w-sm text-base leading-relaxed mb-12">
-              The professional console for your jewellery business. Manage
-              suppliers, verify stock, and track sales performance in real-time.
+              A focused control room for your jewellery business. Review sales,
+              manage suppliers, and keep daily operations in view at a glance.
             </p>
 
             <ul className="feature-list" aria-label="System Highlights">
@@ -103,7 +113,7 @@ const LoginPage = () => {
                 Sign In
               </h2>
               <p className="text-muted text-xs mt-2">
-                Access your management dashboard below.
+                Admin access only. Salesman accounts stay on the mobile app.
               </p>
             </div>
             <LogoBadge
@@ -113,7 +123,7 @@ const LoginPage = () => {
                   : "/logo-dark.png"
               }
               alt="Brand Mark"
-              wrapperClassName="brand-mark border-0 border-gold-600/5 brand-mark--lg"
+              wrapperClassName="h-[4.5rem] w-[4.5rem] p-[1px] rounded-full bg-[var(--jsm-panel-bg)] border border-gold-600/30 shadow-[0_0_0_1px_rgba(229,180,99,0.12),0_10px_24px_rgba(229,180,99,0.10)]"
             />
           </div>
 

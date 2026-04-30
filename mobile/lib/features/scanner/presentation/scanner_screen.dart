@@ -90,6 +90,10 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
   Future<void> _startController() async {
     if (!mounted) return;
+    if (_controller.value.isRunning || _controller.value.isStarting) {
+      return;
+    }
+
     final delays = <Duration>[
       const Duration(milliseconds: 120),
       const Duration(milliseconds: 220),
@@ -126,6 +130,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 
   void _createController() {
     _controller = MobileScannerController(
+      autoStart: false,
       detectionSpeed: DetectionSpeed.noDuplicates,
       facing: CameraFacing.back,
       formats: const [BarcodeFormat.qrCode],

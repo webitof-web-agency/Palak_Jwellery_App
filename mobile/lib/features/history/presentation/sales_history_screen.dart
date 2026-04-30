@@ -443,99 +443,127 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
         title: const Text('Your Entries'),
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              _buildFilterPanel(context),
-              const SizedBox(height: 16),
-              Expanded(
-                child: salesAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(
-                    child: Text(
-                      'Could not load entries.\n$error',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
+                sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: _buildFilterPanel(context),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 16)),
+              ...salesAsync.when<List<Widget>>(
+                loading: () => const [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+                error: (error, _) => [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          'Could not load entries.\n$error',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                  data: (page) {
-                    return RefreshIndicator(
-                      onRefresh: _refresh,
-                      child: CustomScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          if (page.sales.isEmpty)
-                            const SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: Center(
-                                child: Text('No sales recorded yet.'),
-                              ),
-                            )
-                          else ...[
-                            SliverToBoxAdapter(child: _buildSummaryCard(page.total)),
-                            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                            SliverList(
-                              delegate: SliverChildBuilderDelegate(
-                                (context, index) {
-                                  final sale = page.sales[index];
-                                  return Padding(
-                                    padding: EdgeInsets.only(
-                                      bottom: index == page.sales.length - 1 ? 0 : 12,
-                                    ),
-                                    child: _buildSaleCard(sale),
-                                  );
-                                },
-                                childCount: page.sales.length,
-                              ),
-                            ),
-                            const SliverToBoxAdapter(child: SizedBox(height: 16)),
-                            SliverToBoxAdapter(
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _page > 1
-                                          ? () => setState(() => _page -= 1)
-                                          : null,
-                                      icon: const Icon(Icons.chevron_left_rounded),
-                                      label: const Text('Previous'),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                                    child: Text(
-                                      'Page ${page.page} / ${page.pages}',
-                                      style: TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: page.page < page.pages
-                                          ? () => setState(() => _page += 1)
-                                          : null,
-                                      icon: const Icon(Icons.chevron_right_rounded),
-                                      label: const Text('Next'),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    );
-                  },
+                ],
+                data: (page) => _buildEntriesSlivers(page),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildEntriesSlivers(RecentSalesPage page) {
+    if (page.sales.isEmpty) {
+      return const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text('No sales recorded yet.'),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        sliver: SliverToBoxAdapter(child: _buildSummaryCard(page.total)),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final sale = page.sales[index];
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == page.sales.length - 1 ? 0 : 12,
+                ),
+                child: _buildSaleCard(sale),
+              );
+            },
+            childCount: page.sales.length,
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+      SliverPadding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        sliver: SliverToBoxAdapter(
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _page > 1 ? () => setState(() => _page -= 1) : null,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  label: const Text('Previous'),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  'Page ${page.page} / ${page.pages}',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: page.page < page.pages ? () => setState(() => _page += 1) : null,
+                  icon: const Icon(Icons.chevron_right_rounded),
+                  label: const Text('Next'),
                 ),
               ),
             ],
           ),
         ),
       ),
-    );
+    ];
   }
 
   String _formatDate(DateTime date) {

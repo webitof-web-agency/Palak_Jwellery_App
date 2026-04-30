@@ -67,7 +67,7 @@ const lotusRing = (cx, cy, r, petals, rotation = 0, opacity = 0.62) => (
 
 const BrandDoodleBackground = () => {
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+    <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
       <div className="absolute -top-28 right-[-96px] h-[320px] w-[320px] rounded-full bg-gold-600/6 blur-[120px]" />
       <div className="absolute bottom-[-120px] left-[-96px] h-[260px] w-[260px] rounded-full bg-gold-500/6 blur-[120px]" />
 

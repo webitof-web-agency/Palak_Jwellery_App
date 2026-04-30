@@ -22,6 +22,18 @@ KT - 18K`,
     },
   },
   {
+    name: 'Yug - delimiter sample',
+    qr: '2075778/86711/18K/3.75/0/3.553/322/SWMS - 691HG/WC/Y+W/2J0Y0/0/0/WHITE/0.197/0/0/0/0/0/0',
+    expected: {
+      supplier: 'Yug',
+      itemCode: 'SWMS - 691HG',
+      grossWeight: 3.75,
+      stoneWeight: 0.197,
+      netWeight: 3.553,
+      category: null,
+    },
+  },
+  {
     name: 'Adinath - valid',
     qr: `4.01/0.36/////3.65/TM-155`,
     expected: {
@@ -286,18 +298,25 @@ const main = async () => {
         }]
       : []),
     ...(!hasYug
-      ? [ {
+      ? [{
           _id: 'virtual-yug',
           name: 'Yug',
           code: 'YUG',
           qrMapping: {
-            strategy: 'key_value',
+            strategy: 'delimiter',
+            delimiter: '/',
+            fieldMap: {
+              grossWeight: 3,
+              stoneWeight: { sumIndices: [4, 14] },
+              netWeight: 5,
+              category: 7,
+            },
           },
           detectionPattern: {
-            type: 'contains',
-            pattern: 'SWMS',
+            type: 'regex',
+            pattern: 'SWMS|SWNK',
           },
-        } ]
+        }]
       : []),
     ...(!hasAdinath
       ? [{

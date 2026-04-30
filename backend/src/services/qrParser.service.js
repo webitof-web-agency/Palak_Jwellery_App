@@ -169,6 +169,17 @@ const applyStripPrefix = (str, prefix) => {
 
 const YUG_LABELS = ['GW', 'SS', 'MS', 'OW', 'NW', 'KT']
 const YUG_LINE_PATTERN = new RegExp(`^\\s*(?:${YUG_LABELS.join('|')})\\b`, 'i')
+const YUG_ITEM_PATTERN = /\b(?:SWMS|SWNK)\s*-\s*[A-Z0-9]+\b/i
+const YUG_FALLBACK_MAPPING = {
+  strategy: 'delimiter',
+  delimiter: '/',
+  fieldMap: {
+    grossWeight: 3,
+    stoneWeight: { sumIndices: [4, 14] },
+    netWeight: 5,
+    category: 7,
+  },
+}
 const ADINATH_PATTERN = /\/\/\/\/\//
 const ADINATH_ITEM_CODE_PATTERN = /(?:TM|BG|LR)-\d+/i
 const VENZORA_PATTERN = /CH-[A-Z0-9]+/i
@@ -215,6 +226,13 @@ const isLikelyYugRaw = (raw) => {
   }, 0)
 
   return labelHits >= 2 && /(?:[:\-]|\s)\s*\d/.test(text)
+}
+
+const isLikelyYugDelimiterRaw = (raw) => {
+  const text = normalizeRaw(raw)
+  if (!text || !text.includes('/')) return false
+
+  return YUG_ITEM_PATTERN.test(text)
 }
 
 const isLikelyAdinathRaw = (raw) => {
@@ -785,6 +803,16 @@ export const detectSupplier = (rawQRString, suppliers = []) => {
   )
   if (utsavMatch) return { supplier: utsavMatch, matchType: 'contains' }
 
+  const yugMatch = suppliers.find((supplier) => {
+    if (!isLikelyYugDelimiterRaw(raw) && !isLikelyYugRaw(raw)) return false
+
+    const supplierName = toText(supplier?.name)?.toLowerCase()
+    const supplierCode = toText(supplier?.code)?.toLowerCase()
+
+    return supplierName === 'yug' || supplierCode === 'yug'
+  })
+  if (yugMatch) return { supplier: yugMatch, matchType: 'contains' }
+
   const adinathMatch = suppliers.find((supplier) => {
     if (!isLikelyAdinathRaw(raw)) return false
 
@@ -811,29 +839,43 @@ export const detectSupplier = (rawQRString, suppliers = []) => {
 }
 
 export const parseQR = (rawQRString, supplierQRMappingConfig) => {
-  const strategy = isLikelyYugRaw(rawQRString)
+  const normalizedRaw = normalizeRaw(rawQRString)
+  const likelyYugDelimiter = isLikelyYugDelimiterRaw(normalizedRaw)
+  const strategy = isLikelyYugRaw(normalizedRaw)
     ? 'key_value'
-    : isLikelyVenzoraRaw(rawQRString)
+    : isLikelyVenzoraRaw(normalizedRaw)
       ? 'venzora'
+    : likelyYugDelimiter
+      ? 'delimiter'
     : normalizeStrategy(supplierQRMappingConfig?.strategy)
 
   try {
     if (strategy === 'key_value') {
-      return parseKeyValueStrategy(normalizeRaw(rawQRString))
+      return parseKeyValueStrategy(normalizedRaw)
     }
 
     if (strategy === 'venzora') {
-      return parseVenzoraStrategy(normalizeRaw(rawQRString)).data
+      return parseVenzoraStrategy(normalizedRaw).data
     }
 
-    return parseDelimiterStrategy(normalizeRaw(rawQRString), supplierQRMappingConfig)
+    const mapping = likelyYugDelimiter ? YUG_FALLBACK_MAPPING : supplierQRMappingConfig
+    const result = parseDelimiterStrategy(normalizedRaw, mapping)
+
+    if (likelyYugDelimiter && result?.fields?.category?.parsed && !result?.fields?.meta?.itemCode?.parsed) {
+      result.fields.meta.itemCode = {
+        value: result.fields.category.value,
+        parsed: true,
+      }
+    }
+
+    return result
   } catch (error) {
     return createResult({
       success: false,
       strategy,
       fields: createEmptyFields(),
       errors: [{ field: 'parser', reason: error?.message || 'Failed to parse QR' }],
-      raw: normalizeRaw(rawQRString),
+      raw: normalizedRaw,
     })
   }
 }

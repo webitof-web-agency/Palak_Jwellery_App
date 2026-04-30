@@ -6,12 +6,12 @@ export default function LogoBadge({
 }) {
   return (
     <div
-      className={`overflow-hidden border panel-border surface-panel rounded-full ${wrapperClassName}`.trim()}
+      className={`inline-flex aspect-square flex-none items-center justify-center overflow-hidden rounded-full ${wrapperClassName}`.trim()}
     >
       <img
         src={src}
         alt={alt}
-        className={`h-full w-full object-cover rounded-full ${className}`.trim()}
+        className={`block h-full w-full object-cover rounded-full ${className}`.trim()}
       />
     </div>
   )

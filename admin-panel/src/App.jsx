@@ -16,26 +16,54 @@ const UsersPage = lazy(() => import('./pages/users/UsersPage'))
 
 const HomeRedirect = () => {
   const token = useAuthStore((state) => state.token)
+  const user = useAuthStore((state) => state.user)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+
+  if (token && user?.role !== 'admin') {
+    clearAuth()
+    return <Navigate to="/login" replace />
+  }
+
   return <Navigate to={token ? '/dashboard' : '/login'} replace />
 }
 
 const PublicRoute = ({ children }) => {
   const token = useAuthStore((state) => state.token)
+  const user = useAuthStore((state) => state.user)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+
+  if (token && user?.role !== 'admin') {
+    clearAuth()
+    return <Navigate to="/login" replace />
+  }
+
   if (token) return <Navigate to="/dashboard" replace />
   return children
 }
 
 const ProtectedRoute = ({ children }) => {
   const token = useAuthStore((state) => state.token)
+  const user = useAuthStore((state) => state.user)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+
   if (!token) return <Navigate to="/login" replace />
+  if (user?.role !== 'admin') {
+    clearAuth()
+    return <Navigate to="/login" replace />
+  }
   return children
 }
 
 const AdminRoute = ({ children }) => {
   const user = useAuthStore((state) => state.user)
   const token = useAuthStore((state) => state.token)
+  const clearAuth = useAuthStore((state) => state.clearAuth)
+
   if (!token) return <Navigate to="/login" replace />
-  if (user?.role !== 'admin') return <Navigate to="/dashboard" replace />
+  if (user?.role !== 'admin') {
+    clearAuth()
+    return <Navigate to="/login" replace />
+  }
   return children
 }
 

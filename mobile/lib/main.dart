@@ -224,16 +224,17 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(themeControllerProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
+    const todayQuery = SalesHistoryQuery(
+      page: 1,
+      searchTerm: '',
+      searchScope: 'all',
+      sortBy: 'saleDate',
+      sortOrder: 'desc',
+      duplicatesOnly: false,
+    );
     final recentSalesAsync = ref.watch(
       recentSalesPageProvider(
-        const SalesHistoryQuery(
-          page: 1,
-          searchTerm: '',
-          searchScope: 'all',
-          sortBy: 'saleDate',
-          sortOrder: 'desc',
-          duplicatesOnly: false,
-        ),
+        todayQuery,
       ),
     );
 
@@ -253,179 +254,186 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppColors.warningSoft, AppColors.surface],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const AppLogo(size: 60),
-                    SizedBox(height: 16),
-                    Text(
-                      AppBrand.mobileDashboardTitle,
-                      style: TextStyle(
-                        color: AppColors.accent,
-                        letterSpacing: 1.2,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
+        child: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(recentSalesPageProvider(todayQuery));
+            await ref.read(recentSalesPageProvider(todayQuery).future);
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [AppColors.warningSoft, AppColors.surface],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Welcome, $user',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    SizedBox(height: 6),
-                    Text(
-                      'Start a QR scan or enter a sale manually.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: () => context.push('/scanner'),
-                  icon: Icon(Icons.qr_code_scanner_rounded),
-                  label: Text('Scan QR'),
-                ),
-              ),
-              SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: OutlinedButton.icon(
-                  onPressed: () => context.push(
-                    '/sale-entry',
-                    extra: ParseQrResult.empty(''),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
                   ),
-                  icon: Icon(Icons.edit_note_rounded),
-                  label: Text('Enter Manually'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textPrimary,
-                    side: BorderSide(color: AppColors.border),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 24),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceAlt,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Text(
-                  'Track today’s sales and start a new entry from here.',
-                  style: TextStyle(color: AppColors.textSecondary, height: 1.5),
-                ),
-              ),
-              SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: recentSalesAsync.when(
-                  loading: () => Row(
-                    children: [
-                      SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Loading entries...',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                  error: (error, stackTrace) => Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const AppLogo(size: 60),
+                      SizedBox(height: 16),
                       Text(
-                        "Today's Entries",
+                        AppBrand.mobileDashboardTitle,
                         style: TextStyle(
                           color: AppColors.accent,
+                          letterSpacing: 1.2,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      SizedBox(height: 8),
                       Text(
-                        'Could not load entry count right now.',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                  data: (page) => Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Today's Entries",
+                        'Welcome, $user',
                         style: TextStyle(
-                          color: AppColors.accent,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.2,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${page.total}',
-                        style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 24,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      SizedBox(height: 6),
                       Text(
-                        'See how many sales have been recorded today.',
+                        'Start a QR scan or enter a sale manually.',
                         style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => context.push('/sales-history'),
-                          icon: const Icon(Icons.receipt_long_rounded),
-                          label: const Text('View entries'),
-                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            ],
+                SizedBox(height: 24),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.push('/scanner'),
+                    icon: Icon(Icons.qr_code_scanner_rounded),
+                    label: Text('Scan QR'),
+                  ),
+                ),
+                SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push(
+                      '/sale-entry',
+                      extra: ParseQrResult.empty(''),
+                    ),
+                    icon: Icon(Icons.edit_note_rounded),
+                    label: Text('Enter Manually'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      side: BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceAlt,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Text(
+                    'Track today’s sales and start a new entry from here.',
+                    style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                  ),
+                ),
+                SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: recentSalesAsync.when(
+                    loading: () => Row(
+                      children: [
+                        SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Loading entries...',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                    error: (error, stackTrace) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Today's Entries",
+                          style: TextStyle(
+                            color: AppColors.accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Could not load entry count right now.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                    data: (page) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Today's Entries",
+                          style: TextStyle(
+                            color: AppColors.accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${page.total}',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'See how many sales have been recorded today.',
+                          style: TextStyle(color: AppColors.textSecondary),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () => context.push('/sales-history'),
+                            icon: const Icon(Icons.receipt_long_rounded),
+                            label: const Text('View entries'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
