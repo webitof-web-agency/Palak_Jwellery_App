@@ -19,6 +19,7 @@ const initialFormData = {
 export default function UsersPage() {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [error, setError] = useState(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
@@ -50,8 +51,11 @@ export default function UsersPage() {
       setError('Failed to fetch user directory')
     } finally {
       setLoading(false)
+      setHasLoadedOnce(true)
     }
   }
+
+  const showInitialLoading = loading && !hasLoadedOnce
 
   const handleToggleStatus = async (id) => {
     try {
@@ -159,7 +163,7 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {loading ? (
+        {showInitialLoading ? (
           <div className="px-8 py-8">
             <TableSkeleton columns={5} rows={5} />
           </div>

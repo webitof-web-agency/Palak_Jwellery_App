@@ -5,6 +5,7 @@ import LoginPage from './pages/auth/LoginPage'
 import { Layout } from './components/Layout'
 import FullScreenLoader from './components/ui/FullScreenLoader'
 import BackendFallbackPage from './components/system/BackendFallbackPage'
+import NotFoundPage from './components/system/NotFoundPage'
 import { useBackendBootStatus } from './hooks/useBackendBootStatus'
 import './index.css'
 
@@ -13,6 +14,18 @@ const SupplierFormPage = lazy(() => import('./pages/suppliers/SupplierFormPage')
 const SalesPage = lazy(() => import('./pages/sales/SalesPage'))
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'))
 const UsersPage = lazy(() => import('./pages/users/UsersPage'))
+const ExceptionsPage = lazy(
+  () => import('./pages/settlement-workflow/ExceptionsPage'),
+)
+const ExceptionDetailPage = lazy(
+  () => import('./pages/settlement-workflow/ExceptionDetailPage'),
+)
+const SettlementReportsPage = lazy(
+  () => import('./pages/settlement-workflow/SettlementReportsPage'),
+)
+const BusinessSettingsPage = lazy(
+  () => import('./pages/business/BusinessSettingsPage'),
+)
 
 const HomeRedirect = () => {
   const token = useAuthStore((state) => state.token)
@@ -100,11 +113,68 @@ function App() {
             <Route path="/suppliers" element={<SuppliersPage />} />
             <Route path="/suppliers/form" element={<SupplierFormPage />} />
             <Route path="/sales" element={<SalesPage />} />
+            <Route path="/settlement-reports" element={<SettlementReportsPage />} />
+            <Route
+              path="/business-settings"
+              element={
+                <AdminRoute>
+                  <BusinessSettingsPage />
+                </AdminRoute>
+              }
+            />
             <Route path="/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
+            <Route
+              path="/legacy-settlement-workflow"
+              element={
+                <AdminRoute>
+                  <Navigate to="/exceptions" replace />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/legacy-settlement-workflow/review"
+              element={
+                <AdminRoute>
+                  <Navigate to="/exceptions" replace />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/exceptions"
+              element={
+                <AdminRoute>
+                  <ExceptionsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/exceptions/:id"
+              element={
+                <AdminRoute>
+                  <ExceptionDetailPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/legacy-settlement-workflow/ingestions/:id"
+              element={
+                <AdminRoute>
+                  <ExceptionDetailPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/legacy-settlement-workflow/reports"
+              element={
+                <AdminRoute>
+                  <Navigate to="/settlement-reports" replace />
+                </AdminRoute>
+              }
+            />
           </Route>
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

@@ -67,10 +67,10 @@
     --jsm-panel-bg-faint: rgba(255, 255, 255, 0.7);
     --jsm-panel-border: rgba(92, 70, 56, 0.14);
     --jsm-panel-border-strong: rgba(92, 70, 56, 0.2);
-    --jsm-text: #261c18;
-    --jsm-text-soft: rgba(38, 28, 24, 0.84);
-    --jsm-text-muted: rgba(38, 28, 24, 0.64);
-    --jsm-text-faint: rgba(38, 28, 24, 0.44);
+    --jsm-text: #4f4039;
+    --jsm-text-soft: rgba(79, 64, 57, 0.86);
+    --jsm-text-muted: rgba(79, 64, 57, 0.66);
+    --jsm-text-faint: rgba(79, 64, 57, 0.46);
     --jsm-heading: #b95c58;
     --jsm-on-accent: #fffaf5;
     --jsm-border: var(--jsm-panel-border);
@@ -613,6 +613,53 @@
     color: var(--jsm-text);
   }
 
+  .skeleton-line {
+    position: relative;
+    overflow: hidden;
+    min-height: 0.95rem;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--jsm-gold-500) 10%, transparent);
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--jsm-surface-strong) 78%, var(--jsm-gold-500) 8%),
+      color-mix(in srgb, var(--jsm-surface) 66%, var(--jsm-gold-500) 6%),
+      color-mix(in srgb, var(--jsm-surface-strong) 78%, var(--jsm-gold-500) 8%)
+    );
+    background-size: 220% 100%;
+    animation: shimmer 1.35s linear infinite;
+  }
+
+  .skeleton-line::after,
+  .state-skeleton::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      color-mix(in srgb, var(--jsm-on-accent) 18%, transparent) 50%,
+      transparent 100%
+    );
+    transform: translateX(-100%);
+    animation: shimmer-sheen 1.35s linear infinite;
+    pointer-events: none;
+  }
+
+  .state-skeleton {
+    position: relative;
+    overflow: hidden;
+    min-height: 15rem;
+    border-radius: 1.25rem;
+    border: 1px solid var(--jsm-border);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--jsm-panel-bg-soft) 82%, var(--jsm-gold-500) 10%),
+      color-mix(in srgb, var(--jsm-panel-bg-faint) 82%, var(--jsm-gold-500) 8%)
+    );
+    background-size: 220% 100%;
+    animation: shimmer 1.35s linear infinite;
+  }
+
   .gold-gradient-text {
     color: var(--jsm-heading) !important;
     -webkit-text-fill-color: var(--jsm-heading) !important;
@@ -624,12 +671,12 @@
   }
 
   .luxury-button {
-    @apply px-6 py-2.5 rounded-xl font-bold transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
-    color: var(--jsm-on-accent);
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+    color: var(--jsm-text);
   }
 
   .primary-luxury-button {
-    @apply px-6 py-2.5 rounded-xl font-bold transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-gold-600 shadow-lg shadow-gold-600/20 hover:bg-gold-500 hover:shadow-gold-600/30;
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-gold-600 shadow-lg shadow-gold-600/20 hover:bg-gold-500 hover:shadow-gold-600/30;
     color: var(--jsm-on-accent);
   }
 
@@ -675,6 +722,26 @@
 
   .input--textarea {
     @apply min-h-[100px] resize-none;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
+  }
+
+  @keyframes shimmer-sheen {
+    0% {
+      transform: translateX(-100%);
+    }
+
+    100% {
+      transform: translateX(100%);
+    }
   }
 
   .eyebrow {

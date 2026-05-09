@@ -9,7 +9,7 @@ const LoadingRows = () => (
       <tr key={rowIndex}>
         {[...Array(7)].map((__, cellIndex) => (
           <td key={cellIndex} className="px-5 py-4">
-            <div className="h-4 rounded bg-white/10 animate-pulse" />
+            <div className="skeleton-line h-4" />
           </td>
         ))}
       </tr>

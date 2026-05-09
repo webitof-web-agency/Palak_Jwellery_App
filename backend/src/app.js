@@ -7,6 +7,7 @@ import authRoutes from './routes/auth.routes.js'
 import suppliersRoutes from './routes/suppliers.routes.js'
 import salesRoutes from './routes/sales.routes.js'
 import reportsRoutes from './routes/reports.routes.js'
+import businessRoutes from './routes/business.routes.js'
 import userRoutes from './routes/users.routes.js'
 import qrRoutes from './routes/qr.routes.js'
 import systemRoutes from './routes/system.routes.js'
@@ -52,6 +53,7 @@ app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/suppliers', suppliersRoutes)
 app.use('/api/v1/sales', salesRoutes)
 app.use('/api/v1/reports', reportsRoutes)
+app.use('/api/v1/business', businessRoutes)
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/qr', qrRoutes)
 

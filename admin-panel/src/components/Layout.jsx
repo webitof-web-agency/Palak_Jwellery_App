@@ -21,6 +21,7 @@ export const Layout = () => {
   const navLinks = [
     { name: "Dashboard", path: "/dashboard" },
     { name: "Sales", path: "/sales" },
+    { name: "Settlement Reports", path: "/settlement-reports" },
     { name: "Suppliers", path: "/suppliers" },
     ...(user?.role === "admin"
       ? [
@@ -28,6 +29,19 @@ export const Layout = () => {
         ]
       : []),
   ];
+
+  const internalNavLinks = [
+    { name: "Exceptions", path: "/exceptions" },
+    ...(user?.role === "admin"
+      ? [{ name: "Business Settings", path: "/business-settings" }]
+      : []),
+  ];
+
+  const navBaseClass =
+    "px-5 py-4 rounded-2xl transition-all duration-300 flex items-center gap-4 group outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/20 focus-visible:ring-offset-0";
+  const navActiveClass =
+    "bg-gradient-to-r from-gold-600/12 to-transparent border border-gold-600/25 text-gold-500 font-bold shadow-[inset_0_0_0_1px_rgba(229,180,99,0.12)]";
+  const navIdleClass = "text-muted hover:text-primary hover:bg-white/5";
 
   const handleLogout = () => {
     setShowLogoutConfirm(false);
@@ -86,11 +100,27 @@ export const Layout = () => {
                 key={link.path}
                 to={link.path}
                 onClick={() => setSidebarOpen(false)}
-                className={`px-5 py-4 rounded-2xl transition-all duration-300 flex items-center gap-4 group ${
-                  isActive
-                    ? "bg-gradient-to-r from-gold-600/10 to-transparent border border-gold-600/20 text-gold-500 font-bold ring-1 ring-gold-600/5"
-                    : "text-muted hover:text-primary hover:bg-white/5"
-                }`}
+                className={`${navBaseClass} ${isActive ? navActiveClass : navIdleClass}`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${isActive ? "bg-gold-500 shadow-[0_0_8px_rgba(229,180,99,0.5)]" : "bg-transparent group-hover:bg-white/20"}`}
+                />
+                {link.name}
+              </Link>
+            );
+          })}
+
+          <div className="mt-6 text-[10px] uppercase tracking-widest text-faint font-bold mb-1 ml-2">
+            Internal Tools
+          </div>
+          {internalNavLinks.map((link) => {
+            const isActive = location.pathname.startsWith(link.path);
+            return (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setSidebarOpen(false)}
+                className={`${navBaseClass} ${isActive ? navActiveClass : navIdleClass}`}
               >
                 <span
                   className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${isActive ? "bg-gold-500 shadow-[0_0_8px_rgba(229,180,99,0.5)]" : "bg-transparent group-hover:bg-white/20"}`}

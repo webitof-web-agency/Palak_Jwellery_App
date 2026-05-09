@@ -6,6 +6,7 @@ import '../../../../shared/theme/app_theme.dart';
 import '../../data/sale_repository.dart';
 import '../sale_entry_provider.dart';
 import 'sale_entry_banners.dart';
+import 'pending_sales_banner.dart';
 import 'sale_entry_debug_panel.dart';
 import 'sale_entry_footer.dart';
 import 'sale_entry_form_widgets.dart';
@@ -22,6 +23,7 @@ class SaleEntryFormBody extends ConsumerWidget {
     required this.supplierId,
     required this.supplierName,
     required this.selectedCategories,
+    required this.availableMetals,
     required this.categoryController,
     required this.itemCodeController,
     required this.metalTypeController,
@@ -58,6 +60,7 @@ class SaleEntryFormBody extends ConsumerWidget {
   final String? supplierId;
   final String? supplierName;
   final List<String> selectedCategories;
+  final List<String> availableMetals;
   final TextEditingController categoryController;
   final TextEditingController itemCodeController;
   final TextEditingController metalTypeController;
@@ -136,6 +139,7 @@ class SaleEntryFormBody extends ConsumerWidget {
                     retryCount: submitState.retryCount,
                     onRetry: () => onRetry(),
                   ),
+                const PendingSalesBanner(compact: true),
                 ParseStatusChip(parseResult: parseResult),
                 const SizedBox(height: 20),
                 const SectionLabel('Supplier'),
@@ -216,6 +220,7 @@ class SaleEntryFormBody extends ConsumerWidget {
                     child: MetalSelector(
                       controller: metalTypeController,
                       useCustomMetal: useCustomMetal,
+                      metals: availableMetals,
                       onUseCustomChanged: onUseCustomMetalChanged,
                       onChanged: onFieldChanged,
                     ),

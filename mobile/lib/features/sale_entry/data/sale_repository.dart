@@ -1,4 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../auth/presentation/auth_notifier.dart';
 
 // ─── Domain models ────────────────────────────────────────────────────────────
 
@@ -29,6 +32,47 @@ class SupplierModel {
   }
 }
 
+class BusinessOverview {
+  const BusinessOverview({
+    required this.categories,
+    required this.metalTypes,
+    required this.settings,
+  });
+
+  final List<String> categories;
+  final List<String> metalTypes;
+  final Map<String, dynamic> settings;
+
+  static List<String> _extractLabels(dynamic value) {
+    if (value is! List) {
+      return const [];
+    }
+
+    return value
+        .map((item) {
+          if (item is Map<String, dynamic>) {
+            final label = item['name'] ?? item['label'] ?? item['code'] ?? item['key'];
+            final text = label?.toString().trim() ?? '';
+            return text.isEmpty ? null : text;
+          }
+          final text = item?.toString().trim() ?? '';
+          return text.isEmpty ? null : text;
+        })
+        .whereType<String>()
+        .toList(growable: false);
+  }
+
+  factory BusinessOverview.fromJson(Map<String, dynamic> json) {
+    return BusinessOverview(
+      categories: _extractLabels(json['categories']),
+      metalTypes: _extractLabels(json['metalTypes']),
+      settings: json['settings'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['settings'] as Map)
+          : <String, dynamic>{},
+    );
+  }
+}
+
 /// Parsed field value with success flag
 class ParsedField<T> {
   const ParsedField({required this.value, required this.parsed});
@@ -46,6 +90,10 @@ class ParseError {
 Map<String, dynamic>? _asMap(dynamic value) {
   return value is Map<String, dynamic> ? value : null;
 }
+
+final saleRepositoryProvider = Provider<SaleRepository>(
+  (ref) => SaleRepository(ref.watch(dioClientProvider)),
+);
 
 dynamic _readPathValue(Map<String, dynamic>? root, List<String> path) {
   dynamic current = root;
@@ -341,6 +389,25 @@ class SaleRepository {
   static const _suppliersPath = '/api/v1/suppliers';
   static const _parseQrPath = '/api/v1/suppliers/parse-qr';
   static const _salesPath = '/api/v1/sales';
+  static const _businessOverviewPath = '/api/v1/business/overview';
+
+  Future<BusinessOverview> getBusinessOverview() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(_businessOverviewPath);
+      final body = response.data;
+      if (body == null) {
+        return const BusinessOverview(categories: [], metalTypes: [], settings: {});
+      }
+
+      final data = body['data'];
+      if (data is Map<String, dynamic>) {
+        return BusinessOverview.fromJson(data);
+      }
+      return BusinessOverview.fromJson(body);
+    } catch (_) {
+      return const BusinessOverview(categories: [], metalTypes: [], settings: {});
+    }
+  }
 
   /// Load all active suppliers for the manual dropdown
   Future<List<SupplierModel>> getSuppliers() async {

@@ -1,4 +1,5 @@
 import React from 'react'
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import { formatMappingValue, statusText } from '../suppliersPage.utils'
 
 const mappingTitle = (key) => {
@@ -96,12 +97,19 @@ export default function SupplierCard({
         </button>
         <button
           type="button"
-          className="px-4 py-2 text-xs font-bold text-red-500 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
+          className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold text-red-500 hover:text-red-300 hover:bg-red-500/10 rounded-xl transition-all"
           onClick={() => onDelete(supplier)}
           disabled={deletingId === supplier._id}
           aria-label={`Delete supplier ${supplier.name}`}
         >
-          {deletingId === supplier._id ? '...' : 'Delete'}
+          {deletingId === supplier._id ? (
+            <>
+              <LoadingSpinner />
+              Deleting...
+            </>
+          ) : (
+            'Delete'
+          )}
         </button>
       </div>
     </article>

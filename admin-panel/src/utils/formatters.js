@@ -1,3 +1,9 @@
+import {
+  formatConfidence as formatConfidencePrecision,
+  formatPercentage as formatPercentagePrecision,
+  formatWeight as formatWeightPrecision,
+} from './precision'
+
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
   currency: 'INR',
@@ -25,7 +31,11 @@ export const formatCurrency = (value) => currencyFormatter.format(toNumber(value
 
 export const formatNumber = (value) => numberFormatter.format(toNumber(value))
 
-export const formatWeight = (value) => `${formatNumber(value)} g`
+export const formatWeight = (value) => `${formatWeightPrecision(value)} g`
+
+export const formatPercentage = (value) => `${formatPercentagePrecision(value)}%`
+
+export const formatConfidence = (value) => formatConfidencePrecision(value)
 
 export const formatDateTime = (value) => {
   const date = value instanceof Date ? value : new Date(value)
@@ -39,4 +49,3 @@ export const formatDateTime = (value) => {
 
   return `${getPart('day')} ${getPart('month')} ${getPart('year')}, ${getPart('hour')}:${getPart('minute')} ${dayPeriod}`
 }
-

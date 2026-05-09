@@ -1,3 +1,4 @@
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import { createPortal } from "react-dom";
 import PasswordField from "../../../components/ui/PasswordField"
 
@@ -94,7 +95,14 @@ export default function AddUserModal({
               className="flex-[2] primary-luxury-button text-on-accent"
               aria-label="Create user"
             >
-              {isSaving ? 'Establishing Account...' : 'Generate user'}
+              {isSaving ? (
+                <>
+                  <LoadingSpinner />
+                  Establishing Account...
+                </>
+              ) : (
+                'Generate user'
+              )}
             </button>
           </div>
         </form>

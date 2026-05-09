@@ -1,0 +1,2 @@
+# Partial Zar sample with extra whitespace
+  JFC74342  

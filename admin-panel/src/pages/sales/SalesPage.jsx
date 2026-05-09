@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { salesApi } from '../../api/sales.api'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import PageHeader from '../../components/ui/PageHeader'
 import SectionCard from '../../components/ui/SectionCard'
+import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { formatNumber } from '../../utils/formatters'
 import SalesFilterBar from './components/SalesFilterBar'
 import SalesHeaderStats from './components/SalesHeaderStats'
@@ -14,6 +16,7 @@ export default function SalesPage() {
   const [pages, setPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [error, setError] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [refreshToken, setRefreshToken] = useState(0)
@@ -27,7 +30,8 @@ export default function SalesPage() {
   })
 
   const limit = 10
-  const [sortBy, sortOrder] = filters.sort.split(':')
+  const debouncedFilters = useDebouncedValue(filters, 250)
+  const [sortBy, sortOrder] = debouncedFilters.sort.split(':')
 
   useEffect(() => {
     let active = true
@@ -37,15 +41,15 @@ export default function SalesPage() {
       setError('')
 
       try {
-          const response = await salesApi.listSales({
-            page,
-            limit,
-            q: filters.q.trim(),
-            searchScope: filters.searchScope,
-            duplicatesOnly: filters.duplicatesOnly,
-            startDate: filters.startDate,
-            endDate: filters.endDate,
-            sortBy,
+        const response = await salesApi.listSales({
+          page,
+          limit,
+          q: debouncedFilters.q.trim(),
+          searchScope: debouncedFilters.searchScope,
+          duplicatesOnly: debouncedFilters.duplicatesOnly,
+          startDate: debouncedFilters.startDate,
+          endDate: debouncedFilters.endDate,
+          sortBy,
           sortOrder,
         })
 
@@ -63,7 +67,10 @@ export default function SalesPage() {
         setTotal(0)
         setPages(1)
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setHasLoadedOnce(true)
+        }
       }
     }
 
@@ -72,7 +79,9 @@ export default function SalesPage() {
     return () => {
       active = false
     }
-  }, [filters, page, refreshToken, sortBy, sortOrder])
+  }, [debouncedFilters, page, refreshToken, sortBy, sortOrder])
+
+  const showInitialLoading = loading && !hasLoadedOnce
 
   const activeFilterCount = useMemo(
     () =>
@@ -126,9 +135,9 @@ export default function SalesPage() {
   return (
     <div className="page-shell space-y-8">
       <PageHeader
-        eyebrow="Operations Log"
+        eyebrow="Operational Ledger"
         title="Sales"
-        description="Search sales by supplier, salesman, entry details, date, and sort order."
+        description="Search the operational ledger by supplier, salesman, entry details, date, and sort order."
         actions={
           <SalesHeaderStats
             total={total}
@@ -149,22 +158,30 @@ export default function SalesPage() {
       </SectionCard>
 
       {error && (
-        <div className="surface-card border-red-500/20 bg-red-500/10 text-red-200 flex items-center justify-between gap-4">
-          <span>{error}</span>
+        <div className="surface-card border-red-500/20 bg-red-500/10 text-primary flex items-center justify-between gap-4">
+          <span className="font-medium">{error}</span>
           <button
             type="button"
             onClick={retry}
-            className={buttonStyles.primary + ' bg-red-500 hover:bg-red-400 shadow-none'}
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border border-red-500/20 bg-red-500/90 text-white shadow-lg shadow-red-500/20 hover:bg-red-400"
             aria-label="Retry loading sales"
+            disabled={loading}
           >
-            Retry
+            {loading ? (
+              <>
+                <LoadingSpinner />
+                Retrying...
+              </>
+            ) : (
+              'Retry'
+            )}
           </button>
         </div>
       )}
 
       <SalesRecordsTable
         sales={sales}
-        loading={loading}
+        loading={showInitialLoading}
         page={page}
         pages={pages}
         total={total}

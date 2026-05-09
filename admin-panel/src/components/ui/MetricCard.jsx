@@ -61,8 +61,8 @@ export default function MetricCard({ title, value, loading }) {
       </div>
       {loading ? (
         <div className="mt-4 space-y-3">
-          <div className="h-9 w-3/5 rounded-lg bg-white/10 animate-pulse" />
-          <div className="h-4 w-1/3 rounded-lg bg-white/5 animate-pulse" />
+          <div className="skeleton-line h-9 w-3/5" />
+          <div className="skeleton-line h-4 w-1/3" />
         </div>
       ) : (
         <div className="mt-4 text-3xl font-bold text-heading tracking-tight font-display break-words">

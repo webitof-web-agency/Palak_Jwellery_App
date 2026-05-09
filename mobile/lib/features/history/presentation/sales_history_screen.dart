@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'sales_history_provider.dart';
 import '../../sale_entry/data/sale_repository.dart';
+import '../../sale_entry/presentation/widgets/pending_sales_banner.dart';
 import '../../../shared/theme/app_theme.dart';
 
 const _salesHistorySortOptions = <DropdownMenuItem<String>>[
@@ -456,6 +457,12 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
                 sliver: SliverToBoxAdapter(
                   child: _buildFilterPanel(context),
+                ),
+              ),
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
+                sliver: SliverToBoxAdapter(
+                  child: PendingSalesBanner(compact: true),
                 ),
               ),
               const SliverToBoxAdapter(child: SizedBox(height: 16)),

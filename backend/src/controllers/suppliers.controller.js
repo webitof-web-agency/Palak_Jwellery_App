@@ -1,6 +1,10 @@
 ﻿import mongoose from 'mongoose'
 import { Supplier } from '../models/Supplier.js'
-import { detectSupplier, normalizeParsedQR, parseQR } from '../services/qrParser.service.js'
+import { detectSupplier, parseQR } from '../services/qrParser.service.js'
+import { normalize } from '../services/qrNormalization.service.js'
+import { validate } from '../services/qrValidation.service.js'
+import { valuate } from '../services/qrValuation.service.js'
+import { loadSettlementSettings } from '../services/settlementSettings.service.js'
 
 const sendSuccess = (res, data, message) => {
   const payload = { success: true, data }
@@ -189,6 +193,80 @@ const normalizeDetectionPattern = (input = {}, existing = null) => {
   return { type, pattern }
 }
 
+const normalizePatternVariant = (input = {}, existing = null, index = 0) => {
+  if (input === null || input === undefined) {
+    return null
+  }
+
+  const source = input && typeof input === 'object' ? input : {}
+  const name = normalizeText(source.name ?? existing?.name ?? `variant_${index + 1}`)
+  const strategyRaw = normalizeText(source.strategy ?? source.parsingStrategy ?? existing?.strategy ?? 'delimiter').toLowerCase()
+  const strategy = strategyRaw === 'labeled' ? 'key_value' : strategyRaw
+  const detectionInput = source.detectionPattern !== undefined
+    ? source.detectionPattern
+    : (source.match !== undefined
+      ? source.match
+      : (source.matcher !== undefined
+        ? source.matcher
+        : (source.regex !== undefined
+          ? { type: 'regex', pattern: source.regex }
+          : (source.pattern !== undefined
+            ? { type: 'regex', pattern: source.pattern }
+            : null))))
+  const detectionPattern = normalizeDetectionPattern(detectionInput, existing?.detectionPattern || null)
+
+  if (!name) {
+    return { error: 'patternVariants[].name is required' }
+  }
+
+  if (!['delimiter', 'key_value', 'venzora'].includes(strategy)) {
+    return { error: 'patternVariants[].strategy is invalid' }
+  }
+
+  if (detectionPattern && detectionPattern.error) {
+    return { error: detectionPattern.error }
+  }
+
+  const priorityValue = source.priority ?? existing?.priority ?? (index + 100)
+  const priority = Number.isInteger(priorityValue) ? priorityValue : Number.parseInt(String(priorityValue), 10)
+
+  return {
+    name,
+    strategy,
+    delimiter: normalizeText(source.delimiter ?? existing?.delimiter ?? '|') || '|',
+    priority: Number.isInteger(priority) ? priority : index + 100,
+    detectionPattern,
+    fieldMap: source.fieldMap ?? existing?.fieldMap ?? {},
+    active: normalizeBoolean(source.active ?? source.isActive ?? existing?.active ?? true, true),
+  }
+}
+
+const normalizePatternVariants = (value, existing = []) => {
+  if (value === null) {
+    return null
+  }
+
+  const source = Array.isArray(value) ? value : []
+  return source
+    .map((item, index) => normalizePatternVariant(item, existing?.[index] || null, index))
+    .filter(Boolean)
+}
+
+const normalizeFallbackRules = (value, existing = null) => {
+  if (value === null) {
+    return null
+  }
+
+  const source = value && typeof value === 'object' ? value : {}
+  return {
+    allowPartial: normalizeBoolean(source.allowPartial ?? existing?.allowPartial ?? true, true),
+    minFieldsRequired: Array.isArray(source.minFieldsRequired)
+      ? source.minFieldsRequired.map((item) => normalizeText(item)).filter(Boolean)
+      : (Array.isArray(existing?.minFieldsRequired) ? existing.minFieldsRequired : ['design_code']),
+    defaultStatus: normalizeText(source.defaultStatus ?? existing?.defaultStatus ?? 'needs_review') || 'needs_review',
+  }
+}
+
 const buildSupplierPayload = (body, existingSupplier = null) => {
   const mergedQrMapping = normalizeQrMapping(
     body.qrMapping ?? {},
@@ -208,13 +286,33 @@ const buildSupplierPayload = (body, existingSupplier = null) => {
     return { error: mergedDetectionPattern.error }
   }
 
+  const mergedPatternVariants = body.qrMapping?.patternVariants !== undefined
+    ? normalizePatternVariants(body.qrMapping.patternVariants, existingSupplier?.qrMapping?.patternVariants || [])
+    : (existingSupplier?.qrMapping?.patternVariants || [])
+
+  if (mergedPatternVariants && mergedPatternVariants.some((variant) => variant?.error)) {
+    return { error: mergedPatternVariants.find((variant) => variant?.error)?.error || 'Invalid pattern variant' }
+  }
+
+  const mergedFallback = body.qrMapping?.fallback !== undefined
+    ? normalizeFallbackRules(body.qrMapping.fallback, existingSupplier?.qrMapping?.fallback || null)
+    : (existingSupplier?.qrMapping?.fallback || null)
+
   return {
     name: normalizeText(body.name ?? existingSupplier?.name),
     code: normalizeText(body.code ?? existingSupplier?.code),
     gst: normalizeText(body.gst ?? existingSupplier?.gst ?? ''),
     address: normalizeText(body.address ?? existingSupplier?.address ?? ''),
     paymentMode: normalizeText(body.paymentMode ?? existingSupplier?.paymentMode ?? 'other') || 'other',
-    qrMapping: mergedQrMapping,
+    qrMapping: {
+      ...mergedQrMapping,
+      patternVariants: mergedPatternVariants || [],
+      fallback: mergedFallback || {
+        allowPartial: true,
+        minFieldsRequired: ['design_code'],
+        defaultStatus: 'needs_review',
+      },
+    },
     detectionPattern: mergedDetectionPattern,
     categories: body.categories !== undefined
       ? normalizeCategories(body.categories)
@@ -375,6 +473,7 @@ export const deleteSupplier = async (req, res) => {
 
 export const parseSupplierQr = async (req, res) => {
   try {
+    const settlementSettings = await loadSettlementSettings()
     const raw = req.body.raw ?? req.body.rawQr ?? req.body.rawQR ?? req.body.qrRaw ?? req.body.qr ?? req.body.string
     const rawString = typeof raw === 'string' ? raw : ''
 
@@ -395,11 +494,16 @@ export const parseSupplierQr = async (req, res) => {
       }
 
       const parseResult = parseQR(rawString, supplier.qrMapping)
-      const normalizedResult = normalizeParsedQR(parseResult, supplier)
+      const normalizedResult = normalize(parseResult, supplier)
+      const validatedResult = validate(normalizedResult, settlementSettings)
+      const valuation = valuate(validatedResult, settlementSettings)
       return sendSuccess(res, {
         supplier: toPublicSupplier(supplier),
         matchType: 'manual',
-        parseResult: normalizedResult,
+        parseResult,
+        normalizedResult,
+        validatedResult,
+        valuation,
       })
     }
 
@@ -407,12 +511,17 @@ export const parseSupplierQr = async (req, res) => {
     const detection = detectSupplier(rawString, suppliers)
     const supplier = detection?.supplier || null
     const parseResult = parseQR(rawString, supplier?.qrMapping)
-    const normalizedResult = normalizeParsedQR(parseResult, supplier)
+    const normalizedResult = normalize(parseResult, supplier)
+    const validatedResult = validate(normalizedResult, settlementSettings)
+    const valuation = valuate(validatedResult, settlementSettings)
 
     return sendSuccess(res, {
       supplier: toPublicSupplier(supplier),
       matchType: detection?.matchType || null,
-      parseResult: normalizedResult,
+      parseResult,
+      normalizedResult,
+      validatedResult,
+      valuation,
     })
   } catch (error) {
     return sendError(res, 500, 'Failed to parse QR', 'SERVER_ERROR')

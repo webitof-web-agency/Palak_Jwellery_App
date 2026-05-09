@@ -51,7 +51,8 @@ const parseResponse = async (response) => {
 
   if (
     contentType.includes('text/csv') ||
-    contentType.includes('application/octet-stream')
+    contentType.includes('application/octet-stream') ||
+    contentType.includes('application/pdf')
   ) {
     return response.blob()
   }

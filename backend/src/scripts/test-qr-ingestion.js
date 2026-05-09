@@ -1,12 +1,12 @@
-import { detectSupplier, normalizeParsedQR, parseQR } from '../services/qrParser.service.js'
+import { detectSupplier, parseQR } from '../services/qrParser.service.js'
+import { normalize } from '../services/qrNormalization.service.js'
+import { validate } from '../services/qrValidation.service.js'
 import {
   buildDefaultFinalFromParsed,
   buildParsedIngestionData,
   buildParsedWarnings,
   buildUnknownParsedIngestionData,
-  evaluateParsedStatus,
   mergeFinalData,
-  validateFinalData,
 } from '../services/qrIngestion.service.js'
 
 const tests = [
@@ -59,17 +59,18 @@ const suppliers = [
 for (const test of tests) {
   const detection = detectSupplier(test.qr, suppliers)
   const parseResult = parseQR(test.qr, detection?.supplier?.qrMapping)
-  const normalizedResult = normalizeParsedQR(parseResult, detection?.supplier || null)
+  const normalizedResult = normalize(parseResult, detection?.supplier || null)
+  const validatedResult = validate(normalizedResult)
   const isUnknown = !detection?.supplier
   const parsed = isUnknown
     ? {}
-    : buildParsedIngestionData(normalizedResult, detection?.supplier || null)
+    : buildParsedIngestionData(validatedResult, detection?.supplier || null)
   if (!isUnknown) {
-    parsed.warnings = buildParsedWarnings(parsed)
+    parsed.warnings = [...new Set([...(validatedResult.warnings || []), ...buildParsedWarnings(parsed)])]
   }
   const parsedStatus = isUnknown
     ? { status: 'needs_review', issues: ['Unknown supplier format'] }
-    : evaluateParsedStatus(parsed, { warningsRequireReview: false })
+    : { status: validatedResult.status, issues: validatedResult.warnings || [] }
   const final = isUnknown
     ? (() => {
         const fallback = buildUnknownParsedIngestionData(test.qr)
@@ -86,7 +87,6 @@ for (const test of tests) {
         }
       })()
     : buildDefaultFinalFromParsed(parsed)
-  const finalValidationErrors = validateFinalData(final)
   const mergedFinal = mergeFinalData(isUnknown ? normalizedResult : parsed, final, {})
 
   console.log(`\n--- ${test.name} ---`)
@@ -97,6 +97,5 @@ for (const test of tests) {
   console.log('parsed warnings:', JSON.stringify(parsed?.warnings || ['Unknown supplier format'], null, 2))
   console.log('fallback:', JSON.stringify(isUnknown ? buildUnknownParsedIngestionData(test.qr).fallback : null, null, 2))
   console.log('final draft:', JSON.stringify(final, null, 2))
-  console.log('final validation errors:', JSON.stringify(finalValidationErrors, null, 2))
   console.log('merged final:', JSON.stringify(mergedFinal, null, 2))
 }

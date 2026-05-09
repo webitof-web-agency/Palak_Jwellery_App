@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { reportsApi } from '../../api/reports.api'
 import EmptyState from '../../components/ui/EmptyState'
+import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import MetricCard from '../../components/ui/MetricCard'
 import PageHeader from '../../components/ui/PageHeader'
 import SectionCard from '../../components/ui/SectionCard'
@@ -21,6 +22,7 @@ const getMetricValue = (row = {}, keys = [], fallback = 0) => {
 export default function DashboardPage() {
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [error, setError] = useState('')
   const [refreshToken, setRefreshToken] = useState(0)
 
@@ -48,7 +50,10 @@ export default function DashboardPage() {
         if (!active) return
         setError(err?.error || err?.message || 'Failed to load dashboard summary.')
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+          setHasLoadedOnce(true)
+        }
       }
     }
 
@@ -70,26 +75,35 @@ export default function DashboardPage() {
 
   const totalSales = toNumber(summary?.totalSales)
   const totalNetWeight = toNumber(summary?.totalNetWeight)
+  const showInitialLoading = loading && !hasLoadedOnce
   return (
     <div className="page-shell space-y-8">
       {/* Page header */}
       <PageHeader
-        eyebrow="Business Overview"
+        eyebrow="Operational Overview"
         title="Dashboard"
-        description="Revenue, movement, and top-performing partners."
+        description="Quick visibility into today’s gross, net, and recent operational movement."
       />
 
       {/* Error banner */}
       {error && (
-        <div className="surface-card border-red-500/20 bg-red-500/10 text-red-200 flex items-center justify-between gap-4">
-          <span>{error}</span>
+        <div className="surface-card border-red-500/20 bg-red-500/10 text-primary flex items-center justify-between gap-4">
+          <span className="font-medium">{error}</span>
           <button
             type="button"
             onClick={() => setRefreshToken((current) => current + 1)}
-            className="primary-luxury-button bg-red-500 text-white hover:bg-red-400"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border border-red-500/20 bg-red-500/90 text-white shadow-lg shadow-red-500/20 hover:bg-red-400"
             aria-label="Retry loading dashboard summary"
+            disabled={loading}
           >
-            Retry
+            {loading ? (
+              <>
+                <LoadingSpinner />
+                Retrying...
+              </>
+            ) : (
+              'Retry'
+            )}
           </button>
         </div>
       )}
@@ -97,18 +111,18 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
           title="Total Sales"
-          value={loading ? '' : formatNumber(totalSales)}
-          loading={loading}
+          value={showInitialLoading ? '' : formatNumber(totalSales)}
+          loading={showInitialLoading}
         />
         <MetricCard
           title="Total Net Weight (g)"
-          value={loading ? '' : formatWeight(totalNetWeight)}
-          loading={loading}
+          value={showInitialLoading ? '' : formatWeight(totalNetWeight)}
+          loading={showInitialLoading}
         />
         <MetricCard
           title="Total Gross Weight (g)"
-          value={loading ? '' : formatWeight(toNumber(summary?.totalGrossWeight))}
-          loading={loading}
+          value={showInitialLoading ? '' : formatWeight(toNumber(summary?.totalGrossWeight))}
+          loading={showInitialLoading}
         />
       </section>
 
@@ -116,7 +130,7 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Supplier ranking */}
         <SectionCard eyebrow="Suppliers" title="Top Suppliers">
-          {loading ? (
+          {showInitialLoading ? (
             <TableSkeleton columns={4} rows={4} />
           ) : supplierRows.length === 0 ? (
             <EmptyState
@@ -161,7 +175,7 @@ export default function DashboardPage() {
 
         {/* Salesman ranking */}
         <SectionCard eyebrow="Salesmen" title="Top Salesmen">
-          {loading ? (
+          {showInitialLoading ? (
             <TableSkeleton columns={3} rows={4} />
           ) : salesmanRows.length === 0 ? (
             <EmptyState

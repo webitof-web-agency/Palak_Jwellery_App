@@ -8,6 +8,7 @@ import 'features/auth/presentation/login_screen.dart';
 import 'features/history/presentation/sales_history_provider.dart';
 import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
+import 'features/sale_entry/presentation/widgets/pending_sales_banner.dart';
 import 'features/sale_entry/presentation/sale_entry_screen.dart';
 import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
@@ -307,6 +308,8 @@ class DashboardScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                const PendingSalesBanner(),
                 SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,

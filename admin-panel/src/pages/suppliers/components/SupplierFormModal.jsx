@@ -1,3 +1,4 @@
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 const SupplierFormModal = ({
   open,
   title,
@@ -185,7 +186,14 @@ const SupplierFormModal = ({
               type="submit"
               className="flex-[2] primary-luxury-button text-sm"
             >
-              {isSaving ? 'Saving...' : submitLabel}
+              {isSaving ? (
+                <>
+                  <LoadingSpinner />
+                  Saving...
+                </>
+              ) : (
+                submitLabel
+              )}
             </button>
           </div>
 

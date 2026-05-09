@@ -95,6 +95,26 @@ const defaultSuppliers = [
       },
     },
   },
+  {
+    name: 'ZAR',
+    code: 'ZAR',
+    gst: '',
+    address: '',
+    paymentMode: 'credit',
+    categories: [],
+    isActive: true,
+    detectionPattern: {
+      type: 'regex',
+      pattern: '^JFC\\d+',
+    },
+    qrMapping: {
+      strategy: 'delimiter',
+      delimiter: '/',
+      fieldMap: {
+        supplierCode: 0,
+      },
+    },
+  },
 ]
 
 const run = async () => {

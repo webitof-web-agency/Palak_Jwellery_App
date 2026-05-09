@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../sale_entry/data/sale_repository.dart';
-import '../../sale_entry/presentation/sale_entry_provider.dart';
+
 
 class SalesHistoryQuery {
   const SalesHistoryQuery({

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { login as loginRequest } from "../../api/auth.api";
+import LoadingSpinner from "../../components/ui/LoadingSpinner";
 import LogoBadge from "../../components/ui/LogoBadge";
 import PasswordField from "../../components/ui/PasswordField";
 import ThemeToggleButton from "../../components/ui/ThemeToggleButton";
@@ -162,7 +163,14 @@ const LoginPage = () => {
                 className="primary-luxury-button w-full py-4 text-base tracking-widest uppercase shadow-2xl shadow-gold-600/20"
                 disabled={isSubmitting}
               >
-                {isSubmitting ? "Authenticating..." : "Login to Dashboard"}
+                {isSubmitting ? (
+                  <>
+                    <LoadingSpinner />
+                    Authenticating...
+                  </>
+                ) : (
+                  "Login to Dashboard"
+                )}
               </button>
             </div>
           </form>

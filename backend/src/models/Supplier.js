@@ -50,6 +50,65 @@ const supplierSchema = new mongoose.Schema({
       stoneWeight: { type: mongoose.Schema.Types.Mixed, default: 3 },
       netWeight: { type: mongoose.Schema.Types.Mixed, default: 4 },
     },
+    patternVariants: {
+      type: [{
+        name: {
+          type: String,
+          trim: true,
+          required: true,
+        },
+        strategy: {
+          type: String,
+          enum: ['delimiter', 'key_value', 'venzora'],
+          default: 'delimiter',
+        },
+        delimiter: {
+          type: String,
+          trim: true,
+          default: '|',
+        },
+        priority: {
+          type: Number,
+          default: 100,
+        },
+        detectionPattern: {
+          type: {
+            type: String,
+            enum: ['regex', 'contains', 'prefix'],
+            default: 'regex',
+          },
+          pattern: {
+            type: String,
+            trim: true,
+            default: '',
+          },
+        },
+        fieldMap: {
+          type: mongoose.Schema.Types.Mixed,
+          default: {},
+        },
+        active: {
+          type: Boolean,
+          default: true,
+        },
+      }],
+      default: [],
+    },
+    fallback: {
+      allowPartial: {
+        type: Boolean,
+        default: true,
+      },
+      minFieldsRequired: {
+        type: [String],
+        default: ['design_code'],
+      },
+      defaultStatus: {
+        type: String,
+        enum: ['approved', 'needs_review'],
+        default: 'needs_review',
+      },
+    },
   },
   learnedPatterns: {
     type: [{

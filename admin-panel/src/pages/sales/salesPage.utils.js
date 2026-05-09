@@ -7,11 +7,11 @@ export const sortOptions = [
 
 export const buttonStyles = {
   primary:
-    "inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-[#f5f5f5] text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-gold-600 shadow-lg shadow-gold-600/20 hover:bg-gold-500 hover:shadow-gold-600/30",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-[#f5f5f5] text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none bg-gold-600 shadow-lg shadow-gold-600/20 hover:bg-gold-500 hover:shadow-gold-600/30",
   secondary:
-    "inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border border-white/10 bg-white/5 text-primary hover:bg-white/10 hover:border-gold-500/30",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border border-white/10 bg-white/5 text-primary hover:bg-white/10 hover:border-gold-500/30",
   ghost:
-    "inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-muted hover:text-primary hover:bg-white/5",
+    "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none text-muted hover:text-primary hover:bg-white/5",
 };
 
 export const getName = (value) => {

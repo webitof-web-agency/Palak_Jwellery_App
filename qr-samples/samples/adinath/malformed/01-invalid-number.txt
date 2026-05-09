@@ -1,0 +1,2 @@
+# Malformed Adinath sample with invalid numeric token
+33.21/2.23/ABC////23.47/BG-2007

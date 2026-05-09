@@ -1,3 +1,4 @@
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import { createPortal } from "react-dom";
 
 export default function DeleteSupplierDialog({
@@ -30,10 +31,17 @@ export default function DeleteSupplierDialog({
             type="button"
             onClick={onConfirm}
             disabled={isDeleting}
-            className="w-full py-3 bg-red-500 hover:bg-red-600 text-on-accent font-bold rounded-xl transition-all shadow-lg shadow-red-500/20 disabled:opacity-70"
+            className="w-full py-3 inline-flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-on-accent font-bold rounded-xl transition-all shadow-lg shadow-red-500/20 disabled:opacity-70"
             aria-label="Confirm delete supplier"
           >
-            {isDeleting ? "Deleting..." : "Yes, delete"}
+            {isDeleting ? (
+              <>
+                <LoadingSpinner />
+                Deleting...
+              </>
+            ) : (
+              "Yes, delete"
+            )}
           </button>
           <button
             type="button"

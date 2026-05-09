@@ -1,3 +1,4 @@
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import React from 'react'
 
 export default function SupplierAlerts({
@@ -6,6 +7,7 @@ export default function SupplierAlerts({
   onDismissSuccess,
   onDismissError,
   onRetry,
+  isRetrying,
 }) {
   if (!successMessage && !errorMessage) {
     return null
@@ -33,11 +35,19 @@ export default function SupplierAlerts({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              className="text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary"
+              className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-primary"
               onClick={onRetry}
               aria-label="Retry loading suppliers"
+              disabled={isRetrying}
             >
-              Retry
+              {isRetrying ? (
+                <>
+                  <LoadingSpinner />
+                  Retrying...
+                </>
+              ) : (
+                'Retry'
+              )}
             </button>
             <button
               type="button"

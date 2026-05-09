@@ -273,18 +273,27 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
   Widget build(BuildContext context) {
     ref.watch(themeControllerProvider);
     final suppliersAsync = ref.watch(suppliersProvider);
+    final businessAsync = ref.watch(businessOverviewProvider);
     final suppliers = suppliersAsync.maybeWhen(
       data: (items) => items,
       orElse: () => const <SupplierModel>[],
     );
+    final businessOverview = businessAsync.maybeWhen(
+      data: (value) => value,
+      orElse: () => const BusinessOverview(categories: [], metalTypes: [], settings: {}),
+    );
     final selectedSupplier = _findSupplierById(suppliers, _supplierId);
     final selectedCategories = selectedSupplier?.categories ?? const <String>[];
+    final availableCategories = selectedCategories.isNotEmpty
+        ? selectedCategories
+        : businessOverview.categories;
+    final availableMetals = businessOverview.metalTypes;
     final currentCategory = _categoryCtrl.text.trim();
 
-    if (selectedCategories.isNotEmpty &&
+    if (availableCategories.isNotEmpty &&
         currentCategory.isNotEmpty &&
         !_useCustomCategory &&
-        !selectedCategories.contains(currentCategory)) {
+        !availableCategories.contains(currentCategory)) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         setState(() {
@@ -311,7 +320,8 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
         suppliers: suppliers,
         supplierId: _supplierId,
         supplierName: _supplierName,
-        selectedCategories: selectedCategories,
+        selectedCategories: availableCategories,
+        availableMetals: availableMetals,
         categoryController: _categoryCtrl,
         itemCodeController: _itemCodeCtrl,
         metalTypeController: _metalTypeCtrl,
@@ -338,9 +348,9 @@ class _SaleEntryScreenState extends ConsumerState<SaleEntryScreen> {
           setState(() {
             _useCustomCategory = value;
             if (!value &&
-                selectedCategories.isNotEmpty &&
-                !selectedCategories.contains(_categoryCtrl.text.trim())) {
-              _categoryCtrl.text = selectedCategories.first;
+                availableCategories.isNotEmpty &&
+                !availableCategories.contains(_categoryCtrl.text.trim())) {
+              _categoryCtrl.text = availableCategories.first;
             }
           });
         },

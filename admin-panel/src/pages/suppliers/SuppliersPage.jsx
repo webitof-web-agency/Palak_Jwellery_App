@@ -14,6 +14,7 @@ export default function SuppliersPage() {
   const location = useLocation()
   const [suppliers, setSuppliers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [successMessage, setSuccessMessage] = useState('')
   const [reloadTick, setReloadTick] = useState(0)
@@ -51,7 +52,10 @@ export default function SuppliersPage() {
             : error?.message || 'Failed to load suppliers.'
         setErrorMessage(message)
       } finally {
-        if (active) setIsLoading(false)
+        if (active) {
+          setIsLoading(false)
+          setHasLoadedOnce(true)
+        }
       }
     }
 
@@ -76,6 +80,11 @@ export default function SuppliersPage() {
 
   const dismissSuccessMessage = () => setSuccessMessage('')
   const dismissErrorMessage = () => setErrorMessage('')
+
+  const refreshSuppliers = () => {
+    setHasLoadedOnce(false)
+    setReloadTick((value) => value + 1)
+  }
 
   const confirmDeleteSupplier = async () => {
     if (!pendingDelete) return
@@ -135,6 +144,7 @@ export default function SuppliersPage() {
 
   const selectedSupplier =
     suppliers.find((supplier) => supplier._id === qrSupplierId) || null
+  const showInitialLoading = isLoading && !hasLoadedOnce
 
   return (
     <main className="page-shell">
@@ -163,7 +173,8 @@ export default function SuppliersPage() {
         errorMessage={errorMessage}
         onDismissSuccess={dismissSuccessMessage}
         onDismissError={dismissErrorMessage}
-        onRetry={() => setReloadTick((value) => value + 1)}
+        onRetry={refreshSuppliers}
+        isRetrying={isLoading}
       />
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-10">
@@ -179,23 +190,24 @@ export default function SuppliersPage() {
                 Active Suppliers
               </h2>
               <p className="text-xs text-muted uppercase tracking-widest font-bold mt-1">
-                {isLoading ? 'Loading...' : `${suppliers.length} Records Found`}
+                {showInitialLoading ? 'Loading supplier records...' : `${suppliers.length} Records Found`}
               </p>
             </div>
             <button
               type="button"
               className="text-xs font-bold text-muted hover:text-primary transition-colors"
-              onClick={() => setReloadTick((value) => value + 1)}
+              onClick={refreshSuppliers}
               aria-label="Refresh supplier data"
+              disabled={isLoading}
             >
-              Refresh Data
+              {isLoading ? 'Refreshing...' : 'Refresh Data'}
             </button>
           </div>
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-40">
-              <div className="h-64 surface-panel rounded-2xl animate-pulse" />
-              <div className="h-64 surface-panel rounded-2xl animate-pulse" />
+          {showInitialLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="state-skeleton" />
+              <div className="state-skeleton" />
             </div>
           ) : suppliers.length === 0 ? (
             <div className="glass-panel p-20 text-center border-dashed panel-border">

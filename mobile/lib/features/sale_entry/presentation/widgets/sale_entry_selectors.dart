@@ -147,21 +147,16 @@ class MetalSelector extends StatelessWidget {
     super.key,
     required this.controller,
     required this.useCustomMetal,
+    required this.metals,
     required this.onUseCustomChanged,
     this.onChanged,
   });
 
   final TextEditingController controller;
   final bool useCustomMetal;
+  final List<String> metals;
   final ValueChanged<bool> onUseCustomChanged;
   final VoidCallback? onChanged;
-
-  static const List<String> _metals = <String>[
-    'Gold',
-    'Silver',
-    'Platinum',
-    'Diamond',
-  ];
 
   // Material-accurate color swatches for each metal
   static const Map<String, Color> _metalColors = {
@@ -196,10 +191,13 @@ class MetalSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final availableMetals = metals.isNotEmpty
+        ? metals
+        : const <String>['Gold', 'Silver', 'Platinum', 'Diamond'];
     final currentValue = controller.text.trim();
     final selectedValue = useCustomMetal
         ? currentValue
-        : (_metals.contains(currentValue) ? currentValue : null);
+        : (availableMetals.contains(currentValue) ? currentValue : null);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,7 +210,7 @@ class MetalSelector extends StatelessWidget {
             final choice = await showPickerSheet<String>(
               context: context,
               title: 'Metal type',
-              choices: _metals
+              choices: availableMetals
                   .map(
                     (metal) => PickerChoice<String>(
                       value: metal,

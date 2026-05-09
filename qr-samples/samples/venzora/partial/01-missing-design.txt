@@ -1,0 +1,2 @@
+# Partial Venzora sample with missing CH token
+307285/18KT/G16.970/L0.316/N16.654/Rs.379

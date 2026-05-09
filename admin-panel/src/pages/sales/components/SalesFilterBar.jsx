@@ -1,3 +1,4 @@
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import { buttonStyles, sortOptions } from "../salesPage.utils";
 
 export default function SalesFilterBar({
@@ -136,7 +137,14 @@ export default function SalesFilterBar({
             className={buttonStyles.primary}
             aria-label="Export filtered sales as CSV"
           >
-            {isExporting ? "Exporting..." : "Export Range"}
+            {isExporting ? (
+              <>
+                <LoadingSpinner />
+                Exporting...
+              </>
+            ) : (
+              'Export Range'
+            )}
           </button>
           <button
             type="button"
@@ -145,7 +153,14 @@ export default function SalesFilterBar({
             className={buttonStyles.secondary}
             aria-label="Export all sales as CSV"
           >
-            Export All
+            {isExporting ? (
+              <>
+                <LoadingSpinner />
+                Exporting...
+              </>
+            ) : (
+              'Export All'
+            )}
           </button>
         </div>
       </div>

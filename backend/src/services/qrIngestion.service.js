@@ -14,6 +14,22 @@ const normalizeNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+const normalizeConfidenceLabel = (value) => {
+  if (typeof value === 'string') {
+    const lowered = value.trim().toLowerCase()
+    if (lowered === 'high' || lowered === 'low') {
+      return lowered
+    }
+  }
+
+  const numeric = normalizeNumber(value)
+  if (numeric === null) {
+    return 'low'
+  }
+
+  return numeric >= 70 ? 'high' : 'low'
+}
+
 const normalizeCustomFields = (value) => {
   if (!Array.isArray(value)) {
     return []
@@ -112,12 +128,32 @@ export const buildParsedIngestionData = (normalizedResult, supplier) => ({
     normalizeText(supplier?.name) ||
     normalizeText(supplier?.code) ||
     '',
-  itemCode: normalizeText(normalizedResult?.itemCode),
-  purity: normalizeText(normalizedResult?.purity),
-  grossWeight: normalizeNumber(normalizedResult?.grossWeight),
-  netWeight: normalizeNumber(normalizedResult?.netWeight),
-  diamondWeight: normalizeNumber(normalizedResult?.diamondWeight ?? normalizedResult?.stoneWeight),
-  designCode: normalizeText(normalizedResult?.designCode),
+  itemCode:
+    normalizeText(normalizedResult?.itemCode) ||
+    normalizeText(normalizedResult?.design_code) ||
+    normalizeText(normalizedResult?.designCode),
+  purity:
+    normalizeText(normalizedResult?.purity) ||
+    normalizeText(normalizedResult?.purity_percent),
+  grossWeight:
+    normalizeNumber(normalizedResult?.grossWeight) ??
+    normalizeNumber(normalizedResult?.gross_weight),
+  netWeight:
+    normalizeNumber(normalizedResult?.netWeight) ??
+    normalizeNumber(normalizedResult?.net_weight),
+  diamondWeight:
+    normalizeNumber(normalizedResult?.diamondWeight ?? normalizedResult?.stoneWeight) ??
+    normalizeNumber(normalizedResult?.stone_weight),
+  stoneWeight:
+    normalizeNumber(normalizedResult?.stoneWeight) ??
+    normalizeNumber(normalizedResult?.stone_weight),
+  otherWeight:
+    normalizeNumber(normalizedResult?.otherWeight) ??
+    normalizeNumber(normalizedResult?.other_weight),
+  designCode:
+    normalizeText(normalizedResult?.designCode) ||
+    normalizeText(normalizedResult?.design_code),
+  confidence: normalizeConfidenceLabel(normalizedResult?.confidence),
   errors: flattenErrors([
     ...(Array.isArray(normalizedResult?.errors) ? normalizedResult.errors : []),
     ...(Array.isArray(normalizedResult?.meta?.parseErrors) ? normalizedResult.meta.parseErrors : []),

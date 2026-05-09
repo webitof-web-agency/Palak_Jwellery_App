@@ -8,7 +8,14 @@
     "dev": "node server.js",
     "dev:watch": "node --watch server.js",
     "seed": "node src/scripts/seed.js",
-    "seed:suppliers": "node src/scripts/seed-suppliers.js"
+    "seed:suppliers": "node src/scripts/seed-suppliers.js",
+    "seed:business": "node src/scripts/seed-business.js",
+    "test:qr-validation": "node src/scripts/test-qr-validation.js",
+    "test:qr-valuation": "node src/scripts/test-qr-valuation.js",
+    "test:qr-reporting": "node src/scripts/test-qr-reporting.js",
+    "test:qr-corrections": "node src/scripts/test-qr-corrections.js",
+    "test:precision": "node src/scripts/test-precision.js",
+    "test:qr-samples": "node src/scripts/test-qr-sample-regression.js"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +30,7 @@
     "express-validator": "^7.3.2",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "mongoose": "^9.4.1"
+    "mongoose": "^9.4.1",
+    "puppeteer": "^24.43.0"
   }
 }
