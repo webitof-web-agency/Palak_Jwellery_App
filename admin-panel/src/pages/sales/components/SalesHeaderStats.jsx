@@ -1,5 +1,5 @@
 const StatCard = ({ label, value, hint }) => (
-  <div className="surface-panel-soft panel-border rounded-2xl !p-4 mb-0 min-w-[160px]">
+  <div className="surface-panel-soft rounded-2xl !p-4 mb-0 min-w-[160px] border border-[rgba(92,70,56,0.22)] hover:border-gold-600/30 transition-colors duration-200">
     <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
       {label}
     </div>

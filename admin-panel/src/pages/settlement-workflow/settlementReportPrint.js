@@ -1,18 +1,5 @@
 import { formatCurrency, formatPercentage, formatWeight } from '../../utils/formatters'
 
-const BRAND_COLORS = {
-  bg: '#faf7f2',
-  surface: '#fffdf9',
-  surfaceAlt: '#f8f2ea',
-  border: 'rgba(92, 70, 56, 0.14)',
-  borderStrong: 'rgba(92, 70, 56, 0.2)',
-  text: '#443730',
-  textMuted: 'rgba(68, 55, 48, 0.68)',
-  heading: '#ad5754',
-  gold: '#c87768',
-  goldSoft: 'rgba(185, 92, 88, 0.08)',
-}
-
 const escapeHtml = (value) =>
   String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -81,24 +68,30 @@ export const buildSettlementPrintHtml = ({
   }).format(new Date())
 
   const tableRows = rows
-    .map((row) => `
+    .map(
+      (row, i) => `
       <tr>
-        <td class="cell cell-ref">${escapeHtml(row.display_ref || row.sequence || '-')}</td>
-        <td class="cell cell-date">${escapeHtml(formatDateOnly(row.sale_date || row.createdAt))}</td>
-        <td class="cell cell-supplier">${escapeHtml(row.supplier || 'Unknown')}</td>
-        <td class="cell cell-design">${escapeHtml(row.item_code || row.design_code || '-')}</td>
-        <td class="cell cell-num cell-gross">${escapeHtml(formatWeight(row.gross_weight ?? 0))}</td>
-        <td class="cell cell-num cell-stone">${escapeHtml(formatWeight(row.stone_weight ?? 0))}</td>
-        <td class="cell cell-num cell-wastage">${escapeHtml(formatPercentage(row.wastage_percent ?? 0))}</td>
-        <td class="cell cell-num cell-net">${escapeHtml(formatWeight(row.net_weight ?? 0))}</td>
-        <td class="cell cell-num cell-purity">${escapeHtml(formatPercentage(row.purity_percent ?? 0))}</td>
-        <td class="cell cell-num cell-fine">${escapeHtml(formatWeight(row.fine_weight ?? 0))}</td>
-        <td class="cell cell-num cell-amount">${escapeHtml(formatCurrency(row.stone_amount ?? 0))}</td>
+        <td class="cell tc">${i + 1}</td>
+        <td class="cell tc">${escapeHtml(row.display_ref || row.sequence || '-')}</td>
+        <td class="cell">${escapeHtml(formatDateOnly(row.sale_date || row.createdAt))}</td>
+        <td class="cell">${escapeHtml(row.supplier || 'Unknown')}</td>
+        <td class="cell">${escapeHtml(row.item_code || row.design_code || '-')}</td>
+        <td class="cell tr">${escapeHtml(formatWeight(row.gross_weight ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatWeight(row.stone_weight ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatWeight(row.other_weight ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatWeight(row.net_weight ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatPercentage(row.wastage_percent ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatPercentage(row.purity_percent ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatWeight(row.fine_weight ?? 0))}</td>
+        <td class="cell tr">${escapeHtml(formatCurrency(row.stone_amount ?? 0))}</td>
       </tr>
-    `)
+    `,
+    )
     .join('')
 
   const title = escapeHtml(`${documentName}.pdf`)
+  const supplierLabel = escapeHtml(meta.supplier || 'All Suppliers')
+  const reportDate = escapeHtml(meta.reportDate || new Date().toISOString().slice(0, 10))
 
   return `<!doctype html>
   <html>
@@ -108,416 +101,390 @@ export const buildSettlementPrintHtml = ({
       <title>${title}</title>
       <style>
         @page {
-          size: A4 landscape;
+          size: A4 portrait;
           margin: 12mm 12mm 14mm 12mm;
         }
-        * { box-sizing: border-box; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
         html, body {
-          margin: 0;
-          padding: 0;
-          background: ${BRAND_COLORS.bg};
-          color: ${BRAND_COLORS.text};
+          background: #fff;
+          color: #000;
           font-family: "Inter", Arial, Helvetica, sans-serif;
-          line-height: 1.38;
+          font-size: 11px;
+          line-height: 1.4;
           -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
         }
-        body {
-          padding: 0;
-        }
-        .preview-shell {
-          position: relative;
-          min-height: 100vh;
-          padding: 64px 22px 24px;
-        }
+
+        /* ── Toolbar (screen only) ── */
         .toolbar {
           position: fixed;
-          top: 0;
-          left: 0;
-          right: 0;
+          top: 0; left: 0; right: 0;
           z-index: 20;
-          display: flex;
-          justify-content: center;
-          background: rgba(250, 247, 242, 0.92);
-          backdrop-filter: blur(10px);
-          border-bottom: 1px solid rgba(92, 70, 56, 0.12);
-          padding: 10px 16px;
-        }
-        .toolbar-inner {
-          width: min(980px, 100%);
           display: flex;
           align-items: center;
           justify-content: space-between;
+          background: rgba(251, 246, 240, 0.94);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-bottom: 1px solid rgba(92, 70, 56, 0.18);
+          padding: 10px 24px;
           gap: 12px;
+          box-shadow: 0 2px 16px rgba(76, 53, 43, 0.08);
+        }
+        .toolbar-left {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .toolbar-logo {
+          width: 34px;
+          height: 34px;
+          object-fit: contain;
+          border-radius: 50%;
+          border: 1px solid rgba(185, 92, 88, 0.22);
+          background: rgba(185, 92, 88, 0.06);
+          padding: 3px;
+          flex: 0 0 auto;
+        }
+        .toolbar-logo-placeholder {
+          width: 34px;
+          height: 34px;
+          border-radius: 50%;
+          border: 1px solid rgba(185, 92, 88, 0.22);
+          background: rgba(185, 92, 88, 0.06);
+          flex: 0 0 auto;
         }
         .toolbar-title {
           display: flex;
           flex-direction: column;
-          gap: 2px;
+          gap: 1px;
         }
         .toolbar-title strong {
           font-size: 12px;
-          color: ${BRAND_COLORS.text};
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+          font-weight: 700;
+          color: #4f4039;
+          letter-spacing: 0.04em;
+          font-family: "Outfit", "Inter", Arial, sans-serif;
         }
         .toolbar-title span {
           font-size: 10px;
-          color: ${BRAND_COLORS.textMuted};
+          color: rgba(79, 64, 57, 0.6);
         }
         .toolbar-actions {
           display: flex;
-          align-items: center;
           gap: 10px;
+          align-items: center;
         }
-        .toolbar-button {
+        .toolbar-btn {
           appearance: none;
-          border: 1px solid ${BRAND_COLORS.borderStrong};
-          background: linear-gradient(180deg, ${BRAND_COLORS.surface}, ${BRAND_COLORS.surfaceAlt});
-          color: ${BRAND_COLORS.text};
-          border-radius: 999px;
-          padding: 10px 16px;
-          font-size: 12px;
-          font-weight: 700;
+          border: 1px solid rgba(92, 70, 56, 0.22);
+          background: rgba(255, 250, 245, 0.9);
+          color: #4f4039;
+          padding: 8px 18px;
+          font-size: 11.5px;
+          font-weight: 600;
           cursor: pointer;
-          box-shadow: 0 8px 18px rgba(76, 53, 43, 0.06);
+          border-radius: 999px;
+          font-family: "Inter", Arial, sans-serif;
+          letter-spacing: 0.02em;
+          transition: all 0.15s ease;
+          box-shadow: 0 1px 4px rgba(76, 53, 43, 0.06);
         }
-        .toolbar-button.primary {
-          background: linear-gradient(180deg, ${BRAND_COLORS.gold}, ${BRAND_COLORS.heading});
-          color: #fff;
-          border-color: rgba(173, 87, 84, 0.2);
+        .toolbar-btn:hover {
+          background: rgba(255, 250, 245, 1);
+          border-color: rgba(92, 70, 56, 0.35);
+        }
+        .toolbar-btn.primary {
+          background: linear-gradient(135deg, #c87368, #b95c58);
+          color: #fffaf5;
+          border-color: rgba(185, 92, 88, 0.3);
+          box-shadow: 0 4px 14px rgba(185, 92, 88, 0.28);
+        }
+        .toolbar-btn.primary:hover {
+          background: linear-gradient(135deg, #d4806e, #c87368);
+          box-shadow: 0 6px 18px rgba(185, 92, 88, 0.36);
+        }
+
+        /* ── Page shell ── */
+        .preview-shell {
+          padding: 54px 16px 24px;
+          background: #e8e8e8;
         }
         .page {
-          width: min(980px, 100%);
+          width: min(700px, 100%);
           margin: 0 auto;
-          padding: 18px 22px 24px;
-          background: rgba(255, 255, 255, 0.82);
-          border: 1px solid rgba(92, 70, 56, 0.10);
-          border-radius: 18px;
-          box-shadow: 0 16px 30px rgba(76, 53, 43, 0.06);
-          backdrop-filter: blur(2px);
+          border: 2px solid #000;
+          background: #fff;
         }
-        .page-body {
-          background:
-            radial-gradient(circle at 0% 0%, rgba(200, 115, 104, 0.08) 0%, transparent 30%),
-            linear-gradient(180deg, rgba(255, 255, 255, 0.32), rgba(255, 250, 245, 0.02));
-          min-height: 100vh;
-          padding: 0;
+
+        /* ── Company header ── */
+        .company-header {
+          border-bottom: 2px solid #000;
+          text-align: center;
+          padding: 14px 16px 10px;
         }
-        .header {
+        .company-logo-row {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 20px;
-          padding: 0 0 14px;
-          margin-bottom: 14px;
-          border-bottom: 1px solid ${BRAND_COLORS.border};
-        }
-        .brand {
-          display: flex;
-          align-items: center;
-          gap: 16px;
+          justify-content: center;
+          gap: 14px;
+          margin-bottom: 4px;
         }
         .logo {
-          width: 62px;
-          height: 62px;
+          width: 52px;
+          height: 52px;
           object-fit: contain;
-          border-radius: 999px;
-          padding: 6px;
-          background: ${BRAND_COLORS.goldSoft};
-          border: 1px solid rgba(185, 92, 88, 0.12);
-          box-shadow: 0 0 0 1px rgba(185, 92, 88, 0.05), 0 10px 22px rgba(185, 92, 88, 0.10);
+          border-radius: 50%;
+          border: 1.5px solid #000;
+          padding: 3px;
           flex: 0 0 auto;
         }
-        .eyebrow {
-          font-size: 10px;
-          letter-spacing: 0.26em;
-          text-transform: uppercase;
-          color: ${BRAND_COLORS.heading};
+        .logo-placeholder {
+          width: 52px;
+          height: 52px;
+          border-radius: 50%;
+          border: 1.5px solid #000;
+          flex: 0 0 auto;
+        }
+        .company-name {
+          font-size: 22px;
           font-weight: 700;
-          margin-bottom: 5px;
+          letter-spacing: 0.03em;
         }
-        h1 {
-          margin: 0;
-          font-size: 21px;
-          line-height: 1.16;
-          color: ${BRAND_COLORS.heading};
-        }
-        .subtle {
-          margin-top: 4px;
-          color: ${BRAND_COLORS.textMuted};
+        .company-subtitle {
           font-size: 11px;
+          color: #333;
+          margin-top: 2px;
         }
-        .page-badge {
-          display: inline-flex;
-          align-items: center;
+
+        /* ── Document title bar ── */
+        .doc-title-bar {
+          border-bottom: 2px solid #000;
+          text-align: center;
+          padding: 6px 16px;
+          font-size: 13px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+        }
+
+        /* ── Info grid (M/s, Date, Supplier, etc.) ── */
+        .info-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          border-bottom: 2px solid #000;
+        }
+        .info-cell {
+          padding: 7px 12px;
+          font-size: 11px;
+          display: flex;
           gap: 6px;
-          margin-top: 10px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          background: rgba(200, 115, 104, 0.08);
-          color: ${BRAND_COLORS.heading};
-          font-size: 10px;
+          align-items: baseline;
+        }
+        .info-cell:nth-child(odd) {
+          border-right: 1px solid #000;
+        }
+        .info-cell strong {
           font-weight: 700;
-          letter-spacing: 0.14em;
-          text-transform: uppercase;
+          white-space: nowrap;
         }
-        .meta {
-          min-width: 250px;
+
+        /* ── Summary strip ── */
+        .summary-strip {
           display: grid;
-          gap: 8px;
-          justify-items: end;
+          grid-template-columns: repeat(5, 1fr);
+          border-bottom: 2px solid #000;
         }
-        .meta-row {
-          font-size: 10.5px;
-          color: ${BRAND_COLORS.textMuted};
+        .summary-cell {
+          padding: 7px 10px;
+          text-align: center;
+          border-right: 1px solid #000;
         }
-        .meta-row strong {
-          color: ${BRAND_COLORS.text};
-        }
-        .summary {
-          display: grid;
-          grid-template-columns: repeat(5, minmax(0, 1fr));
-          gap: 10px;
-          margin: 10px 0 14px;
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-        .summary-card {
-          border: 1px solid ${BRAND_COLORS.border};
-          border-radius: 14px;
-          padding: 10px 12px;
-          background: linear-gradient(180deg, rgba(255, 253, 249, 0.98), rgba(248, 242, 234, 0.96));
-          box-shadow: 0 10px 24px rgba(76, 53, 43, 0.05);
-        }
-        .summary-label {
-          font-size: 10px;
-          letter-spacing: 0.16em;
+        .summary-cell:last-child { border-right: none; }
+        .summary-cell .s-label {
+          font-size: 9px;
+          font-weight: 700;
           text-transform: uppercase;
-          color: ${BRAND_COLORS.textMuted};
-          margin-bottom: 6px;
+          letter-spacing: 0.1em;
+          color: #444;
+          margin-bottom: 3px;
+        }
+        .summary-cell .s-value {
+          font-size: 13px;
           font-weight: 700;
         }
-        .summary-value {
-          font-size: 14px;
-          font-weight: 800;
-          color: ${BRAND_COLORS.text};
-        }
+
+        /* ── Data table ── */
         .table-wrap {
-          border: 1px solid ${BRAND_COLORS.border};
-          border-radius: 16px;
           overflow: hidden;
-          background: ${BRAND_COLORS.surface};
-          box-shadow: 0 12px 28px rgba(76, 53, 43, 0.06);
         }
         table {
           width: 100%;
           border-collapse: collapse;
           table-layout: fixed;
-          font-size: 8.4px;
+          font-size: 8.5px;
         }
-        thead {
-          display: table-header-group;
-        }
-        tr {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; page-break-inside: avoid; }
         th, td {
-          padding: 5px 6px;
-          border-bottom: 1px solid rgba(92, 70, 56, 0.10);
-          vertical-align: top;
+          border: 1px solid #000;
+          padding: 7px 5px;
+          vertical-align: middle;
           overflow-wrap: anywhere;
-          line-height: 1.18;
+          line-height: 1.3;
+          text-align: center;
         }
         th {
-          text-align: left;
-          font-size: 8px;
+          background: #f0f0f0;
+          font-weight: 700;
+          font-size: 8.5px;
           text-transform: uppercase;
-          letter-spacing: 0.12em;
-          color: ${BRAND_COLORS.textMuted};
-          background: linear-gradient(180deg, ${BRAND_COLORS.surfaceAlt}, rgba(255, 250, 245, 0.94));
+          letter-spacing: 0.05em;
         }
         tbody tr:nth-child(even) td {
-          background: rgba(255, 250, 245, 0.74);
+          background: #fafafa;
         }
-        .cell {
-          padding-top: 6px;
-          padding-bottom: 6px;
-        }
-        .cell-num {
-          text-align: right;
-          white-space: nowrap;
-          font-variant-numeric: tabular-nums;
-          font-feature-settings: 'tnum' 1;
-          letter-spacing: 0.01em;
-        }
-        .cell-ref {
-          font-weight: 700;
-        }
-        .cell-date,
-        .cell-supplier {
-          white-space: nowrap;
-        }
-        .cell-design {
-          word-break: break-word;
-        }
-        .cell-stone,
-        .cell-wastage,
-        .cell-purity,
-        .cell-fine,
-        .cell-gross,
-        .cell-net,
-        .cell-amount {
-          min-width: 0;
-        }
-        .table-head-note {
-          padding: 8px 12px 7px;
+        .cell { }
+        .tc { text-align: center; }
+        .tr { text-align: right; font-variant-numeric: tabular-nums; }
+
+        /* ── Footer ── */
+        .doc-footer {
+          border-top: 2px solid #000;
+          padding: 8px 14px;
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          gap: 12px;
-          border-bottom: 1px solid ${BRAND_COLORS.border};
-          background: linear-gradient(180deg, rgba(255, 253, 249, 0.96), rgba(248, 242, 234, 0.86));
+          font-size: 9px;
+          color: #333;
         }
-        .table-head-note strong {
-          font-size: 11px;
-          color: ${BRAND_COLORS.text};
-        }
-        .table-head-note span {
-          font-size: 9.5px;
-          color: ${BRAND_COLORS.textMuted};
-        }
-        .table-head-note .meta-line {
-          text-align: right;
-          white-space: nowrap;
-        }
-        .footer {
-          margin-top: 10px;
-          display: flex;
-          justify-content: space-between;
-          gap: 16px;
-          font-size: 10px;
-          color: ${BRAND_COLORS.textMuted};
-          border-top: 1px solid ${BRAND_COLORS.border};
-          padding-top: 10px;
-        }
-        .page-break {
-          break-before: page;
-          page-break-before: always;
-        }
+
+        /* ── Print overrides ── */
         @media print {
-          .preview-shell {
-            padding: 0;
-          }
-          .toolbar {
-            display: none;
-          }
+          .preview-shell { padding: 0; background: #fff; }
+          .toolbar { display: none; }
           .page {
             width: 100%;
             margin: 0;
-            padding: 0;
             border: none;
-            border-radius: 0;
-            box-shadow: none;
-            backdrop-filter: none;
-            background: transparent;
           }
+          .company-header { border-bottom: 2px solid #000; }
         }
       </style>
     </head>
     <body>
+      <!-- Toolbar (screen only) -->
       <div class="toolbar">
-        <div class="toolbar-inner">
+        <div class="toolbar-left">
+          ${logoDataUrl
+            ? `<img class="toolbar-logo" src="${logoDataUrl}" alt="Logo" />`
+            : `<div class="toolbar-logo-placeholder"></div>`}
           <div class="toolbar-title">
             <strong>Settlement Report Preview</strong>
             <span>${escapeHtml(documentName)}.pdf</span>
           </div>
-          <div class="toolbar-actions">
-            <button class="toolbar-button" type="button" onclick="window.close()">Close</button>
-            <button class="toolbar-button primary" type="button" onclick="window.print()">Download PDF</button>
-          </div>
+        </div>
+        <div class="toolbar-actions">
+          <button class="toolbar-btn" type="button" onclick="window.close()">Close</button>
+          <button class="toolbar-btn primary" type="button" onclick="window.print()">&#8595;&nbsp; Download PDF</button>
         </div>
       </div>
+
       <div class="preview-shell">
         <div class="page">
-          <div class="page-body">
-            <div class="header">
-              <div class="brand">
-                ${logoDataUrl ? `<img class="logo" src="${logoDataUrl}" alt="Brand logo" />` : '<div class="logo"></div>'}
-                <div>
-                  <div class="eyebrow">Settlement Reports</div>
-                  <h1>Settlement Ledger</h1>
-                  <div class="subtle">Printable supplier settlement sheet with gross, stone, net, purity, wastage, and fine.</div>
-                  <div class="page-badge">Settlement Ready</div>
-                </div>
-              </div>
-              <div class="meta">
-                <div class="meta-row"><strong>Supplier:</strong> ${escapeHtml(meta.supplier || 'All')}</div>
-                <div class="meta-row"><strong>Report date:</strong> ${escapeHtml(meta.reportDate || new Date().toISOString().slice(0, 10))}</div>
-                <div class="meta-row"><strong>Generated:</strong> ${escapeHtml(generatedAt)}</div>
-              </div>
-            </div>
 
-            <div class="summary">
-              <div class="summary-card"><div class="summary-label">Total items</div><div class="summary-value">${escapeHtml(summary.total_items || 0)}</div></div>
-              <div class="summary-card"><div class="summary-label">Gross weight</div><div class="summary-value">${escapeHtml(formatWeight(summary.total_gross_weight ?? 0))}</div></div>
-              <div class="summary-card"><div class="summary-label">Stone weight</div><div class="summary-value">${escapeHtml(formatWeight(summary.total_stone_weight ?? 0))}</div></div>
-              <div class="summary-card"><div class="summary-label">Net weight</div><div class="summary-value">${escapeHtml(formatWeight(summary.total_net_weight ?? 0))}</div></div>
-              <div class="summary-card"><div class="summary-label">Fine weight</div><div class="summary-value">${escapeHtml(formatWeight(summary.total_fine_weight ?? 0))}</div></div>
-            </div>
-
-            <div class="table-wrap">
-              <div class="table-head-note">
-                <div>
-                  <strong>Settlement Details</strong>
-                  <span>Aligned for print and browser PDF preview</span>
-                </div>
-                <span class="meta-line">${escapeHtml(meta.supplier || 'All suppliers')} &middot; ${escapeHtml(meta.reportDate || new Date().toISOString().slice(0, 10))}</span>
+          <!-- Company Header -->
+          <div class="company-header">
+            <div class="company-logo-row">
+              ${logoDataUrl
+                ? `<img class="logo" src="${logoDataUrl}" alt="Brand logo" />`
+                : `<div class="logo-placeholder"></div>`}
+              <div>
+                <div class="company-name">Palak Jewellery</div>
+                <div class="company-subtitle">Settlement Ledger &mdash; Printable Supplier Settlement Sheet</div>
               </div>
-              <table>
-                <colgroup>
-                  <col style="width: 4.5%;" />
-                  <col style="width: 7.5%;" />
-                  <col style="width: 13%;" />
-                  <col style="width: 14.5%;" />
-                  <col style="width: 9.5%;" />
-                  <col style="width: 9.5%;" />
-                  <col style="width: 8.5%;" />
-                  <col style="width: 9.5%;" />
-                  <col style="width: 7%;" />
-                  <col style="width: 8.5%;" />
-                  <col style="width: 8.5%;" />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th style="width: 4.5%;">Ref</th>
-                    <th style="width: 7.5%;">Date</th>
-                    <th style="width: 13%;">Supplier</th>
-                    <th style="width: 14.5%;">Design</th>
-                    <th style="width: 9.5%;">Gross</th>
-                    <th style="width: 9.5%;">Stone</th>
-                    <th style="width: 8.5%;">Wastage</th>
-                    <th style="width: 9.5%;">Net</th>
-                    <th style="width: 7%;">Purity</th>
-                    <th style="width: 8.5%;">Fine</th>
-                    <th style="width: 8.5%;">Stone Amt</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${tableRows}
-                </tbody>
-              </table>
-            </div>
-
-            <div class="footer">
-              <div>Generated from finalized settlement records.</div>
-              <div>Use the top Download PDF button or browser print save.</div>
             </div>
           </div>
+
+          <!-- Document Title -->
+          <div class="doc-title-bar">Settlement Report</div>
+
+          <!-- Info Grid -->
+          <div class="info-grid">
+            <div class="info-cell"><strong>Supplier:</strong> ${supplierLabel}</div>
+            <div class="info-cell"><strong>Report Date:</strong> ${reportDate}</div>
+            <div class="info-cell"><strong>Generated:</strong> ${escapeHtml(generatedAt)}</div>
+            <div class="info-cell"><strong>Document:</strong> ${escapeHtml(documentName)}.pdf</div>
+          </div>
+
+          <!-- Summary Strip -->
+          <div class="summary-strip">
+            <div class="summary-cell">
+              <div class="s-label">Total Items</div>
+              <div class="s-value">${escapeHtml(String(summary.total_items || 0))}</div>
+            </div>
+            <div class="summary-cell">
+              <div class="s-label">Gross Weight</div>
+              <div class="s-value">${escapeHtml(formatWeight(summary.total_gross_weight ?? 0))}</div>
+            </div>
+            <div class="summary-cell">
+              <div class="s-label">Stone Weight</div>
+              <div class="s-value">${escapeHtml(formatWeight(summary.total_stone_weight ?? 0))}</div>
+            </div>
+            <div class="summary-cell">
+              <div class="s-label">Net Weight</div>
+              <div class="s-value">${escapeHtml(formatWeight(summary.total_net_weight ?? 0))}</div>
+            </div>
+            <div class="summary-cell">
+              <div class="s-label">Fine Weight</div>
+              <div class="s-value">${escapeHtml(formatWeight(summary.total_fine_weight ?? 0))}</div>
+            </div>
+          </div>
+
+          <!-- Data Table -->
+          <div class="table-wrap">
+            <table>
+              <colgroup>
+                <col style="width: 5%;" />
+                <col style="width: 6%;" />
+                <col style="width: 9%;" />
+                <col style="width: 11%;" />
+                <col style="width: 13%;" />
+                <col style="width: 8%;" />
+                <col style="width: 7%;" />
+                <col style="width: 7%;" />
+                <col style="width: 7%;" />
+                <col style="width: 7%;" />
+                <col style="width: 6%;" />
+                <col style="width: 7%;" />
+                <col style="width: 7%;" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th>Sr. No.</th>
+                  <th>Ref</th>
+                  <th>Date</th>
+                  <th>Supplier</th>
+                  <th>Design / Item Code</th>
+                  <th>Gross Wt.</th>
+                  <th>Stone Wt.</th>
+                  <th>Other Wt.</th>
+                  <th>Net Wt.</th>
+                  <th>Wastage</th>
+                  <th>Purity</th>
+                  <th>Fine Wt.</th>
+                  <th>Stone Amt.</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tableRows}
+              </tbody>
+            </table>
+          </div>
+
+
+
         </div>
       </div>
     </body>
   </html>`
 }
-

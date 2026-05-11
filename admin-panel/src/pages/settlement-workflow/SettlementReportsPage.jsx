@@ -147,7 +147,7 @@ export default function SettlementReportsPage() {
     setError('')
     try {
       const documentName = buildSettlementDocumentName(apiFilters.supplier || 'all')
-      const logoDataUrl = await loadImageAsDataUrl('/logo-light-rose-notext-clean.png')
+      const logoDataUrl = await loadImageAsDataUrl('/logo-dark.png')
       const html = buildSettlementPrintHtml({
         rows: visibleRows,
         summary,
