@@ -2,8 +2,7 @@ class ApiConstants {
   // Override this at build time:
   // flutter run --dart-define=API_BASE_URL=https://api.example.com
   // flutter build apk --release --dart-define=API_BASE_URL=https://api.example.com
-  static const String _defaultBaseUrl = 'http://192.168.1.42:3000';
-  // static const String _defaultBaseUrl = 'http://10.160.192.171:3000';
+  static const String _defaultBaseUrl = 'http://192.168.1.40:3000';
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',

@@ -147,7 +147,10 @@ export default function SettlementReportsPage() {
     setError('')
     try {
       const documentName = buildSettlementDocumentName(apiFilters.supplier || 'all')
-      const logoDataUrl = await loadImageAsDataUrl('/logo-dark.png')
+      const [toolbarLogoDataUrl, logoDataUrl] = await Promise.all([
+        loadImageAsDataUrl('/logo-light-rose-notext-clean.png'),
+        loadImageAsDataUrl('/logo-dark.png'),
+      ])
       const html = buildSettlementPrintHtml({
         rows: visibleRows,
         summary,
@@ -155,6 +158,7 @@ export default function SettlementReportsPage() {
           supplier: apiFilters.supplier || 'All',
           reportDate: new Date().toISOString().slice(0, 10),
         },
+        toolbarLogoDataUrl,
         logoDataUrl,
         documentName,
       })

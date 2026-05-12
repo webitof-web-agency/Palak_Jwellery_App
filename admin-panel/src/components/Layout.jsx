@@ -23,11 +23,7 @@ export const Layout = () => {
     { name: "Sales", path: "/sales" },
     { name: "Settlement Reports", path: "/settlement-reports" },
     { name: "Suppliers", path: "/suppliers" },
-    ...(user?.role === "admin"
-      ? [
-          { name: "Users", path: "/users" },
-        ]
-      : []),
+    ...(user?.role === "admin" ? [{ name: "Users", path: "/users" }] : []),
   ];
 
   const internalNavLinks = [
@@ -38,7 +34,7 @@ export const Layout = () => {
   ];
 
   const navBaseClass =
-    "px-5 py-4 rounded-2xl transition-all duration-300 flex items-center gap-4 group outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-500/20 focus-visible:ring-offset-0";
+    "px-5 py-4 rounded-2xl flex items-center gap-4 group outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:shadow-[inset_0_0_0_1px_rgba(229,180,99,0.18)]";
   const navActiveClass =
     "bg-gradient-to-r from-gold-600/12 to-transparent border border-gold-600/25 text-gold-500 font-bold shadow-[inset_0_0_0_1px_rgba(229,180,99,0.12)]";
   const navIdleClass = "text-muted hover:text-primary hover:bg-white/5";
