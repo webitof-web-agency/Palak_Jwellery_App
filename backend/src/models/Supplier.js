@@ -1,5 +1,120 @@
 import mongoose from 'mongoose'
 
+const supplierBusinessCategorySchema = new mongoose.Schema({
+  name: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  code: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  colorLabel: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  wastagePercent: {
+    type: Number,
+    default: null,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+  sortOrder: {
+    type: Number,
+    default: 100,
+  },
+}, { _id: false })
+
+const supplierPurityOverrideSchema = new mongoose.Schema({
+  karat: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  purityPercent: {
+    type: Number,
+    default: null,
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
+}, { _id: false })
+
+const supplierOtherWeightRuleSchema = new mongoose.Schema({
+  deductOtherWeight: {
+    type: Boolean,
+    default: false,
+  },
+  defaultOtherWeight: {
+    type: Number,
+    default: 0,
+  },
+}, { _id: false })
+
+const supplierBusinessSettingsSchema = new mongoose.Schema({
+  categories: {
+    type: [supplierBusinessCategorySchema],
+    default: [],
+  },
+  purityOverrides: {
+    type: [supplierPurityOverrideSchema],
+    default: [],
+  },
+  defaultWastagePercent: {
+    type: Number,
+    default: null,
+  },
+  defaultStoneRate: {
+    type: Number,
+    default: null,
+  },
+  netWeightRule: {
+    type: String,
+    enum: ['computed', 'qr_trusted_with_validation', 'manual'],
+    default: 'computed',
+  },
+  stoneWeightRule: {
+    type: String,
+    enum: ['single', 'component_sum', 'manual'],
+    default: 'single',
+  },
+  otherWeightRule: {
+    type: supplierOtherWeightRuleSchema,
+    default: () => ({
+      deductOtherWeight: false,
+      defaultOtherWeight: 0,
+    }),
+  },
+  qrNetTolerance: {
+    type: Number,
+    default: 0.005,
+  },
+}, { _id: false })
+
+const supplierQrProfileSchema = new mongoose.Schema({
+  profileKey: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  version: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+  description: {
+    type: String,
+    trim: true,
+    default: '',
+  },
+}, { _id: false })
+
 const supplierSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -157,6 +272,26 @@ const supplierSchema = new mongoose.Schema({
   categories: {
     type: [String],
     default: [],
+  },
+  businessSettings: {
+    type: supplierBusinessSettingsSchema,
+    default: () => ({
+      categories: [],
+      purityOverrides: [],
+      defaultWastagePercent: null,
+      defaultStoneRate: null,
+      netWeightRule: 'computed',
+      stoneWeightRule: 'single',
+      otherWeightRule: {
+        deductOtherWeight: false,
+        defaultOtherWeight: 0,
+      },
+      qrNetTolerance: 0.005,
+    }),
+  },
+  qrProfile: {
+    type: supplierQrProfileSchema,
+    default: null,
   },
   isActive: {
     type: Boolean,

@@ -362,7 +362,7 @@ const main = async () => {
 
   tests.forEach((test, index) => {
     const detection = detectSupplier(test.qr, testSuppliers)
-    const parseResult = parseQR(test.qr, detection?.supplier?.qrMapping)
+    const parseResult = parseQR(test.qr, detection?.supplier)
     const normalizedResult = normalizeParsedQR(parseResult, detection?.supplier || null)
     const validationErrors = validateNormalized(normalizedResult, test.expected)
     const pass = validationErrors.length === 0

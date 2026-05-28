@@ -10,6 +10,24 @@ const defaultSuppliers = [
     paymentMode: 'credit',
     categories: [],
     isActive: true,
+    businessSettings: {
+      categories: [
+        { name: 'White', code: 'WHITE', colorLabel: 'white', wastagePercent: null, isActive: true, sortOrder: 100 },
+        { name: 'Green', code: 'GREEN', colorLabel: 'green', wastagePercent: null, isActive: true, sortOrder: 110 },
+        { name: 'Purple / Orange', code: 'PURPLE_ORANGE', colorLabel: 'purple-orange', wastagePercent: null, isActive: true, sortOrder: 120 },
+        { name: 'Skyblue', code: 'SKYBLUE', colorLabel: 'skyblue', wastagePercent: null, isActive: true, sortOrder: 130 },
+      ],
+      purityOverrides: [],
+      defaultWastagePercent: null,
+      defaultStoneRate: null,
+      netWeightRule: 'computed',
+      stoneWeightRule: 'component_sum',
+      otherWeightRule: {
+        deductOtherWeight: true,
+        defaultOtherWeight: 0,
+      },
+      qrNetTolerance: 0.005,
+    },
     detectionPattern: {
       type: 'regex',
       pattern: 'SWMS|SWNK',
@@ -138,6 +156,7 @@ const run = async () => {
     existing.address = supplier.address
     existing.paymentMode = supplier.paymentMode
     existing.categories = supplier.categories
+    existing.businessSettings = supplier.businessSettings
     existing.isActive = supplier.isActive
     existing.detectionPattern = supplier.detectionPattern
     existing.qrMapping = supplier.qrMapping

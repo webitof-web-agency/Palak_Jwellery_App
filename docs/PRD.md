@@ -12,7 +12,7 @@
 ## 1. Product Overview
 
 ### 1.1 Purpose
-A mobile + web system that enables jewellery shop salesmen to record QR-based sales entries on-the-go, while giving administrators control over supplier configuration and basic sales visibility.
+A mobile + web system that enables jewellery shop salesmen to record QR-based, weight-based sales entries on-the-go, while giving administrators control over supplier configuration, business master data, settlement reporting, and basic sales visibility.
 
 ### 1.2 Problem Statement
 Jewellery sales entry is currently manual — prone to human error in weight recording, category assignment, and supplier tracking. QR codes on jewellery pieces carry product information but are not being used for automated data entry.
@@ -30,9 +30,12 @@ Jewellery sales entry is currently manual — prone to human error in weight rec
 - Inventory management
 - Online catalogue
 - Charts and analytics (Phase 2)
-- PDF export (Phase 2)
-- Customer management (Phase 2)
-- Audit logs (Phase 3)
+- Full audit logs (not present in the current live code)
+- Full offline-first sync engine (current mobile uses a lightweight pending queue)
+
+Live implementation note:
+- PDF export is already implemented for settlement reports in the admin panel.
+- Customer, inventory, and audit-log modules are not present in the current live code.
 
 ---
 
@@ -61,10 +64,10 @@ Jewellery sales entry is currently manual — prone to human error in weight rec
 **Goal:** A salesman can scan a QR, fill in missing info, and save a sale. Admin can set up suppliers and see what was sold.
 
 ### Phase 2 — Reporting & History
-Charts, reports, date filters, PDF export, customer management, sale history filters.
+Charts, reports, date filters, settlement exports, sale history filters.
 
 ### Phase 3 — Operations
-Audit logs, offline support, sale edit lock, advanced permissions, performance analytics.
+Audit logs, sale edit lock, advanced permissions, performance analytics, full offline sync.
 
 ---
 
@@ -88,13 +91,13 @@ Audit logs, offline support, sale edit lock, advanced permissions, performance a
 | QR-01 | QR scanner using device camera | MLKit via mobile_scanner |
 | QR-02 | Auto-detect supplier from QR content | Match by supplier code prefix/pattern |
 | QR-03 | Support 3 QR mapping strategies (see 4.2.1) | Configured per supplier by admin |
-| QR-04 | Auto-fill fields from QR: Category, Gross Weight, Stone Weight, Net Weight | Best-effort; partial fill is OK |
+| QR-04 | Auto-fill fields from QR: Category, Item/Design Code, Metal Type, Gross Weight, Stone Weight, Net Weight, Purity | Best-effort; partial fill is OK |
 | QR-05 | Manual entry fallback — all fields editable if QR fails or is partial | Cannot block the sale |
 | QR-06 | Manual supplier selection if auto-detect fails | Dropdown of active suppliers |
-| QR-07 | Rate per gram — always manual input by salesman | No auto-fill |
-| QR-08 | Auto-calculate: Total = Net Weight × Rate per gram | Live as user types |
+| QR-07 | Manual category / metal overrides must remain available | No hard block |
+| QR-08 | Manual entry must remain possible even if parsing fails | Live as user types |
 | QR-09 | Confirmation screen before saving | Show all fields clearly |
-| QR-10 | Save sale with: timestamp, salesman, supplier, all weight fields, rate, total | Core data |
+| QR-10 | Save sale with: timestamp, salesman, supplier, category, item/design code, metal type, purity, and weight fields | Core data |
 | QR-11 | Duplicate QR — warn if same QR hash scanned on same calendar day; always allow override; save with `isDuplicate: true` flag | Never hard block — corrections and re-entries happen |
 | QR-12 | QR debug panel — show raw QR string + which fields parsed vs failed | Visible on parse error |
 
@@ -206,7 +209,6 @@ The QR parser must never crash the app. It must return structured results:
 - Charts and analytics (admin dashboard)
 - PDF export
 - Monthly performance chart (mobile)
-- Customer management + sale linkage
 - Sale history filters (date, supplier)
 - Sale edit window + edit permissions per salesman
 

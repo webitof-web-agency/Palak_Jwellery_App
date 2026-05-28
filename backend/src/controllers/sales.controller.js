@@ -2,6 +2,12 @@ import mongoose from 'mongoose'
 import { Sale, hashQR } from '../models/Sale.js'
 import { Supplier } from '../models/Supplier.js'
 import { User } from '../models/User.js'
+import { loadSettlementSettings } from '../services/settlementSettings.service.js'
+import {
+  buildSaleCalculationSnapshot,
+  buildSaleParsedSnapshot,
+  buildSaleSettlementInputs,
+} from '../services/saleCalculationSnapshot.service.js'
 
 const sendSuccess = (res, data, message, status = 200) => {
   const payload = { success: true, data }
@@ -135,6 +141,94 @@ const buildSalesQuery = async ({
 
 const toSaleRef = (id) => '#' + id.toString().slice(-6).toUpperCase()
 
+const pickParsedSnapshotInput = (body = {}) => {
+  const candidates = [
+    body.displaySnapshot,
+    body.parsedSnapshot,
+    body.parsedResult,
+    body.parserResult,
+    body.normalizedSnapshot,
+    body.qrParsed,
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate === null || candidate === undefined) {
+      continue
+    }
+
+    if (typeof candidate === 'object') {
+      return candidate
+    }
+
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim()
+      if (!trimmed || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+        continue
+      }
+
+      try {
+        const parsed = JSON.parse(trimmed)
+        if (parsed && typeof parsed === 'object') {
+          return parsed
+        }
+      } catch {
+        // Ignore malformed JSON-like payloads and continue searching.
+      }
+    }
+  }
+
+  return null
+}
+
+const buildSaleDetail = (sale) => {
+  if (!sale) return null
+
+  const supplier = sale.supplier && typeof sale.supplier === 'object'
+    ? {
+        _id: sale.supplier._id || sale.supplier.id || null,
+        name: sale.supplier.name || null,
+        code: sale.supplier.code || null,
+      }
+    : sale.supplier || null
+
+  const salesman = sale.salesman && typeof sale.salesman === 'object'
+    ? {
+        _id: sale.salesman._id || sale.salesman.id || null,
+        name: sale.salesman.name || null,
+        email: sale.salesman.email || null,
+        phone: sale.salesman.phone || null,
+        role: sale.salesman.role || null,
+        isActive: sale.salesman.isActive ?? null,
+      }
+    : sale.salesman || null
+
+  return {
+    _id: sale._id,
+    ref: sale.ref || toSaleRef(sale._id),
+    saleDate: sale.saleDate,
+    createdAt: sale.createdAt,
+    updatedAt: sale.updatedAt,
+    salesman,
+    supplier,
+    category: sale.category ?? null,
+    itemCode: sale.itemCode ?? null,
+    metalType: sale.metalType ?? null,
+    purity: sale.purity ?? null,
+    notes: sale.notes ?? null,
+    grossWeight: sale.grossWeight ?? null,
+    stoneWeight: sale.stoneWeight ?? null,
+    netWeight: sale.netWeight ?? null,
+    ratePerGram: sale.ratePerGram ?? null,
+    totalValue: sale.totalValue ?? null,
+    isDuplicate: Boolean(sale.isDuplicate),
+    wasManuallyEdited: Boolean(sale.wasManuallyEdited),
+    qrRaw: sale.qrRaw ?? null,
+    settlementInputs: sale.settlementInputs ?? null,
+    calculationSnapshot: sale.calculationSnapshot ?? null,
+    parsedSnapshot: sale.parsedSnapshot ?? null,
+  }
+}
+
 const escapeCsv = (value) => {
   if (value === null || value === undefined) return ''
   const text = String(value)
@@ -266,6 +360,23 @@ export const createSale = async (req, res) => {
       return sendError(res, 400, 'Supplier is not active', 'SUPPLIER_INACTIVE')
     }
 
+    const settlementSettings = await loadSettlementSettings()
+    const parsedSnapshotInput = pickParsedSnapshotInput(req.body)
+    const parsedSnapshot = buildSaleParsedSnapshot(parsedSnapshotInput)
+    const settlementInputs = buildSaleSettlementInputs({
+      source: req.body,
+      supplier,
+      parsedSnapshot,
+      settlementSettings,
+    })
+    const calculationSnapshot = buildSaleCalculationSnapshot({
+      source: req.body,
+      supplier,
+      parsedSnapshot,
+      settlementSettings,
+      settlementInputs,
+    })
+
     // --- Duplicate QR detection ---
     const qrHash = hashQR(qrRaw)
     let isDuplicate = false
@@ -304,6 +415,9 @@ export const createSale = async (req, res) => {
       metalType: metalType && typeof metalType === 'string' && metalType.trim() ? metalType.trim() : null,
       purity: purity && typeof purity === 'string' && purity.trim() ? purity.trim() : null,
       notes: notes && typeof notes === 'string' && notes.trim() ? notes.trim() : null,
+      settlementInputs,
+      calculationSnapshot,
+      parsedSnapshot,
       grossWeight: gw,
       stoneWeight: sw,
       netWeight: nw,
@@ -419,6 +533,7 @@ export const listSales = async (req, res) => {
         .sort(sort)
         .skip(skip)
         .limit(l)
+        .select('-calculationSnapshot -parsedSnapshot -settlementInputs')
         .populate('supplier', 'name code')
         .populate('salesman', 'name')
         .lean(),
@@ -441,6 +556,35 @@ export const listSales = async (req, res) => {
   } catch (error) {
     console.error('listSales error:', error)
     return sendError(res, 500, 'Failed to load sales', 'SERVER_ERROR')
+  }
+}
+
+// GET /api/v1/sales/:id
+export const getSaleDetail = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    if (!mongoose.isValidObjectId(id)) {
+      return sendError(res, 400, 'Invalid sale id', 'INVALID_ID')
+    }
+
+    const sale = await Sale.findById(id)
+      .populate('supplier', 'name code')
+      .populate('salesman', 'name email phone role isActive')
+      .lean()
+
+    if (!sale) {
+      return sendError(res, 404, 'Sale not found', 'NOT_FOUND')
+    }
+
+    if (req.user.role !== 'admin' && String(sale.salesman?._id || sale.salesman) !== req.user.id) {
+      return sendError(res, 403, 'Insufficient permissions', 'FORBIDDEN')
+    }
+
+    return sendSuccess(res, buildSaleDetail(sale))
+  } catch (error) {
+    console.error('getSaleDetail error:', error)
+    return sendError(res, 500, 'Failed to load sale', 'SERVER_ERROR')
   }
 }
 
@@ -486,6 +630,7 @@ export const exportSales = async (req, res) => {
 
     const sales = await Sale.find(query)
       .sort(sort)
+      .select('-calculationSnapshot -parsedSnapshot -settlementInputs')
       .populate('supplier', 'name code')
       .populate('salesman', 'name')
       .lean()

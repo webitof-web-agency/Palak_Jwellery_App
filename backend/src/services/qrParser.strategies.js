@@ -10,9 +10,11 @@ import {
 import {
   VENZORA_TOKEN_PATTERNS,
   YUG_LINE_PATTERN,
+  isLikelyAdinathRaw,
   isLikelyUtsavRaw,
   normalizeYugRaw,
 } from './qrParser.patterns.js'
+import { calculateSettlementSnapshot, calculateYugWeightBreakdown } from './settlementCalculation.service.js'
 
 const resolveFieldConfig = (value) => {
   if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
@@ -68,6 +70,126 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
   const fieldMap = supplierQRMappingConfig.fieldMap || {}
   let parsedCount = 0
 
+  if (delimiter === '/' && isLikelyAdinathRaw(raw)) {
+    const tokens = parts.map((part) => String(part).trim())
+    const meaningfulTokens = tokens.filter((part) => part.length > 0)
+    const stoneTokens = meaningfulTokens.slice(1, -2)
+    const stoneValues = []
+    const stoneComponentFields = {}
+
+    const parseNumericToken = (value) => {
+      const parsed = toNumber(value)
+      return parsed === null ? null : Math.round(parsed * 1000) / 1000
+    }
+
+    const grossWeight = parseNumericToken(meaningfulTokens[0])
+    const qrNetWeight = parseNumericToken(meaningfulTokens[meaningfulTokens.length - 2])
+    const itemCode = toText(meaningfulTokens[meaningfulTokens.length - 1])
+
+    if (grossWeight === null) {
+      errors.push({ field: 'grossWeight', reason: 'Gross weight is missing or invalid' })
+    } else {
+      fields.grossWeight = { value: grossWeight, parsed: true }
+    }
+
+    if (!itemCode) {
+      errors.push({ field: 'itemCode', reason: 'Item/design code is missing' })
+    } else {
+      fields.designCode = { value: itemCode, parsed: true }
+      fields.meta.itemCode = { value: itemCode, parsed: true }
+      fields.meta.designCode = { value: itemCode, parsed: true }
+    }
+
+    if (qrNetWeight === null) {
+      errors.push({ field: 'netWeight', reason: 'QR net weight is missing or invalid' })
+    } else {
+      fields.netWeight = { value: qrNetWeight, parsed: true }
+    }
+
+    stoneTokens.forEach((token, index) => {
+      const parsed = parseNumericToken(token)
+      if (parsed === null) {
+        if (token) {
+          errors.push({ field: `stoneComponent${index + 1}`, reason: `Expected number, got '${token}'` })
+        }
+        return
+      }
+
+      stoneValues.push(parsed)
+      stoneComponentFields[`stoneComponent${index + 1}`] = { value: parsed, parsed: true }
+      stoneComponentFields[`stoneComponent${index + 1}Source`] = { value: token, parsed: true }
+    })
+
+    const stoneWeight = stoneValues.length > 0
+      ? Math.round(stoneValues.reduce((sum, value) => sum + value, 0) * 1000) / 1000
+      : 0
+
+    fields.stoneWeight = { value: stoneWeight, parsed: true }
+    fields.otherWeight = { value: 0, parsed: true }
+    fields.meta = {
+      ...(fields.meta || {}),
+      stoneComponents: { value: stoneValues, parsed: true },
+      stoneComponentCount: { value: stoneValues.length, parsed: true },
+      ...stoneComponentFields,
+    }
+
+    const tolerance = 0.02
+    const calculationSnapshot = calculateSettlementSnapshot({
+      grossWeight,
+      stoneWeight,
+      otherWeight: 0,
+      qrNetWeight,
+      purityPercent: 0,
+      wastagePercent: 0,
+      tolerance,
+    })
+    const mismatch =
+      calculationSnapshot.computedNetWeight !== null && calculationSnapshot.qrNetWeight !== null
+        ? Math.abs(Number((calculationSnapshot.computedNetWeight - calculationSnapshot.qrNetWeight).toFixed(3)))
+        : null
+
+    const calculationBreakdown = {
+      rawQr: raw,
+      grossWeight,
+      stoneWeight,
+      stoneComponents: stoneValues.map((value, index) => ({
+        sourceField: `stoneComponent${index + 1}`,
+        label: `Stone Component ${index + 1}`,
+        value,
+      })),
+      otherWeight: {
+        sourceField: null,
+        value: 0,
+      },
+      qrNetWeight: calculationSnapshot.qrNetWeight,
+      computedNetWeight: calculationSnapshot.computedNetWeight,
+      selectedNetWeight: calculationSnapshot.selectedNetWeight,
+      netFormula: calculationSnapshot.calculationExplanation?.netFormula || 'computedNetWeight = grossWeight - stone components',
+      fineFormula: calculationSnapshot.calculationExplanation?.fineFormula || 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      mismatch,
+      tolerance,
+      warnings: calculationSnapshot.warnings,
+      requiresReview: calculationSnapshot.requiresReview,
+      calculationExplanation: calculationSnapshot.calculationExplanation,
+    }
+
+    const parsedCountAdinath = ['grossWeight', 'stoneWeight', 'netWeight', 'designCode'].reduce(
+      (count, field) => count + (fields[field].parsed ? 1 : 0),
+      0
+    )
+
+    const data = createResult({
+      success: parsedCountAdinath > 0 && errors.length === 0,
+      strategy,
+      fields,
+      errors,
+      raw,
+      confidence: calculationBreakdown.requiresReview ? 62 : 88,
+    })
+    data.calculationBreakdown = calculationBreakdown
+    return data
+  }
+
   if (delimiter === '/' && isLikelyUtsavRaw(raw)) {
     const tokens = parts.map((part) => String(part).trim()).filter((part) => part)
     const getTokenValue = (prefix) => {
@@ -80,8 +202,11 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const grossRaw = getTokenValue('GWT-')
     const netRaw = getTokenValue('NWT-')
     const stoneRaw = getTokenValue('SWT-')
+    const colourStoneRaw = getTokenValue('CL-')
     const categoryRaw = tokens.find((part) => /^[A-Z]+-\d+/i.test(part)) || null
     const supplierCodeRaw = tokens.find((part) => part.toUpperCase() === 'USV') || null
+    const stoneComponent1 = stoneRaw === null ? null : toNumber(stoneRaw)
+    const stoneComponent2 = colourStoneRaw === null ? null : toNumber(colourStoneRaw)
 
     if (grossRaw === null) {
       errors.push({ field: 'grossWeight', reason: 'GWT is missing' })
@@ -94,11 +219,20 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       }
     }
 
-    const stoneParsed = stoneRaw === null ? 0 : toNumber(stoneRaw)
-    if (stoneRaw !== null && stoneParsed === null) {
+    if (stoneRaw !== null && stoneComponent1 === null) {
       errors.push({ field: 'stoneWeight', reason: `Expected number for SWT, got '${stoneRaw}'` })
-    } else {
-      fields.stoneWeight = { value: stoneParsed ?? 0, parsed: true }
+    }
+
+    if (colourStoneRaw !== null && stoneComponent2 === null) {
+      errors.push({ field: 'colorStoneWeight', reason: `Expected number for CL, got '${colourStoneRaw}'` })
+    }
+
+    if (stoneComponent1 !== null || stoneComponent2 !== null) {
+      const totalStoneWeight = Math.round(((stoneComponent1 ?? 0) + (stoneComponent2 ?? 0)) * 1000) / 1000
+      fields.stoneWeight = { value: totalStoneWeight, parsed: true }
+      fields.meta.stoneComponent1 = { value: stoneComponent1, parsed: stoneComponent1 !== null }
+      fields.meta.colorStoneWeight = { value: stoneComponent2, parsed: stoneComponent2 !== null }
+      fields.meta.stoneComponent2 = { value: stoneComponent2, parsed: stoneComponent2 !== null }
     }
 
     if (netRaw !== null) {
@@ -120,18 +254,75 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       fields.supplierCode = { value: supplierCodeRaw, parsed: true }
     }
 
+    const grossWeightValue = grossRaw === null ? null : toNumber(grossRaw)
+    const qrNetValue = netRaw === null ? null : toNumber(netRaw)
+    const computedNetWeight =
+      grossWeightValue !== null && (stoneComponent1 !== null || stoneComponent2 !== null)
+        ? Math.round((grossWeightValue - (stoneComponent1 ?? 0) - (stoneComponent2 ?? 0)) * 1000) / 1000
+        : null
+    const mismatch =
+      computedNetWeight !== null && qrNetValue !== null
+        ? Math.abs(Number((computedNetWeight - qrNetValue).toFixed(3)))
+        : null
+    const tolerance = 0.02
+    const requiresReview = mismatch !== null && mismatch > tolerance
+    const warnings = []
+
+    if (requiresReview) {
+      warnings.push('Net weight mismatch beyond tolerance')
+    }
+
+    const calculationBreakdown = {
+      rawQr: raw,
+      grossWeight: grossWeightValue,
+      stoneWeight: stoneComponent1 === null && stoneComponent2 === null
+        ? null
+        : Math.round(((stoneComponent1 ?? 0) + (stoneComponent2 ?? 0)) * 1000) / 1000,
+      stoneComponents: [
+        {
+          sourceField: 'SWT-',
+          label: 'Stone Component 1',
+          value: stoneComponent1,
+        },
+        {
+          sourceField: 'CL-',
+          label: 'Colour Stone Weight',
+          value: stoneComponent2,
+        },
+      ].filter((component) => component.value !== null),
+      otherWeight: {
+        sourceField: null,
+        value: null,
+      },
+      qrNetWeight: qrNetValue,
+      computedNetWeight,
+      selectedNetWeight: computedNetWeight ?? qrNetValue,
+      netFormula: 'computedNetWeight = grossWeight - stone component 1 - colour stone weight',
+      mismatch,
+      tolerance,
+      warnings,
+      requiresReview,
+      calculationExplanation: {
+        netFormula: 'computedNetWeight = grossWeight - stone component 1 - colour stone weight',
+        fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      },
+    }
+
     const parsedCountUtsav = ['grossWeight', 'stoneWeight', 'netWeight', 'category'].reduce(
       (count, field) => count + (fields[field].parsed ? 1 : 0),
       0
     )
 
-    return createResult({
+    const data = createResult({
       success: parsedCountUtsav > 0,
       strategy,
       fields,
       errors,
       raw,
     })
+
+    data.calculationBreakdown = calculationBreakdown
+    return data
   }
 
   for (const field of FIELD_KEYS) {
@@ -238,11 +429,11 @@ const parseVenzoraStrategy = (raw) => {
     return { data: createResult({ success: false, strategy, fields, errors: [{ field: 'raw', reason: 'Empty QR' }], raw }), errors }
   }
 
-  const itemCode = tokens[0] ? toText(tokens[0].toUpperCase()) : null
-  if (itemCode) {
-    fields.meta.itemCode = { value: itemCode, parsed: true }
+  const internalId = tokens[0] ? toText(tokens[0]) : null
+  if (internalId) {
+    fields.meta.internalId = { value: internalId, parsed: true }
   } else {
-    errors.push('Item code is missing')
+    errors.push('Internal item id is missing')
   }
 
   let purity = null
@@ -250,6 +441,7 @@ const parseVenzoraStrategy = (raw) => {
   let netWeight = null
   let diamondWeight = null
   let designCode = null
+  let stoneAmount = null
   const parseErrors = []
 
   const addTokenError = (field, token, reason) => {
@@ -284,6 +476,13 @@ const parseVenzoraStrategy = (raw) => {
     }
 
     if (normalizedToken.startsWith('RS')) {
+      const rawAmount = token.slice(2).trim().replace(/^\./, '')
+      const parsedAmount = rawAmount === '' ? null : Number.parseFloat(rawAmount)
+      if (Number.isFinite(parsedAmount)) {
+        stoneAmount = parsedAmount
+      } else {
+        addTokenError('stoneAmount', token, 'Invalid Rs token')
+      }
       continue
     }
 
@@ -331,11 +530,18 @@ const parseVenzoraStrategy = (raw) => {
     fields.diamondWeight = { value: diamondWeight, parsed: true }
     fields.stoneWeight = { value: diamondWeight, parsed: true }
   }
+  fields.otherWeight = { value: 0, parsed: true }
+  if (stoneAmount !== null) {
+    fields.stoneAmount = { value: stoneAmount, parsed: true }
+  }
   if (purity !== null) {
     fields.purity = { value: purity, parsed: true }
+    fields.karat = { value: purity, parsed: true }
   }
   if (designCode !== null) {
     fields.designCode = { value: designCode, parsed: true }
+    fields.meta.itemCode = { value: designCode, parsed: true }
+    fields.meta.designCode = { value: designCode, parsed: true }
   }
 
   if (grossWeight === null) {
@@ -348,9 +554,57 @@ const parseVenzoraStrategy = (raw) => {
     parseErrors.push({ field: 'designCode', reason: 'CH is missing' })
   }
 
+  const tolerance = 0.02
+  const computedNetWeight =
+    grossWeight !== null && diamondWeight !== null
+      ? Math.round((grossWeight - diamondWeight) * 1000) / 1000
+      : null
+  const mismatch =
+    computedNetWeight !== null && netWeight !== null
+      ? Math.abs(Number((computedNetWeight - netWeight).toFixed(3)))
+      : null
+  const requiresReview = mismatch !== null && mismatch > tolerance
+  const warnings = []
+
+  if (requiresReview) {
+    warnings.push('Net weight mismatch beyond tolerance')
+  }
+
+  const calculationBreakdown = {
+    rawQr: raw,
+    grossWeight,
+    stoneComponents: [
+      {
+        sourceField: 'L',
+        label: 'Less / Stone Weight',
+        value: diamondWeight,
+      },
+    ].filter((component) => component.value !== null),
+    stoneWeight: diamondWeight,
+    otherWeight: {
+      sourceField: null,
+      value: 0,
+    },
+    qrNetWeight: netWeight,
+    computedNetWeight,
+    selectedNetWeight: computedNetWeight ?? netWeight,
+    stoneAmount,
+    netFormula: 'computedNetWeight = grossWeight - stoneWeight',
+    fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+    mismatch,
+    tolerance,
+    warnings,
+    requiresReview,
+    calculationExplanation: {
+      netFormula: 'computedNetWeight = grossWeight - stoneWeight',
+      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      explanation: 'Venzora net is validated from gross minus less/stone weight.',
+    },
+  }
+
   const data = createResult({
     success:
-      Boolean(itemCode) &&
+      Boolean(internalId) &&
       grossWeight !== null &&
       netWeight !== null &&
       diamondWeight !== null &&
@@ -360,6 +614,8 @@ const parseVenzoraStrategy = (raw) => {
     errors: parseErrors,
     raw,
   })
+
+  data.calculationBreakdown = calculationBreakdown
 
   return { data, errors }
 }

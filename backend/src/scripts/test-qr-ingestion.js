@@ -58,7 +58,7 @@ const suppliers = [
 
 for (const test of tests) {
   const detection = detectSupplier(test.qr, suppliers)
-  const parseResult = parseQR(test.qr, detection?.supplier?.qrMapping)
+const parseResult = parseQR(test.qr, detection?.supplier)
   const normalizedResult = normalize(parseResult, detection?.supplier || null)
   const validatedResult = validate(normalizedResult)
   const isUnknown = !detection?.supplier

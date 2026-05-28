@@ -39,3 +39,8 @@
 # Tag: 18Kt-DAZZLING / RDZ36(2) / 32130/31394 / JFC74342-2.06
 # QR encodes only the design number:
 JFC74342
+
+# Real-world admin debug samples shared later
+JFC73810
+JFC73832
+JFC73795

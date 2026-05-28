@@ -3,8 +3,12 @@ import {
   isLikelyAdinathRaw,
   isLikelyUtsavRaw,
   isLikelyVenzoraRaw,
+  isLikelyAdinathStructuralRaw,
   isLikelyYugDelimiterRaw,
   isLikelyYugRaw,
+  isLikelyYugStructuralRaw,
+  scoreYugStructuralSignature,
+  scoreAdinathStructuralSignature,
 } from './qrParser.patterns.js'
 
 const getDetectionToken = (supplier, mode) => {
@@ -66,27 +70,47 @@ const detectSupplier = (rawQRString, suppliers = []) => {
   if (utsavMatch) return { supplier: utsavMatch, matchType: 'contains' }
 
   const yugMatch = suppliers.find((supplier) => {
-    if (!isLikelyYugDelimiterRaw(raw) && !isLikelyYugRaw(raw)) return false
-
     const supplierName = toText(supplier?.name)?.toLowerCase()
     const supplierCode = toText(supplier?.code)?.toLowerCase()
+    const isYugSupplier = supplierName === 'yug' || supplierCode === 'yug'
+    if (!isYugSupplier) return false
 
-    return supplierName === 'yug' || supplierCode === 'yug'
+    const structural = scoreYugStructuralSignature(raw)
+    const structuralMatch = isLikelyYugStructuralRaw(raw)
+    const legacyMatch = isLikelyYugDelimiterRaw(raw) || isLikelyYugRaw(raw)
+
+    return structuralMatch || legacyMatch || structural.matches >= 5
   })
-  if (yugMatch) return { supplier: yugMatch, matchType: 'contains' }
+  if (yugMatch) {
+    const structural = scoreYugStructuralSignature(raw)
+    return {
+      supplier: yugMatch,
+      matchType: structural.score >= 8 ? 'structural' : 'contains',
+      confidence: structural.score,
+    }
+  }
 
+  const adinathStructural = scoreAdinathStructuralSignature(raw)
   const adinathMatch = suppliers.find((supplier) => {
-    if (!isLikelyAdinathRaw(raw)) return false
-
     const supplierName = toText(supplier?.name)?.toLowerCase()
     const supplierCode = toText(supplier?.code)?.toLowerCase()
-
-    return supplierName === 'adinath' ||
+    const isAdinathSupplier =
+      supplierName === 'adinath' ||
       supplierName === 'aadinath' ||
       supplierCode === 'adinath' ||
       supplierCode === 'aadinath'
+
+    if (!isAdinathSupplier) return false
+
+    return isLikelyAdinathStructuralRaw(raw) || adinathStructural.score >= 5 || isLikelyAdinathRaw(raw)
   })
-  if (adinathMatch) return { supplier: adinathMatch, matchType: 'contains' }
+  if (adinathMatch) {
+    return {
+      supplier: adinathMatch,
+      matchType: adinathStructural.score >= 8 ? 'structural' : 'contains',
+      confidence: adinathStructural.score,
+    }
+  }
 
   const regexMatch = suppliers.find((supplier) => matchesRegex(raw, supplier))
   if (regexMatch) return { supplier: regexMatch, matchType: 'regex' }

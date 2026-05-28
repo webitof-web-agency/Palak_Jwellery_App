@@ -3,6 +3,72 @@ import crypto from 'crypto'
 
 const { Schema } = mongoose
 
+const settlementInputsSchema = new Schema(
+  {
+    karat: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    category: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    purityPercent: {
+      type: Number,
+      default: null,
+    },
+    originalPurityPercent: {
+      type: Number,
+      default: null,
+    },
+    puritySource: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    purityOverridden: {
+      type: Boolean,
+      default: false,
+    },
+    wastagePercent: {
+      type: Number,
+      default: null,
+    },
+    originalWastagePercent: {
+      type: Number,
+      default: null,
+    },
+    wastageSource: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    wastageOverridden: {
+      type: Boolean,
+      default: false,
+    },
+    supplierId: {
+      type: Schema.Types.ObjectId,
+      ref: 'Supplier',
+      default: null,
+    },
+    supplierCode: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    resolvedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  {
+    _id: false,
+  }
+)
+
 const saleSchema = new Schema(
   {
     qrRaw: {
@@ -61,6 +127,18 @@ const saleSchema = new Schema(
       type: String,
       required: false,
       trim: true,
+      default: null,
+    },
+    calculationSnapshot: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
+    parsedSnapshot: {
+      type: Schema.Types.Mixed,
+      default: null,
+    },
+    settlementInputs: {
+      type: settlementInputsSchema,
       default: null,
     },
     grossWeight: {

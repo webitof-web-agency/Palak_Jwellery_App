@@ -14,6 +14,10 @@ const SUPPLIER_VALIDATION_RULES = {
   },
   yug: {
     strict: true,
+    allowZeroStoneWeight: true,
+  },
+  venzora: {
+    allowZeroStoneWeight: true,
   },
   zar: {
     lenient: true,
@@ -146,7 +150,13 @@ const validate = (normalizedData = {}, options = {}) => {
   }
 
   const grossWeightIssue = checkWeightValue(grossWeight, 'Invalid or zero weight', 'Invalid or zero weight', 'Invalid weight value')
-  const stoneWeightIssue = checkWeightValue(stoneWeight, 'Invalid or zero weight', 'Invalid or zero weight', 'Invalid weight value')
+  const stoneWeightIssue = checkWeightValue(
+    stoneWeight,
+    'Invalid or zero weight',
+    'Invalid or zero weight',
+    'Invalid weight value',
+    supplierRule.allowZeroStoneWeight === true
+  )
   const otherWeightIssue = checkWeightValue(otherWeight, 'Invalid or zero weight', 'Invalid or zero weight', 'Invalid weight value', true)
   const netWeightIssue = checkWeightValue(netWeight, 'Invalid or zero net weight', 'Invalid or zero net weight', 'Invalid weight value')
   const fineWeightIssue = checkWeightValue(fineWeight, 'Invalid or zero weight', 'Invalid or zero weight', 'Invalid weight value')

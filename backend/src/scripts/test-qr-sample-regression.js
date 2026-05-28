@@ -71,7 +71,7 @@ const main = async () => {
     if (fixture.supplierKey === 'zar') summary.zar += 1
 
     try {
-      const parseResult = parseQR(fixture.raw, supplier?.qrMapping || null)
+      const parseResult = parseQR(fixture.raw, supplier || null)
       const normalizedResult = normalize(parseResult, supplier)
       const validatedResult = validate(normalizedResult)
       const valuatedResult = valuate(validatedResult)

@@ -18,6 +18,14 @@ export default function SupplierQrTool({
   selectedSupplier,
   onParseTest,
 }) {
+  const displayResult = qrResult?.normalizedResult?.display || null
+  const displayWarnings = Array.isArray(displayResult?.warnings) ? displayResult.warnings : []
+  const parseWarnings = getCombinedQrErrors(qrResult?.parseResult)
+  const hasDisplayResult = Boolean(displayResult)
+  const isReview = hasDisplayResult
+    ? Boolean((displayResult.requiresReview ?? qrResult?.normalizedResult?.requiresReview) || displayWarnings.length > 0)
+    : parseWarnings.length > 0
+
   return (
     <SectionCard className="!p-0 overflow-hidden">
       <div className="p-8 surface-panel rounded-2xl">
@@ -89,14 +97,18 @@ export default function SupplierQrTool({
             <div className="flex justify-between items-center mb-6 border-b panel-border pb-4">
               <div>
                 <h3 className="font-bold text-heading">
-                  {getCombinedQrErrors(qrResult.parseResult).length === 0
+                  {!isReview
                   ? "Parse successful"
                   : "Needs review"}
                 </h3>
                 <p className="mt-1 text-xs text-muted">
                   Supplier:{" "}
                   <span className="text-primary font-semibold">
-                    {qrResult.supplier?.name || "Unknown supplier"}
+                    {qrResult.normalizedResult?.display?.supplier?.name ||
+                      qrResult.normalizedResult?.display?.supplier?.code ||
+                      qrResult.supplier?.name ||
+                      qrResult.supplier?.code ||
+                      "Unknown supplier"}
                   </span>
                   {" • "}
                   Template:{" "}
@@ -107,18 +119,18 @@ export default function SupplierQrTool({
               </div>
               <div
                 className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
-                  getCombinedQrErrors(qrResult.parseResult).length === 0
+                  !isReview
                     ? "bg-green-500/10 text-green-500"
                     : "bg-gold-500/10 text-gold-500"
                 }`}
               >
-                {getCombinedQrErrors(qrResult.parseResult).length === 0
+                {!isReview
                   ? "OK"
                   : "REVIEW"}
               </div>
             </div>
 
-            {!qrResult.supplier && (
+            {!displayResult?.supplier && !qrResult.supplier && (
               <div className="mb-6 rounded-2xl border border-gold-500/10 bg-gold-500/5 p-4 text-sm text-muted">
                 Supplier detection did not match a known setup. Salesman can
                 still continue with manual completion on mobile.
@@ -133,7 +145,7 @@ export default function SupplierQrTool({
                 ["stoneWeight", "Stone"],
                 ["netWeight", "Net"],
               ].map(([key, label]) => {
-                const fieldValue = getQrDebugField(qrResult?.parseResult, key);
+                const fieldValue = getQrDebugField(qrResult, key);
                 return (
                   <div key={key}>
                     <div className="text-[8px] uppercase text-muted font-bold mb-1">
@@ -149,13 +161,13 @@ export default function SupplierQrTool({
               })}
             </div>
 
-            {getCombinedQrErrors(qrResult.parseResult).length > 0 && (
+            {isReview && displayWarnings.length === 0 && parseWarnings.length > 0 && (
               <div className="bg-gold-500/5 border border-gold-500/10 p-4 rounded-xl">
                 <div className="text-[10px] text-gold-600 font-bold uppercase mb-2">
                   Warnings:
                 </div>
                 <ul className="space-y-1">
-                  {getCombinedQrErrors(qrResult.parseResult).map(
+                  {parseWarnings.map(
                     (item, idx) => (
                       <li key={idx} className="text-xs text-gold-500/80">
                         • <strong className="uppercase">{item.field}:</strong>
@@ -163,6 +175,21 @@ export default function SupplierQrTool({
                       </li>
                     ),
                   )}
+                </ul>
+              </div>
+            )}
+
+            {isReview && displayWarnings.length > 0 && (
+              <div className="bg-gold-500/5 border border-gold-500/10 p-4 rounded-xl">
+                <div className="text-[10px] text-gold-600 font-bold uppercase mb-2">
+                  Warnings:
+                </div>
+                <ul className="space-y-1">
+                  {displayWarnings.map((warning, idx) => (
+                    <li key={idx} className="text-xs text-gold-500/80">
+                      • {warning}
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}

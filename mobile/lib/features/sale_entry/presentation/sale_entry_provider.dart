@@ -130,6 +130,8 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
       netWeight: netWeight,
       qrRaw: rawQr,
       overrideDuplicate: overrideDuplicate,
+      displaySnapshot: current.parseResult?.displaySnapshot ?? const {},
+      parsedSnapshot: current.parseResult?.normalizedSnapshot ?? const {},
       parseSnapshot: current.parseResult == null
           ? const {}
           : {
@@ -220,6 +222,10 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
         stoneWeight: stoneWeight,
         netWeight: netWeight,
         qrRaw: qrRaw,
+        displaySnapshot: payload.displaySnapshot.isEmpty ? null : payload.displaySnapshot,
+        parsedSnapshot: payload.parsedSnapshot.isEmpty
+            ? (payload.parseSnapshot.isEmpty ? null : payload.parseSnapshot)
+            : payload.parsedSnapshot,
         overrideDuplicate: overrideDuplicate,
         idempotencyKey: draft.idempotencyKey,
       );

@@ -28,22 +28,23 @@ const extractSlashTokens = (raw) => {
 
 const extractAadinathFallback = (raw) => {
   const tokens = extractSlashTokens(raw)
-  if (tokens.length < 7) {
+  const meaningful = tokens.map((part) => part.trim()).filter(Boolean)
+  if (meaningful.length < 4) {
     return {}
   }
 
-  const grossWeight = parseWeight(tokens[0])
-  const microStoneWeight = parseWeight(tokens[1])
-  const bigStoneWeight = parseWeight(tokens[2])
-  const netWeight = parseWeight(tokens[6])
+  const grossWeight = parseWeight(meaningful[0])
+  const stoneComponents = meaningful.slice(1, -2).map((part) => parseWeight(part)).filter((value) => value !== null)
+  const netWeight = parseWeight(meaningful[meaningful.length - 2])
 
   return {
     grossWeight,
-    stoneWeight:
-      microStoneWeight === null && bigStoneWeight === null
-        ? null
-        : (microStoneWeight ?? 0) + (bigStoneWeight ?? 0),
+    stoneWeight: stoneComponents.length === 0
+      ? null
+      : stoneComponents.reduce((sum, value) => sum + value, 0),
+    stoneComponents,
     netWeight,
+    qrNetWeight: netWeight,
   }
 }
 
@@ -61,8 +62,17 @@ const extractUtsavFallback = (raw) => {
     return parseWeight(value)
   }
 
+  const stoneComponent1 = getTokenValue('SWT-')
+  const stoneComponent2 = getTokenValue('CL-')
+
   return {
-    otherWeight: getTokenValue('CL-'),
+    stoneComponent1,
+    stoneComponent2,
+    stoneWeight:
+      stoneComponent1 === null && stoneComponent2 === null
+        ? null
+        : (stoneComponent1 ?? 0) + (stoneComponent2 ?? 0),
+    otherWeight: null,
   }
 }
 

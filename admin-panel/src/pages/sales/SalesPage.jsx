@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { salesApi } from '../../api/sales.api'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import PageHeader from '../../components/ui/PageHeader'
@@ -7,8 +7,9 @@ import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { formatNumber } from '../../utils/formatters'
 import SalesFilterBar from './components/SalesFilterBar'
 import SalesHeaderStats from './components/SalesHeaderStats'
+import SaleDetailModal from './components/SaleDetailModal'
 import SalesRecordsTable from './components/SalesRecordsTable'
-import { buttonStyles, downloadBlob } from './salesPage.utils'
+import { downloadBlob } from './salesPage.utils'
 
 export default function SalesPage() {
   const [sales, setSales] = useState([])
@@ -20,6 +21,11 @@ export default function SalesPage() {
   const [error, setError] = useState('')
   const [isExporting, setIsExporting] = useState(false)
   const [refreshToken, setRefreshToken] = useState(0)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+  const [selectedSaleId, setSelectedSaleId] = useState(null)
+  const [selectedSaleDetail, setSelectedSaleDetail] = useState(null)
   const [filters, setFilters] = useState({
     q: '',
     searchScope: 'all',
@@ -105,6 +111,57 @@ export default function SalesPage() {
     setRefreshToken((current) => current + 1)
   }
 
+  const closeDetail = useCallback(() => {
+    setDetailOpen(false)
+    setSelectedSaleId(null)
+    setSelectedSaleDetail(null)
+    setDetailError('')
+  }, [])
+
+  const openDetail = useCallback((saleId) => {
+    if (!saleId) {
+      return
+    }
+
+    setSelectedSaleId(saleId)
+    setDetailOpen(true)
+  }, [])
+
+  useEffect(() => {
+    if (!detailOpen || !selectedSaleId) {
+      return undefined
+    }
+
+    let active = true
+
+    const loadDetail = async () => {
+      setDetailLoading(true)
+      setDetailError('')
+
+      try {
+        const response = await salesApi.getSaleDetail(selectedSaleId)
+        if (!active) return
+
+        setSelectedSaleDetail(response?.data || null)
+      } catch (err) {
+        if (!active) return
+
+        setSelectedSaleDetail(null)
+        setDetailError(err?.error || err?.message || 'Failed to load sale detail.')
+      } finally {
+        if (active) {
+          setDetailLoading(false)
+        }
+      }
+    }
+
+    void loadDetail()
+
+    return () => {
+      active = false
+    }
+  }, [detailOpen, selectedSaleId, refreshToken])
+
   const handleExport = async (scope) => {
     setIsExporting(true)
     setError('')
@@ -187,6 +244,17 @@ export default function SalesPage() {
         total={total}
         limit={limit}
         onPageChange={setPage}
+        onViewDetail={openDetail}
+        viewingSaleId={selectedSaleId}
+        detailLoading={detailLoading}
+      />
+
+      <SaleDetailModal
+        open={detailOpen}
+        sale={selectedSaleDetail}
+        loading={detailLoading}
+        error={detailError}
+        onClose={closeDetail}
       />
     </div>
   )

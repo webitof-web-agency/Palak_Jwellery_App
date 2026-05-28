@@ -5,6 +5,10 @@ import { normalize } from '../services/qrNormalization.service.js'
 import { validate } from '../services/qrValidation.service.js'
 import { valuate } from '../services/qrValuation.service.js'
 import { loadSettlementSettings } from '../services/settlementSettings.service.js'
+import {
+  getSupplierBusinessSettings,
+  normalizeBusinessSettings,
+} from '../services/supplierBusinessSettings.service.js'
 
 const sendSuccess = (res, data, message) => {
   const payload = { success: true, data }
@@ -59,6 +63,32 @@ const normalizeCategories = (value) => {
   }
 
   return []
+}
+
+const normalizeNonNegativeNumber = (value, fallback = null) => {
+  if (value === null || value === undefined || value === '') {
+    return fallback
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback
+  }
+
+  return parsed
+}
+
+const normalizePercentage = (value, fallback = null) => {
+  if (value === null || value === undefined || value === '') {
+    return fallback
+  }
+
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return fallback
+  }
+
+  return parsed
 }
 
 const normalizeFieldMapValue = (value, fallback) => {
@@ -267,6 +297,222 @@ const normalizeFallbackRules = (value, existing = null) => {
   }
 }
 
+const normalizeBusinessCategories = (items, existing = []) => {
+  if (!Array.isArray(items)) {
+    return existing
+  }
+
+  return items.map((item, index) => {
+    const source = item && typeof item === 'object' ? item : { name: item }
+    const existingItem = existing?.[index] || null
+    const name = normalizeText(source.name ?? existingItem?.name)
+    const code = normalizeText(source.code ?? existingItem?.code ?? name.toUpperCase().replace(/\s+/g, '_'))
+    const colorLabel = normalizeText(source.colorLabel ?? existingItem?.colorLabel ?? '')
+    let wastagePercent = existingItem?.wastagePercent ?? null
+
+    if (source.wastagePercent !== undefined) {
+      if (source.wastagePercent === null || source.wastagePercent === '') {
+        wastagePercent = null
+      } else {
+        const parsedWastage = Number(source.wastagePercent)
+        if (!Number.isFinite(parsedWastage) || parsedWastage < 0) {
+          return { error: 'businessSettings.categories[].wastagePercent must be non-negative' }
+        }
+        wastagePercent = parsedWastage
+      }
+    }
+
+    if (!name) {
+      return { error: 'businessSettings.categories[].name is required' }
+    }
+
+    return {
+      name,
+      code,
+      colorLabel,
+      wastagePercent,
+      isActive: normalizeBoolean(source.isActive ?? existingItem?.isActive ?? true, true),
+      sortOrder: Number.isFinite(Number(source.sortOrder ?? existingItem?.sortOrder))
+        ? Number(source.sortOrder ?? existingItem?.sortOrder)
+        : (index + 100),
+    }
+  })
+}
+
+const normalizePurityOverrides = (items, existing = []) => {
+  if (!Array.isArray(items)) {
+    return existing
+  }
+
+  return items.map((item, index) => {
+    const source = item && typeof item === 'object' ? item : {}
+    const existingItem = existing?.[index] || null
+    const karat = normalizeText(source.karat ?? existingItem?.karat).replace(/\s+/g, '').toUpperCase()
+    let purityPercent = existingItem?.purityPercent ?? null
+
+    if (source.purityPercent !== undefined) {
+      if (source.purityPercent === null || source.purityPercent === '') {
+        purityPercent = null
+      } else {
+        const parsedPurity = Number(source.purityPercent)
+        if (!Number.isFinite(parsedPurity) || parsedPurity < 0 || parsedPurity > 100) {
+          return { error: 'businessSettings.purityOverrides[].purityPercent must be between 0 and 100' }
+        }
+        purityPercent = parsedPurity
+      }
+    }
+
+    if (!karat) {
+      return { error: 'businessSettings.purityOverrides[].karat is required' }
+    }
+
+    return {
+      karat,
+      purityPercent,
+      isActive: normalizeBoolean(source.isActive ?? existingItem?.isActive ?? true, true),
+    }
+  })
+}
+
+const normalizeBusinessSettingsPayload = (value, existing = null, supplierContext = {}) => {
+  const hasIncoming = value !== undefined
+  const source = value && typeof value === 'object' ? value : {}
+  const existingSettings = existing && typeof existing === 'object' ? existing : null
+  const normalizedSource = normalizeBusinessSettings(source, supplierContext)
+
+  const categories = hasIncoming
+    ? normalizeBusinessCategories(source.categories, existingSettings?.categories || [])
+    : (existingSettings?.categories || normalizedSource.categories || [])
+  if (Array.isArray(categories) && categories.some((item) => item?.error)) {
+    return { error: categories.find((item) => item?.error)?.error }
+  }
+
+  const purityOverrides = hasIncoming
+    ? normalizePurityOverrides(source.purityOverrides, existingSettings?.purityOverrides || [])
+    : (existingSettings?.purityOverrides || normalizedSource.purityOverrides || [])
+  if (Array.isArray(purityOverrides) && purityOverrides.some((item) => item?.error)) {
+    return { error: purityOverrides.find((item) => item?.error)?.error }
+  }
+
+  const defaultWastagePercent = source.defaultWastagePercent === undefined
+    ? (existingSettings?.defaultWastagePercent ?? normalizedSource.defaultWastagePercent ?? null)
+    : (source.defaultWastagePercent === null || source.defaultWastagePercent === ''
+      ? null
+      : (() => {
+          const parsed = Number(source.defaultWastagePercent)
+          return Number.isFinite(parsed) && parsed >= 0 && parsed <= 100 ? parsed : NaN
+        })())
+  if (Number.isNaN(defaultWastagePercent)) {
+    return { error: 'businessSettings.defaultWastagePercent must be between 0 and 100' }
+  }
+  if (defaultWastagePercent !== null && (defaultWastagePercent < 0 || defaultWastagePercent > 100)) {
+    return { error: 'businessSettings.defaultWastagePercent must be between 0 and 100' }
+  }
+
+  const defaultStoneRate = source.defaultStoneRate === undefined
+    ? (existingSettings?.defaultStoneRate ?? normalizedSource.defaultStoneRate ?? null)
+    : (source.defaultStoneRate === null || source.defaultStoneRate === ''
+      ? null
+      : (() => {
+          const parsed = Number(source.defaultStoneRate)
+          return Number.isFinite(parsed) && parsed >= 0 ? parsed : NaN
+        })())
+  if (Number.isNaN(defaultStoneRate)) {
+    return { error: 'businessSettings.defaultStoneRate must be non-negative' }
+  }
+  if (defaultStoneRate !== null && defaultStoneRate < 0) {
+    return { error: 'businessSettings.defaultStoneRate must be non-negative' }
+  }
+
+  const netWeightRule = normalizeText(source.netWeightRule ?? existingSettings?.netWeightRule ?? normalizedSource.netWeightRule)
+  const stoneWeightRule = normalizeText(source.stoneWeightRule ?? existingSettings?.stoneWeightRule ?? normalizedSource.stoneWeightRule)
+
+  if (source.netWeightRule !== undefined && !['computed', 'qr_trusted_with_validation', 'manual'].includes(netWeightRule)) {
+    return { error: 'businessSettings.netWeightRule is invalid' }
+  }
+
+  if (source.stoneWeightRule !== undefined && !['single', 'component_sum', 'manual'].includes(stoneWeightRule)) {
+    return { error: 'businessSettings.stoneWeightRule is invalid' }
+  }
+
+  const otherWeightRuleSource = source.otherWeightRule && typeof source.otherWeightRule === 'object'
+    ? source.otherWeightRule
+    : {}
+  const existingOtherWeightRule = existingSettings?.otherWeightRule || normalizedSource.otherWeightRule || {}
+  const deductOtherWeight = source.otherWeightRule !== undefined
+    ? normalizeBoolean(otherWeightRuleSource.deductOtherWeight, existingOtherWeightRule.deductOtherWeight ?? false)
+    : (existingOtherWeightRule.deductOtherWeight ?? false)
+  const defaultOtherWeight = source.otherWeightRule !== undefined
+    ? (otherWeightRuleSource.defaultOtherWeight === null || otherWeightRuleSource.defaultOtherWeight === ''
+      ? 0
+      : (() => {
+          const parsed = Number(otherWeightRuleSource.defaultOtherWeight)
+          return Number.isFinite(parsed) && parsed >= 0 ? parsed : NaN
+        })())
+    : (existingOtherWeightRule.defaultOtherWeight ?? 0)
+  if (Number.isNaN(defaultOtherWeight)) {
+    return { error: 'businessSettings.otherWeightRule.defaultOtherWeight must be non-negative' }
+  }
+
+  if (defaultOtherWeight !== null && defaultOtherWeight < 0) {
+    return { error: 'businessSettings.otherWeightRule.defaultOtherWeight must be non-negative' }
+  }
+
+  const qrNetTolerance = source.qrNetTolerance === undefined
+    ? (existingSettings?.qrNetTolerance ?? normalizedSource.qrNetTolerance ?? 0.005)
+    : (source.qrNetTolerance === null || source.qrNetTolerance === ''
+      ? 0.005
+      : (() => {
+          const parsed = Number(source.qrNetTolerance)
+          return Number.isFinite(parsed) && parsed >= 0 ? parsed : NaN
+        })())
+  if (Number.isNaN(qrNetTolerance)) {
+    return { error: 'businessSettings.qrNetTolerance must be non-negative' }
+  }
+  if (qrNetTolerance !== null && qrNetTolerance < 0) {
+    return { error: 'businessSettings.qrNetTolerance must be non-negative' }
+  }
+
+  return {
+    categories,
+    purityOverrides,
+    defaultWastagePercent,
+    defaultStoneRate,
+    netWeightRule: ['computed', 'qr_trusted_with_validation', 'manual'].includes(netWeightRule) ? netWeightRule : 'computed',
+    stoneWeightRule: ['single', 'component_sum', 'manual'].includes(stoneWeightRule) ? stoneWeightRule : 'single',
+    otherWeightRule: {
+      deductOtherWeight,
+      defaultOtherWeight: defaultOtherWeight ?? 0,
+    },
+    qrNetTolerance: qrNetTolerance ?? 0.005,
+  }
+}
+
+const normalizeQrProfile = (value, existing = null) => {
+  if (value === null) {
+    return null
+  }
+
+  if (value === undefined) {
+    return existing || null
+  }
+
+  const source = value && typeof value === 'object' ? value : {}
+  const profileKey = normalizeText(source.profileKey ?? existing?.profileKey)
+  const version = normalizeText(source.version ?? existing?.version)
+  const description = normalizeText(source.description ?? existing?.description)
+
+  if (!profileKey && !version && !description) {
+    return existing || null
+  }
+
+  return {
+    profileKey,
+    version,
+    description,
+  }
+}
+
 const buildSupplierPayload = (body, existingSupplier = null) => {
   const mergedQrMapping = normalizeQrMapping(
     body.qrMapping ?? {},
@@ -298,6 +544,20 @@ const buildSupplierPayload = (body, existingSupplier = null) => {
     ? normalizeFallbackRules(body.qrMapping.fallback, existingSupplier?.qrMapping?.fallback || null)
     : (existingSupplier?.qrMapping?.fallback || null)
 
+  const mergedBusinessSettings = normalizeBusinessSettingsPayload(
+    body.businessSettings,
+    existingSupplier?.businessSettings || null,
+    {
+      name: body.name ?? existingSupplier?.name ?? '',
+      code: body.code ?? existingSupplier?.code ?? '',
+    }
+  )
+  if (mergedBusinessSettings.error) {
+    return { error: mergedBusinessSettings.error }
+  }
+
+  const mergedQrProfile = normalizeQrProfile(body.qrProfile, existingSupplier?.qrProfile || null)
+
   return {
     name: normalizeText(body.name ?? existingSupplier?.name),
     code: normalizeText(body.code ?? existingSupplier?.code),
@@ -317,6 +577,8 @@ const buildSupplierPayload = (body, existingSupplier = null) => {
     categories: body.categories !== undefined
       ? normalizeCategories(body.categories)
       : (existingSupplier?.categories || []),
+    businessSettings: mergedBusinessSettings || existingSupplier?.businessSettings || null,
+    qrProfile: mergedQrProfile,
     isActive: body.isActive !== undefined
       ? normalizeBoolean(body.isActive, existingSupplier?.isActive ?? true)
       : (existingSupplier?.isActive ?? true),
@@ -330,6 +592,7 @@ const toPublicSupplier = (supplier) => {
 
   const plain = typeof supplier.toObject === 'function' ? supplier.toObject() : { ...supplier }
   delete plain.__v
+  plain.businessSettings = getSupplierBusinessSettings(plain)
   return plain
 }
 
@@ -360,10 +623,7 @@ export const listSuppliers = async (req, res) => {
   try {
     const query = req.user?.role === 'admin' ? {} : { isActive: true }
     const suppliers = await Supplier.find(query).sort({ name: 1 }).lean()
-    return sendSuccess(res, suppliers.map((supplier) => {
-      delete supplier.__v
-      return supplier
-    }))
+    return sendSuccess(res, suppliers.map((supplier) => toPublicSupplier(supplier)))
   } catch (error) {
     return sendError(res, 500, 'Failed to load suppliers', 'SERVER_ERROR')
   }
@@ -440,6 +700,8 @@ export const updateSupplier = async (req, res) => {
       existingSupplier.detectionPattern = payload.detectionPattern
     }
     existingSupplier.categories = payload.categories
+    existingSupplier.businessSettings = payload.businessSettings
+    existingSupplier.qrProfile = payload.qrProfile
     existingSupplier.isActive = payload.isActive
 
     await existingSupplier.save()
@@ -493,7 +755,7 @@ export const parseSupplierQr = async (req, res) => {
         return sendError(res, 404, 'Supplier not found', 'SUPPLIER_NOT_FOUND')
       }
 
-      const parseResult = parseQR(rawString, supplier.qrMapping)
+      const parseResult = parseQR(rawString, supplier)
       const normalizedResult = normalize(parseResult, supplier)
       const validatedResult = validate(normalizedResult, settlementSettings)
       const valuation = valuate(validatedResult, settlementSettings)
@@ -510,7 +772,7 @@ export const parseSupplierQr = async (req, res) => {
     const suppliers = await Supplier.find().lean()
     const detection = detectSupplier(rawString, suppliers)
     const supplier = detection?.supplier || null
-    const parseResult = parseQR(rawString, supplier?.qrMapping)
+    const parseResult = parseQR(rawString, supplier)
     const normalizedResult = normalize(parseResult, supplier)
     const validatedResult = validate(normalizedResult, settlementSettings)
     const valuation = valuate(validatedResult, settlementSettings)

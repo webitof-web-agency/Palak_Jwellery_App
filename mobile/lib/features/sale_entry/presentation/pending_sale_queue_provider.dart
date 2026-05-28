@@ -178,6 +178,10 @@ class PendingSaleQueueNotifier extends AsyncNotifier<List<PendingSaleDraft>> {
         stoneWeight: draft.payload.stoneWeight,
         netWeight: draft.payload.netWeight,
         qrRaw: draft.payload.qrRaw,
+        displaySnapshot: draft.payload.displaySnapshot.isEmpty ? null : draft.payload.displaySnapshot,
+        parsedSnapshot: draft.payload.parsedSnapshot.isNotEmpty
+            ? draft.payload.parsedSnapshot
+            : (draft.payload.parseSnapshot.isEmpty ? null : draft.payload.parseSnapshot),
         overrideDuplicate: draft.payload.overrideDuplicate,
         idempotencyKey: draft.idempotencyKey,
       );

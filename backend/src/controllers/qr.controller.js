@@ -186,7 +186,7 @@ export const ingestQr = async (req, res) => {
     let validationSnapshot = null
 
     if (supplier) {
-      const parseResult = parseQR(rawString, supplier?.qrMapping)
+const parseResult = parseQR(rawString, supplier)
       const normalizedResult = normalize(parseResult, supplier)
       validatedResult = validate(normalizedResult, settlementSettings)
       valuation = valuate(validatedResult, settlementSettings)

@@ -35,6 +35,8 @@ class PendingSalePayload {
     this.notes,
     this.qrRaw,
     this.overrideDuplicate = false,
+    this.displaySnapshot = const {},
+    this.parsedSnapshot = const {},
     this.parseSnapshot = const {},
   });
 
@@ -50,6 +52,8 @@ class PendingSalePayload {
   final double netWeight;
   final String? qrRaw;
   final bool overrideDuplicate;
+  final Map<String, dynamic> displaySnapshot;
+  final Map<String, dynamic> parsedSnapshot;
   final Map<String, dynamic> parseSnapshot;
 
   Map<String, dynamic> toJson() {
@@ -66,6 +70,8 @@ class PendingSalePayload {
       'netWeight': netWeight,
       'qrRaw': qrRaw,
       'overrideDuplicate': overrideDuplicate,
+      'displaySnapshot': displaySnapshot,
+      'parsedSnapshot': parsedSnapshot,
       'parseSnapshot': parseSnapshot,
     };
   }
@@ -84,6 +90,8 @@ class PendingSalePayload {
       netWeight: (json['netWeight'] as num?)?.toDouble() ?? 0,
       qrRaw: json['qrRaw']?.toString(),
       overrideDuplicate: json['overrideDuplicate'] == true,
+      displaySnapshot: (json['displaySnapshot'] as Map?)?.cast<String, dynamic>() ?? const {},
+      parsedSnapshot: (json['parsedSnapshot'] as Map?)?.cast<String, dynamic>() ?? const {},
       parseSnapshot: (json['parseSnapshot'] as Map?)?.cast<String, dynamic>() ?? const {},
     );
   }

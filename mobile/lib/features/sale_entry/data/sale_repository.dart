@@ -91,6 +91,16 @@ Map<String, dynamic>? _asMap(dynamic value) {
   return value is Map<String, dynamic> ? value : null;
 }
 
+Map<String, dynamic>? _cloneMap(dynamic value) {
+  if (value is Map<String, dynamic>) {
+    return Map<String, dynamic>.from(value);
+  }
+  if (value is Map) {
+    return value.map((key, val) => MapEntry(key.toString(), val));
+  }
+  return null;
+}
+
 final saleRepositoryProvider = Provider<SaleRepository>(
   (ref) => SaleRepository(ref.watch(dioClientProvider)),
 );
@@ -173,6 +183,8 @@ class ParseQrResult {
     required this.errors,
     this.supplier,
     this.matchType,
+    this.normalizedSnapshot,
+    this.displaySnapshot,
   });
 
   final bool success;
@@ -187,6 +199,8 @@ class ParseQrResult {
   final List<ParseError> errors;
   final SupplierModel? supplier;
   final String? matchType;
+  final Map<String, dynamic>? normalizedSnapshot;
+  final Map<String, dynamic>? displaySnapshot;
 
   bool get supplierDetected => supplier != null;
   bool get hasErrors => errors.isNotEmpty;
@@ -194,6 +208,7 @@ class ParseQrResult {
   factory ParseQrResult.from({
     required String raw,
     Map<String, dynamic>? parseResult,
+    Map<String, dynamic>? normalizedResult,
     SupplierModel? supplier,
     String? matchType,
   }) {
@@ -206,6 +221,8 @@ class ParseQrResult {
     final fields = _asMap(parseResult?['fields']);
     final isLegacy = fields != null;
     final source = isLegacy ? fields : parseResult;
+    final normalizedSnapshot = _cloneMap(normalizedResult) ?? _cloneMap(parseResult);
+    final displaySnapshot = _cloneMap(normalizedSnapshot?['display']);
 
     ParsedField<String> fieldString(List<List<String>> paths) {
       return _fieldFromPaths<String>(
@@ -228,6 +245,29 @@ class ParseQrResult {
       );
     }
 
+    ParsedField<String> purityField = _fieldFromPaths<String>(
+      normalizedSnapshot,
+      [
+        ['display', 'item', 'purityPercent'],
+        ['purityPercent'],
+        ['purity_percent'],
+      ],
+      (value) {
+        if (value == null) return null;
+        if (value is num) {
+          return value.toString();
+        }
+        final text = value.toString().trim();
+        return text.isEmpty ? null : text;
+      },
+    );
+    if (!purityField.parsed) {
+      purityField = fieldString([
+        ['purity'],
+        ['meta', 'purity'],
+      ]);
+    }
+
     return ParseQrResult(
       success: parseResult != null && _collectParseErrors(parseResult).isEmpty,
       raw: raw,
@@ -239,10 +279,7 @@ class ParseQrResult {
       category: fieldString([
         ['category'],
       ]),
-      purity: fieldString([
-        ['purity'],
-        ['meta', 'purity'],
-      ]),
+      purity: purityField,
       grossWeight: fieldDouble([
         ['grossWeight'],
       ]),
@@ -259,6 +296,8 @@ class ParseQrResult {
       errors: _collectParseErrors(parseResult),
       supplier: supplier,
       matchType: matchType,
+      normalizedSnapshot: normalizedSnapshot,
+      displaySnapshot: displaySnapshot,
     );
   }
 
@@ -276,6 +315,8 @@ class ParseQrResult {
       netWeight: const ParsedField(value: null, parsed: false),
       errors: const [ParseError(field: 'all', reason: 'Parse failed')],
       supplier: null,
+      normalizedSnapshot: null,
+      displaySnapshot: null,
     );
   }
 }
@@ -452,11 +493,13 @@ class SaleRepository {
           ? SupplierModel.fromJson(supplierJson)
           : null;
       final parseResult = data['parseResult'] as Map<String, dynamic>?;
+      final normalizedResult = data['normalizedResult'] as Map<String, dynamic>?;
       final matchType = data['matchType']?.toString();
 
       return ParseQrResult.from(
         raw: rawQr,
         parseResult: parseResult,
+        normalizedResult: normalizedResult,
         supplier: supplier,
         matchType: matchType,
       );
@@ -478,6 +521,8 @@ class SaleRepository {
     required double stoneWeight,
     required double netWeight,
     String? qrRaw,
+    Map<String, dynamic>? displaySnapshot,
+    Map<String, dynamic>? parsedSnapshot,
     bool overrideDuplicate = false,
     String? idempotencyKey,
   }) async {
@@ -497,6 +542,10 @@ class SaleRepository {
           'stoneWeight': stoneWeight,
           'netWeight': netWeight,
           if (qrRaw != null && qrRaw.isNotEmpty) 'qrRaw': qrRaw,
+          if (displaySnapshot != null && displaySnapshot.isNotEmpty)
+            'displaySnapshot': displaySnapshot,
+          if (parsedSnapshot != null && parsedSnapshot.isNotEmpty)
+            'parsedSnapshot': parsedSnapshot,
           if (overrideDuplicate) 'overrideDuplicate': true,
         },
         options: options,

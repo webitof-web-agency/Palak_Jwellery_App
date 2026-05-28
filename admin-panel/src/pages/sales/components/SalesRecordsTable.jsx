@@ -1,5 +1,6 @@
 import SectionCard from '../../../components/ui/SectionCard'
 import EmptyState from '../../../components/ui/EmptyState'
+import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import { formatDateTime, formatWeight } from '../../../utils/formatters'
 import { getName, buttonStyles } from '../salesPage.utils'
 
@@ -7,7 +8,7 @@ const LoadingRows = () => (
   <tbody className="divide-y divide-white/5">
     {[...Array(6)].map((_, rowIndex) => (
       <tr key={rowIndex}>
-        {[...Array(7)].map((__, cellIndex) => (
+        {[...Array(8)].map((__, cellIndex) => (
           <td key={cellIndex} className="px-5 py-4">
             <div className="skeleton-line h-4" />
           </td>
@@ -25,6 +26,9 @@ export default function SalesRecordsTable({
   total,
   limit,
   onPageChange,
+  onViewDetail,
+  viewingSaleId,
+  detailLoading,
 }) {
   const rangeText = (() => {
     if (!total) {
@@ -49,6 +53,7 @@ export default function SalesRecordsTable({
               <th className="px-5 py-4">Category</th>
               <th className="px-5 py-4 text-right">Net Wt</th>
               <th className="px-5 py-4 text-right">Duplicate</th>
+              <th className="px-5 py-4 text-right">Actions</th>
             </tr>
           </thead>
 
@@ -57,7 +62,7 @@ export default function SalesRecordsTable({
           ) : sales.length === 0 ? (
             <tbody>
               <tr>
-                <td colSpan="7" className="px-5 py-6">
+                <td colSpan="8" className="px-5 py-6">
                   <EmptyState
                     title="No sales found"
                     description="Try widening the date range or clearing a filter."
@@ -101,6 +106,24 @@ export default function SalesRecordsTable({
                           -
                         </span>
                       )}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <button
+                        type="button"
+                        className={buttonStyles.ghost}
+                        onClick={() => onViewDetail?.(sale._id)}
+                        aria-label={`View details for ${sale.ref || 'this sale'}`}
+                        disabled={detailLoading && viewingSaleId === sale._id}
+                      >
+                        {detailLoading && viewingSaleId === sale._id ? (
+                          <>
+                            <LoadingSpinner />
+                            Opening...
+                          </>
+                        ) : (
+                          'View details'
+                        )}
+                      </button>
                     </td>
                   </tr>
                 )

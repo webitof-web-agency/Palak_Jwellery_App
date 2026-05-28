@@ -72,11 +72,11 @@ qr-samples/samples/
 | Aadinath | BG-xxxx, LR-xx | supplier-aadinath.txt | sumIndices [1,2] |
 | YUG | SWNK-xxxx | supplier-yug.txt | sumIndices [4,14] |
 | Utsav (orange) | NST-xxxx | supplier-utsav.txt | stripPrefix GWT-/NWT-/SWT- |
-| Venzora | CH-xxxx | supplier-venzora.txt | tokenized parser |
+| Venzora | CH-xxxx | supplier-venzora.txt | tokenized parser (G/L/N/Rs/CH) |
 | ZAR (Dazzling) | JFC-xxxxx | supplier-zar.txt | manual review only |
 
 ## Parser features used
 
 - `sumIndices` - sum multiple QR positions into one field
 - `stripPrefix` - strip label prefix before parsing a number
-- `venzora` token parsing - detect prefixed tokens like `G16.970`
+- `venzora` token parsing - detect prefixed tokens like `G16.970`, `L0.316`, `N16.654`, `Rs.379`, `CH-435A`

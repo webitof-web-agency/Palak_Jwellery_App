@@ -73,7 +73,7 @@ Flutter APK → distributed directly (APK file / internal link)
 | Database | MongoDB | 7.x | Flexible schema for QR configs |
 | ODM | Mongoose | 8.x | Schema validation + query helpers |
 | Auth | JWT + bcrypt | - | Stateless, secure |
-| PDF Generation | pdfkit | - | Server-side, no browser needed |
+| PDF Generation | Browser HTML/CSS + Puppeteer fallback | - | Matches live settlement preview flow |
 | QR Scanning | mobile_scanner | latest | MLKit-based, reliable on mid-range Android |
 | State Mgmt (Flutter) | Riverpod | 2.x | Clean, testable, recommended for Flutter |
 | HTTP Client (Flutter) | Dio | - | Interceptors for JWT injection |
@@ -109,33 +109,34 @@ backend/
 │   │   ├── User.js
 │   │   ├── Sale.js
 │   │   ├── Supplier.js
-│   │   ├── Customer.js
-│   │   ├── AuditLog.js
-│   │   └── Settings.js
+│   │   ├── BusinessOption.js
+│   │   ├── QrIngestion.js
+│   │   └── SettlementSetting.js
 │   ├── routes/
 │   │   ├── auth.routes.js
 │   │   ├── sales.routes.js
 │   │   ├── suppliers.routes.js
 │   │   ├── users.routes.js
-│   │   ├── customers.routes.js
 │   │   ├── reports.routes.js
-│   │   └── settings.routes.js
+│   │   ├── business.routes.js
+│   │   └── system.routes.js
 │   ├── controllers/
 │   │   ├── auth.controller.js
 │   │   ├── sales.controller.js
 │   │   ├── suppliers.controller.js
 │   │   ├── users.controller.js
-│   │   ├── customers.controller.js
 │   │   ├── reports.controller.js
-│   │   └── settings.controller.js
+│   │   ├── qrReports.controller.js
+│   │   ├── settlementReports.controller.js
+│   │   └── business.controller.js
 │   ├── middleware/
 │   │   ├── auth.middleware.js      # JWT verification
 │   │   ├── role.middleware.js      # Role-based access
-│   │   └── audit.middleware.js     # Audit logging
+│   │   └── (no audit middleware in live v1)
 │   ├── services/
 │   │   ├── qrParser.service.js     # QR mapping engine
-│   │   ├── pdf.service.js          # PDF generation
-│   │   └── audit.service.js        # Audit log writer
+│   │   ├── settlementReports.service.js # Settlement report rendering
+│   │   └── qrReporting.service.js       # Legacy QR reporting
 │   └── app.js
 ├── .env
 ├── package.json
@@ -298,67 +299,39 @@ mobile/
   "qrHash": "string (SHA256 of qrRaw, indexed for fast lookup)",
   "salesman": "ObjectId (ref: User)",
   "supplier": "ObjectId (ref: Supplier)",
-  "customer": "ObjectId (ref: Customer, optional)",
   "category": "string",
+  "itemCode": "string",
+  "metalType": "string",
+  "purity": "string",
+  "notes": "string",
   "grossWeight": "number (grams)",
   "stoneWeight": "number (grams)",
   "netWeight": "number (grams)",
   "ratePerGram": "number",
   "totalValue": "number (netWeight × ratePerGram)",
   "wasManuallyEdited": "boolean",
-  "editedFields": ["string"],
-  "isLocked": "boolean (true after edit window expires)",
+  "isDuplicate": "boolean",
   "saleDate": "Date",
   "createdAt": "Date",
   "updatedAt": "Date"
 }
 ```
 
-### 4.4 Customers Collection
-```json
-{
-  "_id": "ObjectId",
-  "name": "string",
-  "phone": "string",
-  "gst": "string",
-  "address": "string",
-  "createdAt": "Date",
-  "updatedAt": "Date"
-}
-```
+### 4.4 Customers / AuditLogs / Settings
+UNCLEAR / NOT PRESENT in the live v1 codebase.
 
-### 4.5 AuditLogs Collection
-```json
-{
-  "_id": "ObjectId",
-  "user": "ObjectId (ref: User)",
-  "action": "enum: ['create', 'update', 'delete', 'login', 'logout']",
-  "resource": "string (e.g. 'sale', 'supplier', 'user')",
-  "resourceId": "ObjectId",
-  "before": "object (snapshot before change)",
-  "after": "object (snapshot after change)",
-  "ip": "string",
-  "createdAt": "Date"
-}
-```
+Files checked:
+- `backend/src/models/User.js`
+- `backend/src/models/Supplier.js`
+- `backend/src/models/Sale.js`
+- `backend/src/models/QrIngestion.js`
+- `backend/src/models/BusinessOption.js`
+- `backend/src/models/SettlementSetting.js`
 
-### 4.6 Settings Collection
-```json
-{
-  "_id": "ObjectId",
-  "key": "string (unique)",
-  "value": "mixed",
-  "updatedBy": "ObjectId (ref: User)",
-  "updatedAt": "Date"
-}
-```
-Settings keys:
-- `default_rate_per_gram`
-- `sale_edit_lock_hours`
-- `duplicate_qr_window_hours`
-- `company_name`
-- `company_logo_url`
-- `tax_percent`
+Live replacements:
+- `BusinessOption` for categories and metal types
+- `SettlementSetting` for settlement defaults
+- `QrIngestion` for QR review/correction/approval
 
 ---
 
@@ -391,8 +364,8 @@ Authorization: Bearer <jwt_token>
 | POST | `/sales` | Salesman | Create new sale |
 | GET | `/sales` | Auth | List sales (filtered by role) |
 | GET | `/sales/:id` | Auth | Get single sale detail |
-| PUT | `/sales/:id` | Salesman (with permission) | Edit sale (within lock window) |
-| GET | `/sales/check-qr` | Salesman | Check if QR already used |
+| GET | `/sales/summary/today` | Auth | Today summary |
+| GET | `/sales/export` | Auth | Export sales CSV |
 
 #### Suppliers
 | Method | Endpoint | Access | Description |
@@ -411,27 +384,31 @@ Authorization: Bearer <jwt_token>
 | PUT | `/users/:id` | Admin | Update user |
 | PATCH | `/users/:id/status` | Admin | Activate/Deactivate |
 
-#### Customers
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/customers` | Auth | List customers |
-| POST | `/customers` | Auth | Create customer |
-| PUT | `/customers/:id` | Auth | Update customer |
-
 #### Reports
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
-| GET | `/reports/supplier` | Admin | Supplier-wise report |
-| GET | `/reports/category` | Admin | Category-wise report |
-| GET | `/reports/salesman` | Admin | Salesman-wise report |
-| GET | `/reports/export/pdf` | Admin | Download PDF report |
+| GET | `/reports/summary` | Admin | Admin sales summary |
+| GET | `/reports/summary/me` | Auth | Salesman summary |
+| GET | `/reports/qr/summary` | Admin | Legacy QR dashboard summary |
+| GET | `/reports/qr` | Admin | Legacy QR report list |
+| GET | `/reports/qr/:id` | Admin | Legacy QR report detail |
+| GET | `/reports/qr/export.csv` | Admin | Legacy QR CSV export |
+| GET | `/reports/qr/export.pdf` | Admin | Legacy QR PDF export |
+| GET | `/reports/settlement/summary` | Admin | Settlement summary |
+| GET | `/reports/settlement` | Admin | Settlement report list |
+| GET | `/reports/settlement/export.csv` | Admin | Settlement CSV export |
+| GET | `/reports/settlement/export.pdf` | Admin | Settlement PDF export |
 
-#### Settings
+#### Business
 | Method | Endpoint | Access | Description |
 |--------|----------|--------|-------------|
-| GET | `/settings` | Admin | Get all settings |
-| PUT | `/settings` | Admin | Update settings |
-| POST | `/settings/logo` | Admin | Upload company logo |
+| GET | `/business/overview` | Auth | Categories + metal types + settings overview |
+| GET | `/business/options` | Admin | List business options |
+| POST | `/business/options` | Admin | Create business option |
+| PUT | `/business/options/:id` | Admin | Update business option |
+| DELETE | `/business/options/:id` | Admin | Delete business option |
+| GET | `/business/settings` | Admin | List settlement settings |
+| PUT | `/business/settings` | Admin | Update settlement settings |
 
 ---
 
@@ -546,10 +523,10 @@ Returns `{ supplier, matchType }` or `null` if no match.
 - Riverpod 2.x with `AsyncNotifierProvider`
 - One provider per feature (auth, scanner, sales, dashboard)
 
-### 8.4 Offline Handling (P2)
-- Detect connectivity with `connectivity_plus`
-- Queue failed sale submissions in local SQLite (`sqflite`)
-- Auto-sync on reconnect
+### 8.4 Offline Handling (live safety queue)
+- The live mobile app uses a lightweight pending sale queue persisted in `flutter_secure_storage`
+- Failed submissions are retained locally and can be retried manually
+- This is not a full offline-first sync engine
 
 ---
 
@@ -716,13 +693,12 @@ Operational basics before going live.
 ### Phase 2 — Reports & History (After Phase 1 ships and is validated in real use)
 - Reports API (supplier / category / salesman wise)
 - Reports UI with date range filters
-- PDF export
+- Settlement report export / preview
 - Sale history filters on mobile
 - Monthly charts on mobile + admin
-- Customer management
 
 ### Phase 3 — Operations (Future)
-- Full offline sale queuing + sync (sqflite local cache)
+- Full offline sale queuing + sync (future enhancement; current app has a lightweight pending queue)
 - Sale edit lock + permission flags per salesman
 - Audit log
 - Company settings (logo, tax, default rate)
@@ -736,7 +712,7 @@ Full offline-first is Phase 3. But a basic safety net must be in Slice 3 so the 
 On save sale API call failure:
 → Show "No connection — retrying..." banner
 → Retry up to 3 times with 2s backoff
-→ If all retries fail → store sale locally (sqflite, single table)
+→ If all retries fail → store sale in the lightweight pending queue
 → Show "1 sale pending sync" badge on dashboard
 → On next app open or network restore → auto-retry pending sales
 → On success → clear local queue

@@ -5,10 +5,12 @@ import {
 } from './qrParser.shared.js'
 import {
   isLikelyAdinathRaw,
+  isLikelyAdinathStructuralRaw,
   isLikelyUtsavRaw,
   isLikelyVenzoraRaw,
   isLikelyYugDelimiterRaw,
   isLikelyYugRaw,
+  isLikelyYugStructuralRaw,
   normalizeStrategy,
   YUG_FALLBACK_MAPPING,
 } from './qrParser.patterns.js'
@@ -163,15 +165,15 @@ const getBuiltInPatternVariants = (supplierKey) => {
     case 'yug':
       return [
         {
-          name: 'default_slash_format',
+          name: 'structural_positional_format',
           priority: 1,
           strategy: 'delimiter',
-          matcher: (raw) => isLikelyYugDelimiterRaw(raw),
+          matcher: (raw) => isLikelyYugStructuralRaw(raw) || isLikelyYugDelimiterRaw(raw),
           parserConfig: YUG_FALLBACK_MAPPING,
           source: 'builtin',
         },
         {
-          name: 'extended_label_format',
+          name: 'labelled_weight_format',
           priority: 2,
           strategy: 'key_value',
           matcher: (raw) => isLikelyYugRaw(raw),
@@ -183,10 +185,10 @@ const getBuiltInPatternVariants = (supplierKey) => {
     case 'aadinath':
       return [
         {
-          name: 'sparse_delimiter_format',
+          name: 'structural_delimiter_format',
           priority: 1,
           strategy: 'delimiter',
-          matcher: (raw) => isLikelyAdinathRaw(raw),
+          matcher: (raw) => isLikelyAdinathStructuralRaw(raw) || isLikelyAdinathRaw(raw),
           parserConfig: getDefaultParserConfig('adinath'),
           source: 'builtin',
         },
