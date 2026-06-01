@@ -184,7 +184,7 @@ export const Layout = () => {
           position="floating"
         />
 
-        <div className="flex-1 overflow-auto p-4 lg:p-12 relative z-10">
+        <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] p-4 lg:p-12 relative z-10">
           <Outlet />
         </div>
       </main>

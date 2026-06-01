@@ -18,8 +18,12 @@ const sendSuccess = (res, data, message) => {
   return res.status(200).json(payload)
 }
 
-const sendError = (res, status, error, code) => {
-  return res.status(status).json({ success: false, error, code })
+const sendError = (res, status, error, code, details = undefined) => {
+  const payload = { success: false, error, code }
+  if (details !== undefined) {
+    payload.details = details
+  }
+  return res.status(status).json(payload)
 }
 
 const normalizeText = (value) => {
@@ -514,6 +518,11 @@ const normalizeQrProfile = (value, existing = null) => {
 }
 
 const buildSupplierPayload = (body, existingSupplier = null) => {
+  const hasQrMappingFallback = Boolean(
+    body?.qrMapping &&
+    Object.prototype.hasOwnProperty.call(body.qrMapping, 'fallback'),
+  )
+
   const mergedQrMapping = normalizeQrMapping(
     body.qrMapping ?? {},
     existingSupplier?.qrMapping || {},
@@ -540,9 +549,25 @@ const buildSupplierPayload = (body, existingSupplier = null) => {
     return { error: mergedPatternVariants.find((variant) => variant?.error)?.error || 'Invalid pattern variant' }
   }
 
-  const mergedFallback = body.qrMapping?.fallback !== undefined
-    ? normalizeFallbackRules(body.qrMapping.fallback, existingSupplier?.qrMapping?.fallback || null)
+  const existingFallback = existingSupplier?.qrMapping?.fallback || null
+  const mergedFallback = hasQrMappingFallback
+    ? normalizeFallbackRules(body.qrMapping.fallback, existingFallback)
     : (existingSupplier?.qrMapping?.fallback || null)
+  const fallbackPayload = mergedFallback && typeof mergedFallback === 'object'
+    ? {
+        allowPartial: normalizeBoolean(mergedFallback.allowPartial ?? true, true),
+        minFieldsRequired: Array.isArray(mergedFallback.minFieldsRequired)
+          ? mergedFallback.minFieldsRequired.map((item) => normalizeText(item)).filter(Boolean)
+          : ['design_code'],
+        defaultStatus: ['approved', 'needs_review'].includes(mergedFallback.defaultStatus)
+          ? mergedFallback.defaultStatus
+          : 'needs_review',
+      }
+    : {
+        allowPartial: true,
+        minFieldsRequired: ['design_code'],
+        defaultStatus: 'needs_review',
+      }
 
   const mergedBusinessSettings = normalizeBusinessSettingsPayload(
     body.businessSettings,
@@ -567,11 +592,7 @@ const buildSupplierPayload = (body, existingSupplier = null) => {
     qrMapping: {
       ...mergedQrMapping,
       patternVariants: mergedPatternVariants || [],
-      fallback: mergedFallback || {
-        allowPartial: true,
-        minFieldsRequired: ['design_code'],
-        defaultStatus: 'needs_review',
-      },
+      fallback: fallbackPayload,
     },
     detectionPattern: mergedDetectionPattern,
     categories: body.categories !== undefined
@@ -619,6 +640,46 @@ const enrichParseResultWithSupplier = (parseResult, supplier) => {
 
 const getSupplierId = (req) => req.params.id || req.params.supplierId
 
+const normalizeMongooseValidationDetails = (error) => {
+  if (!error || typeof error !== 'object') {
+    return null
+  }
+
+  if (error.name === 'ValidationError' && error.errors && typeof error.errors === 'object') {
+    const details = Object.entries(error.errors)
+      .map(([path, validationError]) => ({
+        path,
+        message: validationError?.message || 'Invalid value',
+        kind: validationError?.kind || 'validation',
+      }))
+      .filter((item) => item.path)
+
+    return details.length > 0 ? details : null
+  }
+
+  if (error.name === 'CastError' && error.path) {
+    return [{
+      path: error.path,
+      message: error.message || 'Invalid value',
+      kind: 'cast',
+    }]
+  }
+
+  return null
+}
+
+const logSupplierSaveError = (operation, error, context = {}) => {
+  const details = normalizeMongooseValidationDetails(error)
+  console.error(`[suppliers] ${operation} failed`, {
+    ...context,
+    name: error?.name,
+    message: error?.message,
+    code: error?.code,
+    details,
+    stack: error?.stack,
+  })
+}
+
 export const listSuppliers = async (req, res) => {
   try {
     const query = req.user?.role === 'admin' ? {} : { isActive: true }
@@ -656,13 +717,25 @@ export const createSupplier = async (req, res) => {
       return sendError(res, 409, 'Supplier code already exists', 'DUPLICATE_SUPPLIER_CODE')
     }
 
+    const details = normalizeMongooseValidationDetails(error)
+    logSupplierSaveError('create supplier', error, {
+      supplierCode: req.body?.code,
+      supplierName: req.body?.name,
+    })
+
+    if (details) {
+      const firstMessage = details[0]?.message || 'Invalid supplier payload'
+      return sendError(res, 400, firstMessage, 'VALIDATION_ERROR', details)
+    }
+
     return sendError(res, 500, 'Failed to create supplier', 'SERVER_ERROR')
   }
 }
 
 export const updateSupplier = async (req, res) => {
+  const supplierId = getSupplierId(req)
+
   try {
-    const supplierId = getSupplierId(req)
     if (!mongoose.isValidObjectId(supplierId)) {
       return sendError(res, 400, 'Invalid supplier id', 'INVALID_ID')
     }
@@ -709,6 +782,18 @@ export const updateSupplier = async (req, res) => {
   } catch (error) {
     if (error?.code === 11000) {
       return sendError(res, 409, 'Supplier code already exists', 'DUPLICATE_SUPPLIER_CODE')
+    }
+
+    const details = normalizeMongooseValidationDetails(error)
+    logSupplierSaveError('update supplier', error, {
+      supplierId,
+      supplierCode: req.body?.code,
+      supplierName: req.body?.name,
+    })
+
+    if (details) {
+      const firstMessage = details[0]?.message || 'Invalid supplier payload'
+      return sendError(res, 400, firstMessage, 'VALIDATION_ERROR', details)
     }
 
     return sendError(res, 500, 'Failed to update supplier', 'SERVER_ERROR')

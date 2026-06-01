@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import crypto from 'crypto'
+import { ALLOWED_SALE_ENTRY_MODES } from '../services/batchLifecycle.service.js'
 
 const { Schema } = mongoose
 
@@ -86,6 +87,34 @@ const saleSchema = new Schema(
       index: true,
       unique: true,
       sparse: true,
+    },
+    batchId: {
+      type: Schema.Types.ObjectId,
+      ref: 'ScanBatch',
+      default: null,
+      index: true,
+    },
+    revisionAdded: {
+      type: Number,
+      default: null,
+      min: 1,
+    },
+    entryMode: {
+      type: String,
+      default: null,
+      validate: {
+        validator: (value) => value === null || value === undefined || ALLOWED_SALE_ENTRY_MODES.includes(value),
+        message: 'Invalid sale entry mode',
+      },
+    },
+    addedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    addedAt: {
+      type: Date,
+      default: null,
     },
     salesman: {
       type: Schema.Types.ObjectId,
@@ -189,6 +218,7 @@ const saleSchema = new Schema(
 saleSchema.index({ salesman: 1, saleDate: -1 })
 saleSchema.index({ supplier: 1, saleDate: -1 })
 saleSchema.index({ category: 1 })
+saleSchema.index({ batchId: 1, saleDate: -1 })
 
 
 // Hash a QR string using SHA-256

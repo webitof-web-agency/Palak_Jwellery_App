@@ -98,6 +98,7 @@ Backend foundation note:
 - `Sale.settlementInputs` tracks karat, purity percent, wastage percent, source labels, and override flags
 - `Sale.calculationSnapshot` is built from resolved settlement inputs, not raw UI fields alone
 - sale detail returns those stored snapshots for verification/debugging
+- the first batch/session foundation now exists in backend code: `ScanBatch`, optional `Sale.batchId` metadata, and a batch lifecycle helper; batch APIs and UI remain next-phase work
 - exact category wastage and karat purity values are still pending business confirmation and should remain placeholder-safe
 
 ## 4. Purity and Wastage Rules

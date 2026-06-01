@@ -2,11 +2,19 @@ export default function SupplierFormBasicsSection({
   form,
   paymentModes,
   onFormChange,
-  onAddCategory,
-  onRemoveCategory,
 }) {
   return (
-    <>
+    <section className="surface-panel-soft panel-border rounded-2xl p-5 md:p-6 space-y-5">
+      <div>
+        <span className="eyebrow">Basic Info</span>
+        <h3 className="text-xl font-bold font-display text-heading mt-2">
+          Supplier identity
+        </h3>
+        <p className="mt-2 text-sm text-muted leading-relaxed">
+          Keep the supplier profile simple. These fields identify who the supplier is and how the sale is settled.
+        </p>
+      </div>
+
       <div className="form-grid">
         <label className="field">
           <span className="field-label">Legal Name</span>
@@ -56,52 +64,7 @@ export default function SupplierFormBasicsSection({
             ))}
           </select>
         </label>
-
-        <label className="field">
-          <span className="field-label">How to read the QR</span>
-          <select
-            className="input"
-            value={form.strategy}
-            onChange={(event) => onFormChange('strategy', event.target.value)}
-            aria-label="How to read the QR"
-          >
-            <option value="delimiter">Delimiter / positional</option>
-            <option value="key_value">Key-value label format</option>
-            <option value="venzora">Venzora token format</option>
-          </select>
-        </label>
-
-        <label className="field">
-          <span className="field-label">How to match the supplier</span>
-          <select
-            className="input"
-            value={form.detectionType}
-            onChange={(event) => onFormChange('detectionType', event.target.value)}
-            aria-label="How to match the supplier"
-          >
-            <option value="regex">Regex</option>
-            <option value="contains">Contains</option>
-            <option value="prefix">Prefix</option>
-          </select>
-        </label>
       </div>
-
-      <label className="field mb-0">
-        <span className="field-label">Supplier name, code, or pattern</span>
-        <input
-          className="input"
-          value={form.detectionPattern}
-          onChange={(event) => onFormChange('detectionPattern', event.target.value)}
-          placeholder={
-            form.detectionType === 'regex'
-              ? 'e.g. ^JFC\\d+'
-              : form.detectionType === 'prefix'
-                ? 'e.g. USV'
-                : 'e.g. SWMS'
-          }
-          aria-label="Supplier name, code, or pattern"
-        />
-      </label>
 
       <label className="field mb-0">
         <span className="field-label">Registered Address</span>
@@ -115,56 +78,28 @@ export default function SupplierFormBasicsSection({
         />
       </label>
 
-      <div className="surface-panel-faint panel-border rounded-2xl p-5 flex flex-col gap-4">
+      <div className="rounded-2xl surface-panel-faint panel-border p-4 flex items-center justify-between gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-[0.18em] text-muted font-bold">
-            Allowed Categories
+            Active supplier
           </div>
-          <p className="mt-2 text-sm text-muted">
-            Maintain business categories here. Salesman will get a dropdown with manual fallback.
+          <p className="mt-1 text-sm text-muted">
+            Keep the supplier available for QR detection and sales entry.
           </p>
         </div>
-        <div className="flex gap-3">
+        <label className="inline-flex items-center gap-3 cursor-pointer select-none">
           <input
-            className="input"
-            value={form.categoryDraft}
-            onChange={(event) => onFormChange('categoryDraft', event.target.value)}
-            placeholder="Add category"
-            aria-label="Add supplier category"
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                onAddCategory()
-              }
-            }}
+            type="checkbox"
+            className="h-4 w-4 rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500"
+            checked={Boolean(form.isActive)}
+            onChange={(event) => onFormChange('isActive', event.target.checked)}
+            aria-label="Supplier active"
           />
-          <button
-            type="button"
-            onClick={onAddCategory}
-            className="luxury-button bg-white/5 text-on-accent hover:bg-white/10 border border-white/10"
-            aria-label="Add supplier category"
-          >
-            Add
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {form.categories.length === 0 ? (
-            <span className="text-sm text-muted">No categories configured yet.</span>
-          ) : (
-            form.categories.map((category) => (
-              <button
-                key={category}
-                type="button"
-                onClick={() => onRemoveCategory(category)}
-                className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-bold text-on-accent hover:border-gold-500/30 hover:bg-gold-600/10"
-                aria-label={`Remove category ${category}`}
-              >
-                {category} x
-              </button>
-            ))
-          )}
-        </div>
+          <span className="text-sm font-semibold text-heading">
+            {form.isActive ? 'Yes' : 'No'}
+          </span>
+        </label>
       </div>
-    </>
+    </section>
   )
 }

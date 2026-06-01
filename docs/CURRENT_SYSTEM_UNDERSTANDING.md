@@ -16,10 +16,12 @@ The live implementation is stronger than the older PRD/TRD in a few places:
 - Admin now has a business-settings surface for categories, metal types, and settlement defaults.
 - A centralized settlement calculation service now exists at `backend/src/services/settlementCalculation.service.js`.
 - Sale creation now stores an audit snapshot (`calculationSnapshot`), an optional parser/display snapshot (`parsedSnapshot`), and a settlement-input snapshot (`settlementInputs`) so sale detail can explain how values were derived at the time of sale.
+- The backend now also has the first batch/session foundation pieces: a `ScanBatch` model, optional batch fields on `Sale`, and a lifecycle helper for future batch status transitions. Batch APIs/UI are still not wired yet.
 
 The biggest production risks are:
 
 - Settlement reporting still has a legacy QR-ingestion fallback path.
+- The batch workflow is not yet wired into routes/UI, so item-level sales remain the only live workflow.
 - The admin API client now matches the backend sale-detail route.
 - Documentation in `docs/PRD.md` and `docs/TRD.md` is partially outdated versus live code.
 - The system has two reporting paths in parallel: legacy QR reporting and the newer settlement-report flow.

@@ -4,11 +4,84 @@ import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 import { formatDateTime, formatWeight } from '../../../utils/formatters'
 import { getName, buttonStyles } from '../salesPage.utils'
 
+const formatValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return '—'
+  }
+
+  return String(value)
+}
+
+const getSnapshot = (sale) => (sale?.calculationSnapshot && typeof sale.calculationSnapshot === 'object'
+  ? sale.calculationSnapshot
+  : {})
+
+const getSettlementInputs = (sale) => (sale?.settlementInputs && typeof sale.settlementInputs === 'object'
+  ? sale.settlementInputs
+  : {})
+
+const getParsedItem = (sale) => {
+  const parsedSnapshot = sale?.parsedSnapshot && typeof sale.parsedSnapshot === 'object'
+    ? sale.parsedSnapshot
+    : null
+  const display = parsedSnapshot?.display && typeof parsedSnapshot.display === 'object'
+    ? parsedSnapshot.display
+    : parsedSnapshot
+  return display?.item && typeof display.item === 'object' ? display.item : {}
+}
+
+const getStatusBadges = (sale) => {
+  const calculation = getSnapshot(sale)
+  const settlementInputs = getSettlementInputs(sale)
+  const parsedSnapshot = sale?.parsedSnapshot && typeof sale.parsedSnapshot === 'object'
+    ? sale.parsedSnapshot
+    : null
+  const parsedDisplay = parsedSnapshot?.display && typeof parsedSnapshot.display === 'object'
+    ? parsedSnapshot.display
+    : parsedSnapshot
+
+  const badges = []
+  if (sale?.isDuplicate === true) {
+    badges.push({ label: 'Duplicate', tone: 'amber' })
+  }
+
+  if (calculation?.requiresReview === true || parsedDisplay?.requiresReview === true) {
+    badges.push({ label: 'Needs Review', tone: 'rose' })
+  }
+
+  if (settlementInputs?.purityOverridden === true || settlementInputs?.wastageOverridden === true) {
+    badges.push({ label: 'Manual Override', tone: 'gold' })
+  }
+
+  if (badges.length === 0) {
+    badges.push({ label: 'OK', tone: 'neutral' })
+  }
+
+  return badges
+}
+
+const StatusBadge = ({ label, tone = 'neutral' }) => {
+  const toneClasses = {
+    neutral: 'border-white/10 bg-white/5 text-primary',
+    gold: 'border-gold-500/30 bg-gold-500/10 text-gold-100',
+    amber: 'border-amber-400/30 bg-amber-400/10 text-amber-300',
+    rose: 'border-red-400/30 bg-red-400/10 text-red-100',
+  }
+
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] ${toneClasses[tone] || toneClasses.neutral}`}
+    >
+      {label}
+    </span>
+  )
+}
+
 const LoadingRows = () => (
   <tbody className="divide-y divide-white/5">
     {[...Array(6)].map((_, rowIndex) => (
       <tr key={rowIndex}>
-        {[...Array(8)].map((__, cellIndex) => (
+        {[...Array(11)].map((__, cellIndex) => (
           <td key={cellIndex} className="px-5 py-4">
             <div className="skeleton-line h-4" />
           </td>
@@ -42,17 +115,20 @@ export default function SalesRecordsTable({
 
   return (
     <SectionCard className="!p-0 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
+      <div className="overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
+        <table className="w-full min-w-[1180px] text-left">
           <thead>
             <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-muted">
               <th className="px-5 py-4">Ref</th>
               <th className="px-5 py-4">Date</th>
-              <th className="px-5 py-4">Salesman</th>
               <th className="px-5 py-4">Supplier</th>
-              <th className="px-5 py-4">Category</th>
+              <th className="px-5 py-4">Item / Design Code</th>
+              <th className="px-5 py-4">Karat</th>
+              <th className="px-5 py-4 text-right">Gross Wt</th>
+              <th className="px-5 py-4 text-right">Stone Wt</th>
               <th className="px-5 py-4 text-right">Net Wt</th>
-              <th className="px-5 py-4 text-right">Duplicate</th>
+              <th className="px-5 py-4 text-right">Fine Wt</th>
+              <th className="px-5 py-4">Status</th>
               <th className="px-5 py-4 text-right">Actions</th>
             </tr>
           </thead>
@@ -62,7 +138,7 @@ export default function SalesRecordsTable({
           ) : sales.length === 0 ? (
             <tbody>
               <tr>
-                <td colSpan="8" className="px-5 py-6">
+                <td colSpan="11" className="px-5 py-6">
                   <EmptyState
                     title="No sales found"
                     description="Try widening the date range or clearing a filter."
@@ -73,39 +149,52 @@ export default function SalesRecordsTable({
           ) : (
             <tbody className="divide-y divide-white/5">
               {sales.map((sale) => {
-                const netWeight = Number(sale?.netWeight) || 0
-                const isDuplicate = sale?.isDuplicate === true
+                const calculation = getSnapshot(sale)
+                const settlementInputs = getSettlementInputs(sale)
+                const parsedItem = getParsedItem(sale)
+                const itemCode = parsedItem?.itemCode || parsedItem?.designCode || sale?.itemCode || sale?.designCode || sale?.design_code || '—'
+                const karat = settlementInputs?.karat || parsedItem?.karat || sale?.purity || '—'
+                const grossWeight = calculation?.grossWeight ?? sale?.grossWeight ?? sale?.gross_weight
+                const stoneWeight = calculation?.stoneWeight ?? sale?.stoneWeight ?? sale?.stone_weight
+                const netWeight = calculation?.selectedNetWeight ?? calculation?.computedNetWeight ?? sale?.netWeight ?? sale?.net_weight
+                const fineWeight = calculation?.fineWeight ?? sale?.fineWeight ?? sale?.fine_weight
+                const statusBadges = getStatusBadges(sale)
 
                 return (
                   <tr key={sale._id} className="hover:bg-white/5">
-                    <td className="px-5 py-4 font-mono text-xs text-muted">
-                      {sale.ref || '-'}
+                    <td className="px-5 py-4 font-mono text-xs text-muted whitespace-nowrap">
+                      {sale.ref || '—'}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-primary">
                       {formatDateTime(sale.saleDate)}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-primary">
-                      {getName(sale.salesman)}
-                    </td>
-                    <td className="px-5 py-4 whitespace-nowrap text-primary">
                       {getName(sale.supplier)}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-primary">
-                      {sale?.category || '-'}
+                      {formatValue(itemCode)}
+                    </td>
+                    <td className="px-5 py-4 whitespace-nowrap text-primary">
+                      {formatValue(karat)}
                     </td>
                     <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
-                      {formatWeight(netWeight)}
+                      {grossWeight === null || grossWeight === undefined || grossWeight === '' ? '—' : formatWeight(grossWeight)}
                     </td>
-                    <td className="px-5 py-4 text-right whitespace-nowrap">
-                      {isDuplicate ? (
-                        <span className="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-300">
-                          Duplicate
-                        </span>
-                      ) : (
-                        <span className="text-muted text-[10px] uppercase tracking-[0.18em]">
-                          -
-                        </span>
-                      )}
+                    <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
+                      {stoneWeight === null || stoneWeight === undefined || stoneWeight === '' ? '—' : formatWeight(stoneWeight)}
+                    </td>
+                    <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
+                      {netWeight === null || netWeight === undefined || netWeight === '' ? '—' : formatWeight(netWeight)}
+                    </td>
+                    <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
+                      {fineWeight === null || fineWeight === undefined || fineWeight === '' ? '—' : formatWeight(fineWeight)}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {statusBadges.map((badge) => (
+                          <StatusBadge key={badge.label} label={badge.label} tone={badge.tone} />
+                        ))}
+                      </div>
                     </td>
                     <td className="px-5 py-4 text-right">
                       <button
