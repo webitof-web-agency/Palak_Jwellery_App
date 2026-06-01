@@ -14,7 +14,7 @@ export default function SettlementReportsTable({ rows, loading }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-muted">
+            <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
               <th className="px-4 py-3">Supplier</th>
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Metal</th>
@@ -50,10 +50,10 @@ export default function SettlementReportsTable({ rows, loading }) {
               </tr>
             </tbody>
           ) : (
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-[var(--jsm-border)]">
               {rows.map((row) => {
                 return (
-                  <tr key={row.id} className="hover:bg-white/5">
+                  <tr key={row.id} className="hover:bg-[var(--jsm-panel-bg-faint)]">
                     <td className="px-4 py-3">
                       <div className="font-medium text-primary">
                         {row.supplier || "Unknown"}

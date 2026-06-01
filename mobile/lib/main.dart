@@ -1,10 +1,13 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/system/backend_status.dart';
 import 'features/auth/presentation/auth_notifier.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/batches/presentation/batch_detail_screen.dart';
+import 'features/batches/presentation/create_batch_screen.dart';
+import 'features/batches/presentation/my_batches_screen.dart';
 import 'features/history/presentation/sales_history_provider.dart';
 import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
@@ -31,14 +34,11 @@ Future<void> main() async {
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authSession = ref.watch(authSessionProvider);
 
-    return GoRouter(
-      observers: [appRouteObserver],
-      initialLocation: '/login',
-      routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+  return GoRouter(
+    observers: [appRouteObserver],
+    initialLocation: '/login',
+    routes: [
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/dashboard',
         builder: (context, state) => const DashboardScreen(),
@@ -62,8 +62,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sale-success',
         builder: (context, state) {
-          final sale = state.extra is CreatedSale ? state.extra as CreatedSale : null;
-          return sale == null ? const DashboardScreen() : SaleSuccessScreen(sale: sale);
+          final sale = state.extra is CreatedSale
+              ? state.extra as CreatedSale
+              : null;
+          return sale == null
+              ? const DashboardScreen()
+              : SaleSuccessScreen(sale: sale);
+        },
+      ),
+      GoRoute(
+        path: '/batches',
+        builder: (context, state) => const MyBatchesScreen(),
+      ),
+      GoRoute(
+        path: '/batches/create',
+        builder: (context, state) => const CreateBatchScreen(),
+      ),
+      GoRoute(
+        path: '/batches/:batchId',
+        builder: (context, state) {
+          final batchId = state.pathParameters['batchId'] ?? '';
+          return BatchDetailScreen(batchId: batchId);
         },
       ),
       GoRoute(
@@ -114,9 +133,8 @@ class JewelleryApp extends ConsumerWidget {
     }
 
     if (backendStatus.hasError) {
-      final errorMessage = backendStatus.whenOrNull(
-            error: (error, _) => error.toString(),
-          ) ??
+      final errorMessage =
+          backendStatus.whenOrNull(error: (error, _) => error.toString()) ??
           'Could not connect to the backend. Check the server and try again.';
 
       return MaterialApp(
@@ -183,10 +201,7 @@ class DashboardScreen extends ConsumerWidget {
           content: Text(
             'You will be returned to the login screen. Unsaved sale entry changes will be lost.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              height: 1.5,
-            ),
+            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
           ),
           actions: [
             SizedBox(
@@ -233,11 +248,7 @@ class DashboardScreen extends ConsumerWidget {
       sortOrder: 'desc',
       duplicatesOnly: false,
     );
-    final recentSalesAsync = ref.watch(
-      recentSalesPageProvider(
-        todayQuery,
-      ),
-    );
+    final recentSalesAsync = ref.watch(recentSalesPageProvider(todayQuery));
 
     return Scaffold(
       appBar: AppBar(
@@ -340,6 +351,23 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: () => context.push('/batches'),
+                    icon: const Icon(Icons.inventory_2_rounded),
+                    label: const Text('My Batches'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textPrimary,
+                      side: BorderSide(color: AppColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                  ),
+                ),
                 SizedBox(height: 24),
                 Container(
                   width: double.infinity,
@@ -351,7 +379,10 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                   child: Text(
                     'Track today’s sales and start a new entry from here.',
-                    style: TextStyle(color: AppColors.textSecondary, height: 1.5),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
                   ),
                 ),
                 SizedBox(height: 16),
@@ -443,4 +474,3 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 }
-

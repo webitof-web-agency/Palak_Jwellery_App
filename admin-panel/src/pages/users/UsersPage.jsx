@@ -47,7 +47,7 @@ export default function UsersPage() {
       } else {
         setError('Failed to fetch user directory')
       }
-    } catch (err) {
+    } catch {
       setError('Failed to fetch user directory')
     } finally {
       setLoading(false)
@@ -130,7 +130,7 @@ export default function UsersPage() {
 
       {/* Users table */}
       <SectionCard className="!p-0 overflow-hidden">
-        <div className="surface-panel-faint border-b border-white/10 px-6 py-5">
+        <div className="surface-panel-faint border-b border-[var(--jsm-border)] px-6 py-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
             <div>
               <div className="flex items-center gap-2">
@@ -139,7 +139,7 @@ export default function UsersPage() {
                 </h2>
                 <button
                   type="button"
-                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted hover:text-primary hover:border-gold-500/30 hover:bg-white/10"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full surface-panel-soft panel-border text-muted hover:text-primary hover:border-gold-500/30 hover:bg-gold-500/10"
                   title="Search by name, email, or phone number."
                   aria-label="Search help"
                 >
@@ -197,7 +197,7 @@ export default function UsersPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/5">
+              <tbody className="divide-y divide-[var(--jsm-border)]">
                 {users.map((user) => (
                   <UserRow
                     key={user._id}

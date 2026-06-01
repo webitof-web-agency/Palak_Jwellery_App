@@ -12,7 +12,7 @@ export default function DeleteUserDialog({
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex items-center justify-center p-6 bg-[rgba(38,28,24,0.48)] backdrop-blur-sm">
-      <div className="glass-panel w-full max-w-sm p-8 premium-shadow animate-[zoom-in_120ms_ease-out] will-change-transform transform-gpu text-primary">
+      <div className="surface-panel-soft panel-border w-full max-w-sm p-8 premium-shadow animate-[zoom-in_120ms_ease-out] will-change-transform transform-gpu text-primary rounded-[2rem]">
         <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-full flex items-center justify-center mb-6 mx-auto">
           <span className="text-red-500 text-2xl font-bold">!</span>
         </div>
@@ -45,7 +45,7 @@ export default function DeleteUserDialog({
           <button
             type="button"
             onClick={onClose}
-            className="w-full py-3 bg-white/5 hover:bg-white/10 text-primary font-bold rounded-xl transition-all border border-white/10"
+            className="w-full py-3 surface-panel-faint hover:bg-gold-500/10 text-primary font-bold rounded-xl transition-all border panel-border hover:border-gold-500/30"
             aria-label="Cancel delete user"
           >
             Cancel

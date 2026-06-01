@@ -6,9 +6,10 @@ const roleClasses = {
 export default function UserRow({ user, onToggleStatus, onDelete }) {
   const initial = user?.name?.[0] || 'U'
   const isActive = Boolean(user?.isActive)
+  const joinedDate = user?.createdAt ? new Date(user.createdAt) : null
 
   return (
-    <tr className="hover:bg-white/[0.02] transition-all group">
+    <tr className="hover:bg-[var(--jsm-panel-bg-faint)] transition-all group">
       <td className="px-8 py-5">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 rounded-xl surface-panel-faint panel-border flex items-center justify-center font-bold text-heading uppercase">
@@ -40,17 +41,19 @@ export default function UserRow({ user, onToggleStatus, onDelete }) {
             className={`w-1.5 h-1.5 rounded-full ${
               isActive
                 ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]'
-                : 'bg-white/10'
+                : 'bg-[var(--jsm-border)]'
             }`}
           />
           {isActive ? 'Active' : 'Inactive'}
         </button>
       </td>
       <td className="px-8 py-5 text-muted text-[10px] font-bold uppercase tracking-widest">
-        {new Date(user?.createdAt || Date.now()).toLocaleDateString(undefined, {
-          day: '2-digit',
-          month: 'short',
-        })}
+        {joinedDate
+          ? joinedDate.toLocaleDateString(undefined, {
+              day: '2-digit',
+              month: 'short',
+            })
+          : '-'}
       </td>
       <td className="px-8 py-5 text-right">
         <button

@@ -166,7 +166,7 @@ export default function ExceptionsPage() {
       />
 
       {statusMessage ? (
-        <div className="surface-card border-green-500/20 bg-green-500/10 text-green-200 flex items-center justify-between gap-4">
+        <div className="surface-panel-soft panel-border border-green-500/20 text-green-200 flex items-center justify-between gap-4">
           <span>{statusMessage}</span>
           <button type="button" className="text-xs font-bold uppercase tracking-widest text-green-100" onClick={() => setStatusMessage('')}>
             Dismiss
@@ -175,7 +175,7 @@ export default function ExceptionsPage() {
       ) : null}
 
       {error && (
-        <div className="surface-card border-red-500/20 bg-red-500/10 text-primary flex items-center justify-between gap-4">
+        <div className="surface-panel-soft panel-border border-red-500/20 text-primary flex items-center justify-between gap-4">
           <span className="font-medium">{error}</span>
           <button
             type="button"

@@ -25,13 +25,14 @@ The recommended direction is:
 
 1. add `batchId` and related metadata to `Sale`
 2. add a `ScanBatch` model with embedded revision snapshots
-3. keep batch exports/revisions traceable without breaking current item-level sales
+3. keep batch revisions traceable without breaking current item-level sales
 4. phase in admin batch views before mobile batch capture
 
 Phase 1 status:
 
 - backend foundation code is now in place for `ScanBatch`, optional `Sale` batch metadata, and a batch lifecycle helper
-- batch APIs, admin views, and mobile batch capture are still future phases
+- batch APIs and admin batch review/create UI are now live
+- mobile batch capture is still the next major phase
 
 ---
 
@@ -536,19 +537,17 @@ Admin should later be able to see:
 
 ### 8.1 Batch lifecycle APIs
 
-Proposed routes to evaluate later:
+Implemented in backend Phase 2:
 
 - `POST /api/v1/batches`
 - `GET /api/v1/batches`
+- `GET /api/v1/batches/:id/revisions`
 - `GET /api/v1/batches/:id`
-- `PATCH /api/v1/batches/:id`
 - `POST /api/v1/batches/:id/items`
 - `POST /api/v1/batches/:id/submit`
 - `POST /api/v1/batches/:id/finalize`
 - `POST /api/v1/batches/:id/reopen`
-- `GET /api/v1/batches/:id/revisions`
-- `GET /api/v1/batches/:id/export.csv`
-- `GET /api/v1/batches/:id/export.pdf`
+- `PATCH /api/v1/batches/:id/assignment`
 
 ### 8.2 Sales APIs to extend
 
@@ -886,16 +885,16 @@ Tests to plan:
 
 Scope:
 
-- create/list/detail/update batch routes
-- submit/finalize/reopen flow
-- revision snapshots
+- backend batch routes are now in place
+- create/list/detail/assignment/items/submit/finalize/reopen flow
+- revision snapshots and revision history endpoints
 
 Files likely touched:
 
 - `backend/src/routes/batches.routes.js`
 - `backend/src/controllers/batches.controller.js`
 - `backend/src/services/batch.service.js`
-- request validation middleware
+- request validation middleware if needed later
 
 Risk:
 
@@ -1057,5 +1056,19 @@ Tests to plan:
 UNCLEAR items based on inspected files:
 
 - no customer module was found in the reviewed backend/admin/mobile paths
-- no batch or revision model currently exists
-- no batch routes exist in `backend/src/routes/sales.routes.js`
+- batch and revision models now exist in `backend/src/models/ScanBatch.js`
+- batch routes live in `backend/src/routes/batches.routes.js`, not `sales.routes.js`
+
+## 16. Batch-aware sale create update
+
+- `POST /api/v1/sales` now accepts optional `batchId`.
+- Standalone sale support remains unchanged when `batchId` is absent.
+- The batch-aware sale path validates batch access, batch status, and supplier consistency before creation.
+- The sale is saved with batch metadata in one request:
+  - `batchId`
+  - `revisionAdded`
+  - `addedBy`
+  - `addedAt`
+  - `entryMode`
+- Batch totals/counts are refreshed after the sale is stored.
+- If refresh fails after a successful sale save, the backend returns success with a warning instead of forcing an orphan-prone retry.

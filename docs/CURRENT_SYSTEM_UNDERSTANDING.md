@@ -16,16 +16,16 @@ The live implementation is stronger than the older PRD/TRD in a few places:
 - Admin now has a business-settings surface for categories, metal types, and settlement defaults.
 - A centralized settlement calculation service now exists at `backend/src/services/settlementCalculation.service.js`.
 - Sale creation now stores an audit snapshot (`calculationSnapshot`), an optional parser/display snapshot (`parsedSnapshot`), and a settlement-input snapshot (`settlementInputs`) so sale detail can explain how values were derived at the time of sale.
-- The backend now also has the first batch/session foundation pieces: a `ScanBatch` model, optional batch fields on `Sale`, and a lifecycle helper for future batch status transitions. Batch APIs/UI are still not wired yet.
+- The backend now also has the first batch/session foundation pieces: a `ScanBatch` model, optional batch fields on `Sale`, a lifecycle helper, and the Phase 2 batch API wiring (`/api/v1/batches`) for create/list/detail/items/submit/finalize/reopen/revisions/assignment. Admin batch review UI exists; mobile batch UI is still pending.
 
 The biggest production risks are:
 
 - Settlement reporting still has a legacy QR-ingestion fallback path.
-- The batch workflow is not yet wired into routes/UI, so item-level sales remain the only live workflow.
+- The batch workflow is now wired into backend routes and admin batch review UI, but mobile batch capture UI still remains pending. Item-level sales remain the only live mobile workflow.
 - The admin API client now matches the backend sale-detail route.
 - Documentation in `docs/PRD.md` and `docs/TRD.md` is partially outdated versus live code.
 - The system has two reporting paths in parallel: legacy QR reporting and the newer settlement-report flow.
-- The new settlement calculation service is standalone for now and is not yet wired into sale creation or settlement reporting.
+- The new settlement calculation service is wired into sale creation and QR parsing paths, while settlement reporting still keeps a partial legacy path for now.
 - Sale detail now returns stored calculation audit data and settlement-input tracking, while sale list/export stay lightweight by excluding the large snapshot payloads.
 
 ## 2. Tech Stack
@@ -1183,8 +1183,27 @@ UNCLEAR if these are planned later or intentionally removed; files checked:
 4. The codebase still has duplicate concepts for legacy QR reporting and newer settlement reporting.
 5. Live code uses secure storage for the mobile pending queue, which differs from the earlier document assumption of sqflite-based offline storage.
 6. Inventory/customer/audit-log features are not present in live code despite being named in older docs.
-7. Centralized settlement calculation wiring across sales, QR validation, and reports is still pending.
+7. Centralized settlement calculation wiring is now in place for sale creation and QR parsing, while settlement reports still keep a partial legacy path.
 8. Supplier business settings are now supported at the schema/helper level, but exact business values still need owner confirmation.
+
+## 13. Batch-aware sale creation update
+
+- `POST /api/v1/sales` now accepts optional `batchId`.
+- If `batchId` is absent, standalone sale behavior remains supported.
+- If `batchId` is present, the backend validates:
+  - batch exists
+  - actor can add items
+  - batch status is open for item updates
+  - sale supplier matches the batch supplier
+- The sale is created with batch metadata already attached:
+  - `batchId`
+  - `revisionAdded`
+  - `addedBy`
+  - `addedAt`
+  - `entryMode`
+- Batch totals/counts are refreshed after sale creation through a server-side aggregate helper.
+- If aggregate refresh fails after the sale is stored, the API still returns success with a warning so the client does not retry into a duplicate sale.
+- Mobile batch workflow should use this one-request path rather than creating a sale first and linking it later.
 
 ## 12. Recommended Next Steps
 

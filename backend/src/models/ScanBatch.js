@@ -270,7 +270,6 @@ const scanBatchSchema = new Schema(
   }
 )
 
-scanBatchSchema.index({ batchRef: 1 }, { unique: true })
 scanBatchSchema.index({ supplierId: 1, status: 1 })
 scanBatchSchema.index({ assignedSalesmanId: 1, status: 1 })
 scanBatchSchema.index({ createdAt: -1 })

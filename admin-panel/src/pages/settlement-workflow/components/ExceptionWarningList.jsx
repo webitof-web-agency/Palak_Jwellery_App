@@ -7,7 +7,7 @@ export default function ExceptionWarningList({ title, items, emptyDescription })
       {Array.isArray(items) && items.length > 0 ? (
         <ul className="space-y-2 text-sm text-muted">
           {items.map((item, index) => (
-            <li key={`${title}-${index}`} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+            <li key={`${title}-${index}`} className="rounded-xl surface-panel-faint panel-border px-4 py-3">
               {item}
             </li>
           ))}

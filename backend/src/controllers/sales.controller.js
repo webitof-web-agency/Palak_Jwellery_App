@@ -1,5 +1,6 @@
 import mongoose from 'mongoose'
 import { Sale, hashQR } from '../models/Sale.js'
+import { ScanBatch } from '../models/ScanBatch.js'
 import { Supplier } from '../models/Supplier.js'
 import { User } from '../models/User.js'
 import { loadSettlementSettings } from '../services/settlementSettings.service.js'
@@ -8,6 +9,12 @@ import {
   buildSaleParsedSnapshot,
   buildSaleSettlementInputs,
 } from '../services/saleCalculationSnapshot.service.js'
+import {
+  BatchServiceError,
+  buildBatchSummary,
+  ensureBatchMutationAllowed,
+  refreshBatchAggregates,
+} from '../services/batch.service.js'
 
 const sendSuccess = (res, data, message, status = 200) => {
   const payload = { success: true, data }
@@ -205,6 +212,7 @@ const buildSaleDetail = (sale) => {
   return {
     _id: sale._id,
     ref: sale.ref || toSaleRef(sale._id),
+    batchId: sale.batchId ?? null,
     saleDate: sale.saleDate,
     createdAt: sale.createdAt,
     updatedAt: sale.updatedAt,
@@ -227,6 +235,63 @@ const buildSaleDetail = (sale) => {
     calculationSnapshot: sale.calculationSnapshot ?? null,
     parsedSnapshot: sale.parsedSnapshot ?? null,
   }
+}
+
+const normalizeOptionalId = (value) => {
+  if (value === null || value === undefined) return null
+  const text = String(value).trim()
+  return text || null
+}
+
+const buildSaleCreateResponse = (sale, { batch = null, batchSyncWarning = false, message } = {}) => {
+  const data = {
+    _id: sale._id,
+    ref: '#' + sale._id.toString().slice(-6).toUpperCase(),
+    saleDate: sale.saleDate,
+    isDuplicate: Boolean(sale.isDuplicate),
+    category: sale.category ?? null,
+    itemCode: sale.itemCode ?? null,
+    metalType: sale.metalType ?? null,
+    purity: sale.purity ?? null,
+    notes: sale.notes ?? null,
+    netWeight: sale.netWeight ?? null,
+  }
+
+  if (batch) {
+    data.batch = batch
+    data.batchSyncWarning = Boolean(batchSyncWarning)
+  } else if (batchSyncWarning) {
+    data.batchSyncWarning = true
+  }
+
+  return {
+    data,
+    message: message || (batchSyncWarning ? 'Sale recorded successfully. Batch totals may need refresh.' : 'Sale recorded successfully'),
+  }
+}
+
+const resolveSaleEntryMode = ({ qrRaw, wasManuallyEdited, settlementInputs, body = {} } = {}) => {
+  const rawQr = typeof qrRaw === 'string' ? qrRaw.trim() : ''
+  const manualOverrideDetected =
+    body?.wasManuallyEdited === true ||
+    wasManuallyEdited === true ||
+    settlementInputs?.purityOverridden === true ||
+    settlementInputs?.wastageOverridden === true
+
+  if (!rawQr) {
+    return 'manual'
+  }
+
+  return manualOverrideDetected ? 'qr_scan_with_manual_override' : 'qr_scan'
+}
+
+const buildBatchSummaryFromStoredDoc = async (batchId) => {
+  if (!batchId) return null
+
+  const batchDoc = await ScanBatch.findById(batchId).lean()
+  if (!batchDoc) return null
+
+  return buildBatchSummary(batchDoc)
 }
 
 const escapeCsv = (value) => {
@@ -278,6 +343,8 @@ const buildSalesCsv = (sales) => {
 
 // POST /api/v1/sales
 export const createSale = async (req, res) => {
+  const idempotencyKey = req.headers['x-idempotency-key']
+
   try {
     const {
       supplierId,
@@ -291,32 +358,36 @@ export const createSale = async (req, res) => {
       netWeight,
       qrRaw,
       overrideDuplicate,
+      batchId: rawBatchId,
     } = req.body
-
-    const idempotencyKey = req.headers['x-idempotency-key']
 
     // --- Idempotency Check ---
     if (idempotencyKey) {
       const existingRequest = await Sale.findOne({ idempotencyKey }).lean()
       if (existingRequest) {
-        // Return exactly what was returned previously for the same attempt.
-        return sendSuccess(
-          res,
-          {
-            _id: existingRequest._id,
-            ref: '#' + existingRequest._id.toString().slice(-6).toUpperCase(),
-            saleDate: existingRequest.saleDate,
-            isDuplicate: existingRequest.isDuplicate,
-            category: existingRequest.category ?? null,
-            itemCode: existingRequest.itemCode ?? null,
-            metalType: existingRequest.metalType ?? null,
-            purity: existingRequest.purity ?? null,
-            notes: existingRequest.notes ?? null,
-            netWeight: existingRequest.netWeight ?? null,
-          },
-          'Sale recorded successfully (Indempotent cached response)',
-          201
-        )
+        let batchSummary = null
+        let batchSyncWarning = false
+
+        if (existingRequest.batchId) {
+          try {
+            const refreshed = await refreshBatchAggregates(existingRequest.batchId)
+            batchSummary = refreshed.summary
+          } catch (refreshError) {
+            console.error('refreshBatchAggregates error on cached sale response:', refreshError)
+            batchSummary = await buildBatchSummaryFromStoredDoc(existingRequest.batchId)
+            batchSyncWarning = true
+          }
+        }
+
+        const response = buildSaleCreateResponse(existingRequest, {
+          batch: batchSummary,
+          batchSyncWarning,
+          message: batchSyncWarning
+            ? 'Sale recorded successfully. Batch totals may need refresh.'
+            : 'Sale recorded successfully (Idempotent cached response)',
+        })
+
+        return sendSuccess(res, response.data, response.message, 201)
       }
     }
 
@@ -360,6 +431,34 @@ export const createSale = async (req, res) => {
       return sendError(res, 400, 'Supplier is not active', 'SUPPLIER_INACTIVE')
     }
 
+    const batchId = normalizeOptionalId(rawBatchId)
+    let batchContext = null
+    if (batchId) {
+      if (!mongoose.isValidObjectId(batchId)) {
+        return sendError(res, 400, 'Invalid batch id', 'INVALID_ID')
+      }
+
+      batchContext = await ScanBatch.findById(batchId).lean()
+      if (!batchContext) {
+        return sendError(res, 404, 'Batch not found', 'NOT_FOUND')
+      }
+
+      try {
+        ensureBatchMutationAllowed(batchContext, req.user)
+      } catch (error) {
+        if (error instanceof BatchServiceError) {
+          return sendError(res, error.statusCode || 400, error.message, error.code || 'BATCH_ERROR')
+        }
+        throw error
+      }
+
+      const saleSupplierId = normalizeOptionalId(supplier._id)
+      const batchSupplierId = normalizeOptionalId(batchContext.supplierId)
+      if (batchSupplierId && batchSupplierId !== saleSupplierId) {
+        return sendError(res, 400, 'Sale supplier must match batch supplier', 'SUPPLIER_MISMATCH')
+      }
+    }
+
     const settlementSettings = await loadSettlementSettings()
     const parsedSnapshotInput = pickParsedSnapshotInput(req.body)
     const parsedSnapshot = buildSaleParsedSnapshot(parsedSnapshotInput)
@@ -376,6 +475,14 @@ export const createSale = async (req, res) => {
       settlementSettings,
       settlementInputs,
     })
+    const saleEntryMode = batchContext
+      ? resolveSaleEntryMode({
+          qrRaw,
+          wasManuallyEdited: req.body.wasManuallyEdited === true,
+          settlementInputs,
+          body: req.body,
+        })
+      : null
 
     // --- Duplicate QR detection ---
     const qrHash = hashQR(qrRaw)
@@ -410,6 +517,11 @@ export const createSale = async (req, res) => {
       idempotencyKey: idempotencyKey || null,
       salesman: req.user.id,
       supplier: supplierId,
+      batchId: batchContext?._id || null,
+      revisionAdded: batchContext ? (Number(batchContext.revision) || 1) : null,
+      entryMode: saleEntryMode,
+      addedBy: batchContext ? req.user.id : null,
+      addedAt: batchContext ? new Date() : null,
       category: category && typeof category === 'string' && category.trim() ? category.trim() : null,
       itemCode: itemCode && typeof itemCode === 'string' && itemCode.trim() ? itemCode.trim() : null,
       metalType: metalType && typeof metalType === 'string' && metalType.trim() ? metalType.trim() : null,
@@ -426,32 +538,70 @@ export const createSale = async (req, res) => {
       ratePerGram: 0,
       totalValue: 0,
       isDuplicate,
-      wasManuallyEdited: !qrRaw,
+      wasManuallyEdited: batchContext
+        ? saleEntryMode === 'manual' ||
+          saleEntryMode === 'qr_scan_with_manual_override' ||
+          !qrRaw
+        : !qrRaw,
       saleDate: new Date(),
     })
 
-    return sendSuccess(
-      res,
-      {
-        _id: sale._id,
-        ref: '#' + sale._id.toString().slice(-6).toUpperCase(),
-        saleDate: sale.saleDate,
-        isDuplicate: sale.isDuplicate,
-        category: sale.category,
-        itemCode: sale.itemCode,
-        metalType: sale.metalType,
-        purity: sale.purity,
-        notes: sale.notes,
-        netWeight: sale.netWeight,
-      },
-      'Sale recorded successfully',
-      201
-    )
+    let batchSummary = null
+    let batchSyncWarning = false
+    if (batchContext) {
+      try {
+        const refreshed = await refreshBatchAggregates(batchContext._id)
+        batchSummary = refreshed.summary
+      } catch (refreshError) {
+        console.error('refreshBatchAggregates error after sale create:', refreshError)
+        batchSummary = await buildBatchSummaryFromStoredDoc(batchContext._id)
+        batchSyncWarning = true
+      }
+    }
+
+    const response = buildSaleCreateResponse(sale, {
+      batch: batchSummary,
+      batchSyncWarning,
+      message: batchSyncWarning
+        ? 'Sale recorded successfully. Batch totals may need refresh.'
+        : 'Sale recorded successfully',
+    })
+
+    return sendSuccess(res, response.data, response.message, 201)
   } catch (error) {
     console.error('createSale error:', error)
     // Handle mongoose unique constraint error safely
     if (error.code === 11000 && error.keyPattern && error.keyPattern.idempotencyKey) {
-       return sendError(res, 409, 'Indempotent request collision. Please retry.', 'IDEMPOTENCY_COLLISION')
+      if (idempotencyKey) {
+        const existingRequest = await Sale.findOne({ idempotencyKey }).lean()
+        if (existingRequest) {
+          let batchSummary = null
+          let batchSyncWarning = false
+
+          if (existingRequest.batchId) {
+            try {
+              const refreshed = await refreshBatchAggregates(existingRequest.batchId)
+              batchSummary = refreshed.summary
+            } catch (refreshError) {
+              console.error('refreshBatchAggregates error after idempotency collision:', refreshError)
+              batchSummary = await buildBatchSummaryFromStoredDoc(existingRequest.batchId)
+              batchSyncWarning = true
+            }
+          }
+
+          const response = buildSaleCreateResponse(existingRequest, {
+            batch: batchSummary,
+            batchSyncWarning,
+            message: batchSyncWarning
+              ? 'Sale recorded successfully. Batch totals may need refresh.'
+              : 'Sale recorded successfully (Idempotent cached response)',
+          })
+
+          return sendSuccess(res, response.data, response.message, 201)
+        }
+      }
+
+      return sendError(res, 409, 'Indempotent request collision. Please retry.', 'IDEMPOTENCY_COLLISION')
     }
     return sendError(res, 500, 'Failed to save sale', 'SERVER_ERROR')
   }
@@ -536,6 +686,7 @@ export const listSales = async (req, res) => {
         .select('-calculationSnapshot -parsedSnapshot -settlementInputs')
         .populate('supplier', 'name code')
         .populate('salesman', 'name')
+        .populate('batchId', 'batchRef status revision supplierId assignedSalesmanId')
         .lean(),
       Sale.countDocuments(query)
     ])
@@ -571,6 +722,7 @@ export const getSaleDetail = async (req, res) => {
     const sale = await Sale.findById(id)
       .populate('supplier', 'name code')
       .populate('salesman', 'name email phone role isActive')
+      .populate('batchId', 'batchRef status revision supplierId assignedSalesmanId')
       .lean()
 
     if (!sale) {

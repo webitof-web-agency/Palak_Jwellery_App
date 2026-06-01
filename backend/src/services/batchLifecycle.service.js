@@ -29,7 +29,27 @@ const normalizeSaleEntryMode = (value) => {
   return mode && ALLOWED_SALE_ENTRY_MODES.includes(mode) ? mode : null
 }
 
-const normalizeId = (value) => toText(value) || null
+const normalizeId = (value) => {
+  if (!value) return null
+  if (typeof value === 'string') {
+    return toText(value) || null
+  }
+  if (typeof value === 'object') {
+    if (typeof value.toHexString === 'function') {
+      return value.toHexString()
+    }
+    if (value._bsontype === 'ObjectId' || value._bsontype === 'ObjectID') {
+      return value.toString()
+    }
+    if (value._id) {
+      return normalizeId(value._id)
+    }
+    if (value.id && value.id !== value) {
+      return normalizeId(value.id)
+    }
+  }
+  return toText(value) || null
+}
 
 const normalizeDate = (value) => {
   if (!value) return null

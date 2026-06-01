@@ -62,7 +62,7 @@ const getStatusBadges = (sale) => {
 
 const StatusBadge = ({ label, tone = 'neutral' }) => {
   const toneClasses = {
-    neutral: 'border-white/10 bg-white/5 text-primary',
+    neutral: 'surface-panel-faint border-[var(--jsm-border)] text-primary',
     gold: 'border-gold-500/30 bg-gold-500/10 text-gold-100',
     amber: 'border-amber-400/30 bg-amber-400/10 text-amber-300',
     rose: 'border-red-400/30 bg-red-400/10 text-red-100',
@@ -78,7 +78,7 @@ const StatusBadge = ({ label, tone = 'neutral' }) => {
 }
 
 const LoadingRows = () => (
-  <tbody className="divide-y divide-white/5">
+  <tbody className="divide-y divide-[var(--jsm-border)]">
     {[...Array(6)].map((_, rowIndex) => (
       <tr key={rowIndex}>
         {[...Array(11)].map((__, cellIndex) => (
@@ -118,7 +118,7 @@ export default function SalesRecordsTable({
       <div className="overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
         <table className="w-full min-w-[1180px] text-left">
           <thead>
-            <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-muted">
+            <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
               <th className="px-5 py-4">Ref</th>
               <th className="px-5 py-4">Date</th>
               <th className="px-5 py-4">Supplier</th>
@@ -147,7 +147,7 @@ export default function SalesRecordsTable({
               </tr>
             </tbody>
           ) : (
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-[var(--jsm-border)]">
               {sales.map((sale) => {
                 const calculation = getSnapshot(sale)
                 const settlementInputs = getSettlementInputs(sale)
@@ -161,7 +161,7 @@ export default function SalesRecordsTable({
                 const statusBadges = getStatusBadges(sale)
 
                 return (
-                  <tr key={sale._id} className="hover:bg-white/5">
+                  <tr key={sale._id} className="hover:bg-[var(--jsm-panel-bg-faint)]">
                     <td className="px-5 py-4 font-mono text-xs text-muted whitespace-nowrap">
                       {sale.ref || '—'}
                     </td>
@@ -222,7 +222,7 @@ export default function SalesRecordsTable({
         </table>
       </div>
 
-      <div className="flex flex-col gap-4 border-t border-white/10 px-5 py-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 border-t border-[var(--jsm-border)] px-5 py-4 md:flex-row md:items-center md:justify-between">
         <div className="text-sm text-muted">{rangeText}</div>
         <div className="flex items-center gap-3">
           <button

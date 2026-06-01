@@ -452,7 +452,7 @@ File: `admin-panel/src/pages/business/BusinessSettingsPage.jsx`
   - `Supplier.businessSettings.defaultStoneRate`
   - `Supplier.businessSettings.qrNetTolerance`
 - The current business page is global, while the new supplier settings are supplier-specific.
-- This creates a conceptual overlap that the UI does not yet explain.
+- This creates a conceptual overlap that is now clarified by the supplier edit screen, while the business page remains the global master-data screen.
 
 ### What should stay global
 - category master data if it is truly a company-wide catalog
@@ -491,11 +491,14 @@ Files:
 - Columns:
   - Ref
   - Date
-  - Salesman
   - Supplier
-  - Category
+  - Item / Design Code
+  - Karat
+  - Gross Wt
+  - Stone Wt
   - Net Wt
-  - Duplicate
+  - Fine Wt
+  - Status
   - Actions
 - Export:
   - range export
@@ -536,8 +539,8 @@ Files:
   - parsed snapshot preview
   - warnings
 
-### What is missing in the UI
-- settlementInputs is stored in the backend, but the detail modal does not yet explain:
+### Audit fields now shown
+- settlementInputs is stored in the backend and the detail modal now explains:
   - karat
   - puritySource
   - wastageSource
@@ -545,7 +548,7 @@ Files:
   - wastageOverridden
   - originalPurityPercent
   - originalWastagePercent
-- It also does not clearly separate:
+- It clearly separates:
   - source values
   - overridden values
   - final values
@@ -555,8 +558,8 @@ Files:
 - yes, the list remains lightweight
 
 ### Verdict
-- Sales list is fine for browsing.
-- Sale detail is close to useful, but it still needs audit labels for source and override tracking.
+- Sales list is fine for browsing, and batch view is now available for workflow tracking.
+- Sale detail is now useful for audit review; remaining work is presentation polish.
 
 ## 7. Supplier QR Test Tool Current State
 
@@ -713,26 +716,49 @@ Files:
   - `businessSettings` and `qrProfile` on supplier records from backend
   - `normalizedResult.display.*` on parse response
 - Frontend/backend mismatch:
-  - supplier form still does not expose the new supplier business settings model
+  - supplier form now exposes the structured supplier business settings model and preserves legacy mapping fields alongside it
 
 ### Sales
 - Pages:
   - SalesPage
+  - SalesViewToggle
+  - BatchCreateModal
+  - BatchRecordsTable
+  - BatchDetailModal
   - SaleDetailModal
 - APIs:
   - `GET /api/v1/sales`
   - `GET /api/v1/sales/export`
   - `GET /api/v1/sales/summary/today`
   - `GET /api/v1/sales/:id`
+- Batch APIs:
+  - `GET /api/v1/batches`
+  - `POST /api/v1/batches`
+  - `GET /api/v1/batches/:id`
+  - `GET /api/v1/batches/:id/revisions`
+  - `POST /api/v1/batches/:id/items`
+  - `POST /api/v1/batches/:id/submit`
+  - `POST /api/v1/batches/:id/finalize`
+  - `POST /api/v1/batches/:id/reopen`
+  - `PATCH /api/v1/batches/:id/assignment`
 - Response shape:
   - list/export are lightweight
   - detail returns the sale plus `calculationSnapshot`, `parsedSnapshot`, `settlementInputs`
+- Batch response shape:
+  - list returns a batch summary
+  - detail returns current revision, totals, and revision history
 - Includes:
   - `calculationSnapshot`
   - `parsedSnapshot`
   - `settlementInputs`
+- Batch workflow:
+  - SalesPage has a Batch View / Item View toggle
+  - Batch View shows batch ref, supplier, salesman, assigned salesman, status, revision, item count, totals, and actions
+  - Create batch is available from the page header
+  - Batch detail supports submit, finalize, reopen, assignment, and revision history
 - Frontend/backend mismatch:
-  - UI shows snapshots, but not the full override-source audit trail yet
+  - item view is the legacy lightweight sales ledger by design
+  - batch review/create UI is present and backed by live routes
 
 ### Business
 - Page: BusinessSettingsPage
@@ -1016,4 +1042,3 @@ What to test:
 - Should sale detail show source/original/override values inline or in a separate audit accordion?
 - Should settlement reports eventually stop using legacy QR fallback entirely, or keep it as a hidden fallback for old records?
 - Should `qrProfile` be editable in the first supplier redesign phase, or only shown as read-only metadata at first?
-

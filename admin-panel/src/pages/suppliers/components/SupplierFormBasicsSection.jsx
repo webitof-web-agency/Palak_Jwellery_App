@@ -90,7 +90,7 @@ export default function SupplierFormBasicsSection({
         <label className="inline-flex items-center gap-3 cursor-pointer select-none">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500"
+            className="h-4 w-4 rounded surface-panel-faint panel-border text-gold-500 focus:ring-gold-500"
             checked={Boolean(form.isActive)}
             onChange={(event) => onFormChange('isActive', event.target.checked)}
             aria-label="Supplier active"

@@ -6,6 +6,7 @@ import { config } from './config/env.js'
 import authRoutes from './routes/auth.routes.js'
 import suppliersRoutes from './routes/suppliers.routes.js'
 import salesRoutes from './routes/sales.routes.js'
+import batchesRoutes from './routes/batches.routes.js'
 import reportsRoutes from './routes/reports.routes.js'
 import businessRoutes from './routes/business.routes.js'
 import userRoutes from './routes/users.routes.js'
@@ -52,6 +53,7 @@ app.use('/api/v1/auth/login', rateLimit({
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/suppliers', suppliersRoutes)
 app.use('/api/v1/sales', salesRoutes)
+app.use('/api/v1/batches', batchesRoutes)
 app.use('/api/v1/reports', reportsRoutes)
 app.use('/api/v1/business', businessRoutes)
 app.use('/api/v1/users', userRoutes)

@@ -106,7 +106,7 @@ export default function SupplierFormKaratPuritySection({
                       </span>
                       <input
                         type="checkbox"
-                        className="h-4 w-4 rounded border-white/20 bg-white/5 text-gold-500 focus:ring-gold-500"
+                        className="h-4 w-4 rounded surface-panel-faint panel-border text-gold-500 focus:ring-gold-500"
                         checked={override?.isActive !== false}
                         onChange={(event) => onPurityOverrideChange(index, 'isActive', event.target.checked)}
                         aria-label={`Purity override ${index + 1} active`}

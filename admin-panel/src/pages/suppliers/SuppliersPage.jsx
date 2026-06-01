@@ -1,3 +1,4 @@
+import React from 'react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
@@ -49,19 +50,23 @@ const IconTag = () => (
   </svg>
 )
 
-const StatCard = ({ label, value, Icon, accentFrom, accentTo }) => (
-  <div className="relative overflow-hidden rounded-2xl glass-panel p-5 flex flex-col justify-between min-h-[100px] group hover:border-gold-600/25 transition-all duration-200">
-    <div className="flex items-start justify-between gap-3">
-      <span className="eyebrow mb-0 leading-tight">{label}</span>
-      <div className="h-9 w-9 flex-shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-heading">
-        <Icon />
+const StatCard = ({ label, value, icon, accentFrom, accentTo }) => {
+  const iconNode = icon ? React.createElement(icon) : null
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl glass-panel p-5 flex flex-col justify-between min-h-[100px] group hover:border-gold-600/25 transition-all duration-200">
+      <div className="flex items-start justify-between gap-3">
+        <span className="eyebrow mb-0 leading-tight">{label}</span>
+        <div className="h-9 w-9 flex-shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-heading">
+          {iconNode}
+        </div>
       </div>
+      <div className="mt-3 text-3xl font-bold text-heading tracking-tight font-display">{value}</div>
+      {/* Hover glow */}
+      <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-br ${accentFrom} ${accentTo}`} />
     </div>
-    <div className="mt-3 text-3xl font-bold text-heading tracking-tight font-display">{value}</div>
-    {/* Hover glow */}
-    <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none bg-gradient-to-br ${accentFrom} ${accentTo}`} />
-  </div>
-)
+  )
+}
 
 export default function SuppliersPage() {
   const navigate = useNavigate()
@@ -196,10 +201,10 @@ export default function SuppliersPage() {
 
       {/* ── Stats Row ── */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Total Suppliers" value={suppliers.length} Icon={IconBuilding} accentFrom="from-gold-500/5" accentTo="to-transparent" />
-        <StatCard label="Active" value={activeCount} Icon={IconCheckCircle} accentFrom="from-green-500/5" accentTo="to-transparent" />
-        <StatCard label="Credit Settlement" value={creditCount} Icon={IconCreditCard} accentFrom="from-blue-500/5" accentTo="to-transparent" />
-        <StatCard label="Cash Settlement" value={suppliers.length - creditCount} Icon={IconCash} accentFrom="from-amber-500/5" accentTo="to-transparent" />
+        <StatCard label="Total Suppliers" value={suppliers.length} icon={IconBuilding} accentFrom="from-gold-500/5" accentTo="to-transparent" />
+        <StatCard label="Active" value={activeCount} icon={IconCheckCircle} accentFrom="from-green-500/5" accentTo="to-transparent" />
+        <StatCard label="Credit Settlement" value={creditCount} icon={IconCreditCard} accentFrom="from-blue-500/5" accentTo="to-transparent" />
+        <StatCard label="Cash Settlement" value={suppliers.length - creditCount} icon={IconCash} accentFrom="from-amber-500/5" accentTo="to-transparent" />
       </section>
 
       {/* ── Supplier List Panel ── */}

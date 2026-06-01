@@ -49,8 +49,6 @@ const comparisonFields = [
   { key: 'stone_amount', label: 'Stone Amount', originalKey: 'stone_amount', format: formatCurrency, precision: 2 },
 ]
 
-const toInputValue = (value) => (value === null || value === undefined ? '' : String(value))
-
 const buildInitialFormState = (record) =>
   EDITABLE_FIELDS.reduce((acc, field) => {
     acc[field.key] =
@@ -158,7 +156,6 @@ export default function ExceptionDetailPage() {
   )
 
   const valuation = record?.valuation || {}
-  const totals = valuation?.totals || {}
   const workflowState = deriveWorkflowState(record || {})
   const isLocked = Boolean(record?.approvedAt || record?.status === 'approved' || workflowState === 'approved')
 
@@ -252,7 +249,7 @@ export default function ExceptionDetailPage() {
       />
 
       {statusMessage ? (
-        <div className="surface-card border-green-500/20 bg-green-500/10 text-green-200 flex items-center justify-between gap-4">
+        <div className="surface-panel-soft panel-border border-green-500/20 text-green-200 flex items-center justify-between gap-4">
           <span>{statusMessage}</span>
           <button
             type="button"
@@ -265,7 +262,7 @@ export default function ExceptionDetailPage() {
       ) : null}
 
       {error && (
-        <div className="surface-card border-red-500/20 bg-red-500/10 text-primary flex items-center justify-between gap-4">
+        <div className="surface-panel-soft panel-border border-red-500/20 text-primary flex items-center justify-between gap-4">
           <span className="font-medium">{error}</span>
           <Link to="/exceptions" className={buttonStyles.secondary}>
             Back
@@ -285,7 +282,7 @@ export default function ExceptionDetailPage() {
       ) : (
         <div className="space-y-6">
           {isLocked ? (
-            <div className="surface-card border-cyan-500/20 bg-cyan-500/10 text-cyan-100 flex items-center justify-between gap-4">
+            <div className="surface-panel-soft panel-border border-cyan-500/20 text-cyan-100 flex items-center justify-between gap-4">
               <span>Approved records are locked for audit safety. Reopen flow is not enabled yet.</span>
               <span className="text-xs font-bold uppercase tracking-widest">Read Only</span>
             </div>

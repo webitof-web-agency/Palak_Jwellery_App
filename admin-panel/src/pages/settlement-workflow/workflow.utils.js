@@ -58,14 +58,14 @@ export const downloadBlob = (blob, filename) => {
 export const getQrStatusTone = (status) => {
   if (status === 'approved') return 'bg-green-500/10 text-green-500 border-green-500/20'
   if (status === 'needs_review') return 'bg-amber-500/10 text-amber-300 border-amber-500/20'
-  return 'bg-white/5 text-muted border-white/10'
+  return 'surface-panel-faint text-muted border-[var(--jsm-border)]'
 }
 
 export const getValuationTone = (status) => {
   if (status === 'complete') return 'bg-blue-500/10 text-blue-400 border-blue-500/20'
   if (status === 'partial') return 'bg-gold-500/10 text-gold-500 border-gold-500/20'
   if (status === 'supplier_only') return 'bg-purple-500/10 text-purple-300 border-purple-500/20'
-  return 'bg-white/5 text-muted border-white/10'
+  return 'surface-panel-faint text-muted border-[var(--jsm-border)]'
 }
 
 export const deriveWorkflowState = (row = {}) => {
@@ -81,5 +81,5 @@ export const getWorkflowTone = (state) => {
   if (state === 'corrected') return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20'
   if (state === 'reviewed') return 'bg-amber-500/10 text-amber-300 border-amber-500/20'
   if (state === 'needs_review') return 'bg-red-500/10 text-red-300 border-red-500/20'
-  return 'bg-white/5 text-muted border-white/10'
+  return 'surface-panel-faint text-muted border-[var(--jsm-border)]'
 }

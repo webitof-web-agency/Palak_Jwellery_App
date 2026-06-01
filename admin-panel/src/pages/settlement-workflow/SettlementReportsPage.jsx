@@ -185,7 +185,7 @@ export default function SettlementReportsPage() {
       />
 
       {error ? (
-        <div className="surface-card border-red-500/20 bg-red-500/10 text-primary flex items-center justify-between gap-4">
+        <div className="surface-panel-soft panel-border border-red-500/20 text-primary flex items-center justify-between gap-4">
           <span className="font-medium">{error}</span>
           <button
             type="button"

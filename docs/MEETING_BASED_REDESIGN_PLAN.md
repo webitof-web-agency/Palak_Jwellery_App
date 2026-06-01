@@ -98,7 +98,7 @@ Backend foundation note:
 - `Sale.settlementInputs` tracks karat, purity percent, wastage percent, source labels, and override flags
 - `Sale.calculationSnapshot` is built from resolved settlement inputs, not raw UI fields alone
 - sale detail returns those stored snapshots for verification/debugging
-- the first batch/session foundation now exists in backend code: `ScanBatch`, optional `Sale.batchId` metadata, and a batch lifecycle helper; batch APIs and UI remain next-phase work
+- the first batch/session foundation now exists in backend code: `ScanBatch`, optional `Sale.batchId` metadata, a batch lifecycle helper, and the backend batch API surface; admin batch review UI exists and mobile batch UI remains next-phase work
 - exact category wastage and karat purity values are still pending business confirmation and should remain placeholder-safe
 
 ## 4. Purity and Wastage Rules
@@ -590,12 +590,11 @@ Reports should be designed as settlement analysis, not QR debug output.
 
 ## 9. Backend Changes Needed
 
-This section describes required backend direction. A standalone calculation service now exists, and sale creation now stores a calculation snapshot, but the service is still intentionally not wired into every downstream path such as QR review and settlement reporting.
+This section describes required backend direction. A standalone calculation service now exists, sale creation stores a calculation snapshot, and QR parsing already uses the live settlement helpers. Settlement reporting still keeps a partial legacy path, so downstream wiring is not fully unified yet.
 
 ### Proposed backend changes
 
-- add a centralized settlement calculation service, for example:
-  - `backend/src/services/settlementCalculation.service.js`
+- use the centralized settlement calculation service at `backend/src/services/settlementCalculation.service.js`
 - the service should expose:
   - `normalizeNumber(value, fallback = 0)`
   - `calculateNetWeight({ grossWeight, stoneWeight, otherWeight })`
@@ -789,3 +788,16 @@ Questions to confirm with the business owner:
 ### Unclear items
 
 If any of the above is not yet confirmed by the business, mark it `UNCLEAR` in implementation specs and keep the code path manual-review safe.
+
+## 16. Batch-aware sale create update
+
+- `POST /api/v1/sales` now accepts optional `batchId` for the mobile batch workflow.
+- Standalone sale support remains unchanged when `batchId` is absent.
+- The batch-aware sale path validates:
+  - batch existence
+  - item-update permission
+  - batch status
+  - supplier consistency
+- The sale stores batch metadata at creation time instead of relying on a second link request.
+- Batch aggregates are refreshed server-side after sale creation.
+- If aggregate refresh fails after the sale is safely stored, the API returns success with a warning instead of forcing a duplicate-prone retry.

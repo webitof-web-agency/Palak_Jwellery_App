@@ -1,10 +1,11 @@
-﻿import React from "react";
-import SectionCard from "../../../components/ui/SectionCard";
+import React from 'react'
+import { Link } from 'react-router-dom'
+import SectionCard from '../../../components/ui/SectionCard'
 import {
   formatFieldValue,
   getCombinedQrErrors,
   getQrDebugField,
-} from "../suppliersPage.utils";
+} from '../suppliersPage.utils'
 
 export default function SupplierQrTool({
   suppliers,
@@ -27,28 +28,35 @@ export default function SupplierQrTool({
     : parseWarnings.length > 0
 
   return (
-    <SectionCard className="!p-0 overflow-hidden">
-      <div className="p-8 surface-panel rounded-2xl">
-        <div className="flex justify-between items-center mb-10">
+    <SectionCard className="surface-panel-soft panel-border !p-0 overflow-hidden">
+      <div className="p-6 md:p-8 surface-panel-soft panel-border rounded-2xl">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-8">
           <div>
-            <span className="eyebrow bg-blue-500/10 text-blue-400">Tools</span>
-            <h2 className="text-xl font-bold font-display text-heading">
+            <span className="eyebrow bg-gold-600/10 text-gold-500">Tools</span>
+            <h2 className="text-xl font-bold font-display text-heading mt-2">
               QR sample checker
             </h2>
-            <p className="text-[10px] text-muted font-bold uppercase tracking-widest mt-1">
+            <p className="text-xs text-muted font-bold uppercase tracking-widest mt-1">
               {selectedSupplier
                 ? `Testing with: ${selectedSupplier.name}`
-                : "Select a supplier to begin testing"}
+                : 'Select a supplier to begin testing'}
             </p>
           </div>
+
+          <Link
+            to="/suppliers/form"
+            className="inline-flex items-center justify-center gap-2 rounded-xl surface-panel-faint panel-border px-4 py-2.5 text-sm font-bold text-heading hover:bg-gold-500/10 hover:border-gold-500/30 transition-all"
+          >
+            Open supplier setup
+          </Link>
         </div>
 
         <form className="space-y-6" onSubmit={onParseTest} noValidate>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
             <label className="field">
               <span className="field-label">Supplier setup</span>
               <select
-                className="input px-10"
+                className="input px-4"
                 value={qrSupplierId}
                 onChange={(event) => setQrSupplierId(event.target.value)}
                 disabled={suppliers.length === 0}
@@ -76,118 +84,109 @@ export default function SupplierQrTool({
                 <button
                   type="submit"
                   disabled={isTesting}
-                  className="absolute right-1 top-1 bottom-1 px-4 bg-gold-600/10 text-gold-500 text-[10px] font-bold rounded-lg hover:bg-gold-600/20 transition-all"
+                  className="absolute right-1 top-1 bottom-1 px-4 rounded-lg bg-gold-600/10 text-gold-500 text-[10px] font-bold hover:bg-gold-600/20 transition-all border border-gold-600/10"
                   aria-label="Parse QR string"
                 >
-                  {isTesting ? "BUSY" : "PARSE"}
+                  {isTesting ? 'BUSY' : 'PARSE'}
                 </button>
               </div>
             </label>
           </div>
 
           {qrError && (
-            <p className="text-red-400 text-xs font-bold p-3 bg-red-400/5 rounded-xl border border-red-400/10">
+            <p className="text-red-400 text-xs font-bold p-3 surface-panel-faint panel-border rounded-xl">
               {qrError}
             </p>
           )}
         </form>
 
         {qrResult && (
-          <div className="mt-10 p-6 surface-panel-soft rounded-2xl panel-border animate-zoom-in duration-200">
-            <div className="flex justify-between items-center mb-6 border-b panel-border pb-4">
+          <div className="mt-8 p-5 md:p-6 surface-panel-faint rounded-2xl panel-border animate-zoom-in duration-200">
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center mb-5 border-b panel-border pb-4">
               <div>
                 <h3 className="font-bold text-heading">
-                  {!isReview
-                  ? "Parse successful"
-                  : "Needs review"}
+                  {!isReview ? 'Parse successful' : 'Needs review'}
                 </h3>
                 <p className="mt-1 text-xs text-muted">
-                  Supplier:{" "}
+                  Supplier:{' '}
                   <span className="text-primary font-semibold">
                     {qrResult.normalizedResult?.display?.supplier?.name ||
                       qrResult.normalizedResult?.display?.supplier?.code ||
                       qrResult.supplier?.name ||
                       qrResult.supplier?.code ||
-                      "Unknown supplier"}
+                      'Unknown supplier'}
                   </span>
-                  {" • "}
-                  Template:{" "}
+                  {' - '}
+                  Template:{' '}
                   <span className="text-primary font-semibold">
-                    {qrResult.parseResult?.meta?.strategy || "unknown"}
+                    {qrResult.parseResult?.meta?.strategy || 'unknown'}
                   </span>
                 </p>
               </div>
               <div
                 className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest ${
                   !isReview
-                    ? "bg-green-500/10 text-green-500"
-                    : "bg-gold-500/10 text-gold-500"
+                    ? 'bg-green-500/10 text-green-500'
+                    : 'bg-gold-500/10 text-gold-500'
                 }`}
               >
-                {!isReview
-                  ? "OK"
-                  : "REVIEW"}
+                {!isReview ? 'OK' : 'REVIEW'}
               </div>
             </div>
 
             {!displayResult?.supplier && !qrResult.supplier && (
-              <div className="mb-6 rounded-2xl border border-gold-500/10 bg-gold-500/5 p-4 text-sm text-muted">
-                Supplier detection did not match a known setup. Salesman can
-                still continue with manual completion on mobile.
+              <div className="mb-6 rounded-2xl border border-gold-500/10 surface-panel-soft p-4 text-sm text-muted">
+                Supplier detection did not match a known setup. Salesman can still continue with manual completion on mobile.
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
               {[
-                ["supplier", "Supplier"],
-                ["itemCode", "Item Code"],
-                ["grossWeight", "Gross"],
-                ["stoneWeight", "Stone"],
-                ["netWeight", "Net"],
+                ['supplier', 'Supplier'],
+                ['itemCode', 'Item Code'],
+                ['grossWeight', 'Gross'],
+                ['stoneWeight', 'Stone'],
+                ['netWeight', 'Net'],
               ].map(([key, label]) => {
-                const fieldValue = getQrDebugField(qrResult, key);
+                const fieldValue = getQrDebugField(qrResult, key)
                 return (
-                  <div key={key}>
+                  <div key={key} className="rounded-xl surface-panel-soft panel-border p-3">
                     <div className="text-[8px] uppercase text-muted font-bold mb-1">
                       {label}
                     </div>
-                    <div
-                      className={`text-sm font-bold ${fieldValue?.parsed ? "text-primary" : "text-muted"}`}
-                    >
+                    <div className={`text-sm font-bold ${fieldValue?.parsed ? 'text-primary' : 'text-muted'}`}>
                       {formatFieldValue(fieldValue)}
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
 
             {isReview && displayWarnings.length === 0 && parseWarnings.length > 0 && (
-              <div className="bg-gold-500/5 border border-gold-500/10 p-4 rounded-xl">
+              <div className="surface-panel-soft panel-border p-4 rounded-xl">
                 <div className="text-[10px] text-gold-600 font-bold uppercase mb-2">
                   Warnings:
                 </div>
                 <ul className="space-y-1">
-                  {parseWarnings.map(
-                    (item, idx) => (
-                      <li key={idx} className="text-xs text-gold-500/80">
-                        • <strong className="uppercase">{item.field}:</strong>
-                        {item.reason}
-                      </li>
-                    ),
-                  )}
+                  {parseWarnings.map((item, idx) => (
+                    <li key={idx} className="text-xs text-gold-500/80">
+                      - <strong className="uppercase">{item.field}:</strong>
+                      {item.reason}
+                    </li>
+                  ))}
                 </ul>
               </div>
             )}
 
             {isReview && displayWarnings.length > 0 && (
-              <div className="bg-gold-500/5 border border-gold-500/10 p-4 rounded-xl">
+              <div className="surface-panel-soft panel-border p-4 rounded-xl">
                 <div className="text-[10px] text-gold-600 font-bold uppercase mb-2">
                   Warnings:
                 </div>
                 <ul className="space-y-1">
                   {displayWarnings.map((warning, idx) => (
                     <li key={idx} className="text-xs text-gold-500/80">
-                      • {warning}
+                      - {warning}
                     </li>
                   ))}
                 </ul>
@@ -197,5 +196,5 @@ export default function SupplierQrTool({
         )}
       </div>
     </SectionCard>
-  );
+  )
 }

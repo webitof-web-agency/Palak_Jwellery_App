@@ -27,7 +27,7 @@ export default function ExceptionsTable({
       <div className="overflow-x-auto">
         <table className="w-full text-left">
           <thead>
-            <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.18em] text-muted">
+            <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
               <th className="px-4 py-3">Supplier</th>
               <th className="px-4 py-3">Design Code</th>
               <th className="px-4 py-3">Settlement Status</th>
@@ -58,7 +58,7 @@ export default function ExceptionsTable({
               </tr>
             </tbody>
           ) : (
-            <tbody className="divide-y divide-white/5">
+            <tbody className="divide-y divide-[var(--jsm-border)]">
               {rows.map((row) => {
                 const validationCount = Array.isArray(row.validation_warnings) ? row.validation_warnings.length : 0
                 const valuationCount = Array.isArray(row.valuation_warnings) ? row.valuation_warnings.length : 0
@@ -72,7 +72,7 @@ export default function ExceptionsTable({
                 const isReviewLoading = pendingAction === reviewActionKey
 
                 return (
-                  <tr key={row.id} className="hover:bg-white/5">
+                  <tr key={row.id} className="hover:bg-[var(--jsm-panel-bg-faint)]">
                     <td className="px-4 py-3">
                       <div className="font-medium text-primary">
                         {row.supplier || 'Unknown'}

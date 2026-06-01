@@ -1,12 +1,15 @@
 import LoadingSpinner from '../../../components/ui/LoadingSpinner'
-import { buttonStyles, sortOptions } from "../salesPage.utils";
+import { buttonStyles, sortOptions, getName } from '../salesPage.utils'
 
 export default function SalesFilterBar({
   filters,
+  suppliers = [],
   onFilterChange,
   onExport,
   isExporting,
 }) {
+  const supplierOptions = Array.isArray(suppliers) ? suppliers : []
+
   return (
     <div className="space-y-5">
       <div className="rounded-2xl surface-panel-faint panel-border p-4 md:p-5">
@@ -18,7 +21,7 @@ export default function SalesFilterBar({
               </h3>
               <button
                 type="button"
-                className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/10 bg-white/5 text-muted hover:text-primary hover:border-gold-500/30 hover:bg-white/10"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full surface-panel-soft panel-border text-muted hover:text-primary hover:border-gold-500/30 hover:bg-gold-500/10"
                 title="Search looks across salesman, supplier, category, item code, and notes. Use the dropdown to narrow the search."
                 aria-label="Search help"
               >
@@ -30,13 +33,13 @@ export default function SalesFilterBar({
             </p>
           </div>
 
-          <label className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-heading">
+          <label className="inline-flex items-center gap-2 rounded-xl surface-panel-soft panel-border px-3 py-2 text-sm text-heading">
             <input
               type="checkbox"
               checked={filters.duplicatesOnly}
               onChange={(event) => onFilterChange("duplicatesOnly", event.target.checked)}
               aria-label="Show duplicate entries only"
-              className="h-4 w-4 rounded border-white/20 bg-transparent text-gold-500 focus:ring-gold-500"
+              className="h-4 w-4 rounded border-[var(--jsm-border)] bg-transparent text-gold-500 focus:ring-gold-500"
             />
             Duplicate entries only
           </label>
@@ -74,6 +77,26 @@ export default function SalesFilterBar({
             <option value="salesman">Salesman only</option>
             <option value="supplier">Supplier only</option>
             <option value="details">Entry details</option>
+          </select>
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor="sales-supplier-filter">
+            Supplier
+          </label>
+          <select
+            id="sales-supplier-filter"
+            className="input"
+            value={filters.supplier || ''}
+            onChange={(event) => onFilterChange('supplier', event.target.value)}
+            aria-label="Filter sales by supplier"
+          >
+            <option value="">All suppliers</option>
+            {supplierOptions.map((supplier) => (
+              <option key={supplier._id} value={supplier._id}>
+                {getName(supplier)}{supplier?.code ? ` (${supplier.code})` : ''}
+              </option>
+            ))}
           </select>
         </div>
 
