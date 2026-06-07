@@ -5,27 +5,27 @@
 This codebase is a production-in-progress jewellery QR system with three active surfaces:
 
 - Admin panel: React 19 + Vite, used by admins for suppliers, users, settlement reporting, exceptions, and business settings.
-- Mobile app: Flutter 3.41.6 + Riverpod + Dio, used by sales staff for login, QR scan, sale entry, history, and pending queue recovery.
+- Mobile app: Flutter 3.41.6 + Riverpod + Dio, used by sales staff for login, QR scan, sale entry, batch capture, capture-session review, history, and backend fallback recovery.
 - Backend: Node.js + Express + MongoDB + Mongoose, used for auth, supplier QR parsing, sale persistence, QR ingestion/correction, settlement reporting, business settings, and user management.
 
 The live implementation is stronger than the older PRD/TRD in a few places:
 
-- Settlement reporting is now centered on `Sale` records, with a legacy fallback to approved QR ingestions when no sales exist.
-- Mobile has a lightweight pending queue with retry and persistence.
+- Settlement reporting is now centered on `Sale` records, with a live backend query foundation and live admin settlement report views for item-ledger, session, and supplier-section scopes; the admin panel now has live download buttons for finalized session and supplier-section rows, scoped session and supplier-section summaries preserve aggregate item counts, and there is a legacy fallback to approved QR ingestions when no sales exist.
+- Mobile writes are online-only; network failures surface through the existing backend fallback screen and the user retries at the source.
 - QR parsing is safe-by-default: unknown formats do not block the user and partial results are returned.
 - Admin now has a business-settings surface for categories, metal types, and settlement defaults.
 - A centralized settlement calculation service now exists at `backend/src/services/settlementCalculation.service.js`.
 - Sale creation now stores an audit snapshot (`calculationSnapshot`), an optional parser/display snapshot (`parsedSnapshot`), and a settlement-input snapshot (`settlementInputs`) so sale detail can explain how values were derived at the time of sale.
-- The backend now also has the first batch/session foundation pieces: a `ScanBatch` model, optional batch fields on `Sale`, a lifecycle helper, and the Phase 2 batch API wiring (`/api/v1/batches`) for create/list/detail/items/submit/finalize/reopen/revisions/assignment. Admin batch review UI exists; mobile batch UI is still pending.
+- The backend now also has the first batch/session foundation pieces: a `ScanBatch` model, optional batch fields on `Sale`, an optional `CaptureSession` model with live capture-session routes (`/api/v1/capture-sessions`), a lifecycle helper, and the Phase 2 batch API wiring (`/api/v1/batches`) for create/list/detail/items/submit/finalize/reopen/revisions/assignment. Admin now has live session, batch, and item views in Sales; mobile batch capture is partially live through the batch detail, scanner, and sale-entry flow for assigned batches, and mobile session UI now exists for My Sessions, Create Session, and Session Detail.
 
 The biggest production risks are:
 
 - Settlement reporting still has a legacy QR-ingestion fallback path.
-- The batch workflow is now wired into backend routes and admin batch review UI, but mobile batch capture UI still remains pending. Item-level sales remain the only live mobile workflow.
+- The batch workflow is now wired into backend routes, admin session/batch/item review UI, the mobile batch capture flow for assigned batches, and the mobile capture-session UI for My Sessions, Create Session, and Session Detail. Standalone item-level sales remain available as the fallback mobile workflow, and the backend now also exposes a live capture-session API layer with best-effort parent-session aggregate sync after batch mutations while explicit session submit/finalize remains manual.
 - The admin API client now matches the backend sale-detail route.
 - Documentation in `docs/PRD.md` and `docs/TRD.md` is partially outdated versus live code.
 - The system has two reporting paths in parallel: legacy QR reporting and the newer settlement-report flow.
-- The new settlement calculation service is wired into sale creation and QR parsing paths, while settlement reporting still keeps a partial legacy path for now.
+- The new settlement calculation service is wired into sale creation and QR parsing paths, while settlement reporting now also has a scoped backend query foundation for item-ledger, session, and supplier-section views alongside the partial legacy path and scope-aware summary totals.
 - Sale detail now returns stored calculation audit data and settlement-input tracking, while sale list/export stay lightweight by excluding the large snapshot payloads.
 
 ## 2. Tech Stack
@@ -45,7 +45,7 @@ The live code currently uses:
 
 - browser-side settlement print HTML for the admin preview/download flow
 - backend fallback PDF buffer generation for settlement reports
-- secure-storage-based pending queue on mobile rather than the older doc assumption of sqflite for offline queue persistence
+- secure-storage-based JWT storage on mobile rather than the older doc assumption of sqflite-based local write persistence
 
 ## 3. Admin Panel Pages
 
@@ -302,7 +302,8 @@ Route-level pages currently present:
 - Buttons/actions:
   - refresh
   - export CSV
-  - open browser-side PDF preview / download
+  - Session/Supplier Section download buttons for finalized rows
+  - open browser-side PDF preview / download for item-ledger compatibility
   - pagination controls
 - API calls:
   - `GET /api/v1/reports/settlement/summary`
@@ -515,7 +516,8 @@ Support screens/widgets:
 - API calls:
   - `POST /api/v1/sales`
 - Offline/network handling:
-  - relies on pending queue and retry provider
+  - uses the backend fallback screen for network errors
+  - no live retry store or retry provider
 - Error handling:
   - local validation for required/weight sanity checks
 - Missing real-shop failure handling:
@@ -551,7 +553,7 @@ Support screens/widgets:
   - sort
   - duplicates-only toggle
   - pagination
-  - pending sales banner
+  - no pending sales banner
 - Buttons/actions:
   - refresh
   - clear search
@@ -559,7 +561,7 @@ Support screens/widgets:
 - API calls:
   - `GET /api/v1/sales`
 - Offline/network handling:
-  - pending queue banner helps visible recovery
+  - backend fallback handles write/network failures
 - Error handling:
   - provider-level states and empty/error handling
 - Missing real-shop failure handling:
@@ -1130,7 +1132,7 @@ UNCLEAR if these are planned later or intentionally removed; files checked:
 - Mobile login and auth persistence.
 - QR scanning with safe partial parsing.
 - Manual sale entry when QR fails.
-- Pending sale queue with retry and visible status.
+- Network fallback handling for sale writes.
 - Supplier configuration and test parsing.
 - Sales list and settlement report browsing.
 - Exception review and correction for bad scans.
@@ -1181,7 +1183,7 @@ UNCLEAR if these are planned later or intentionally removed; files checked:
 2. The admin sale-detail method is now backed by `GET /api/v1/sales/:id` and returns stored calculation audit snapshots.
 3. The docs in `docs/PRD.md` and `docs/TRD.md` still need a final pass for full parity with the live settlement-report / business-settings / browser-print implementation.
 4. The codebase still has duplicate concepts for legacy QR reporting and newer settlement reporting.
-5. Live code uses secure storage for the mobile pending queue, which differs from the earlier document assumption of sqflite-based offline storage.
+5. Live code uses secure storage for JWT storage on mobile; sale writes are online-only and network failures surface through the backend fallback screen rather than a live retry store.
 6. Inventory/customer/audit-log features are not present in live code despite being named in older docs.
 7. Centralized settlement calculation wiring is now in place for sale creation and QR parsing, while settlement reports still keep a partial legacy path.
 8. Supplier business settings are now supported at the schema/helper level, but exact business values still need owner confirmation.
@@ -1201,7 +1203,7 @@ UNCLEAR if these are planned later or intentionally removed; files checked:
   - `addedBy`
   - `addedAt`
   - `entryMode`
-- Batch totals/counts are refreshed after sale creation through a server-side aggregate helper.
+- Batch totals/counts are refreshed after sale creation through a server-side aggregate helper, and the helper also best-effort refreshes the parent capture session when the sale belongs to a batch.
 - If aggregate refresh fails after the sale is stored, the API still returns success with a warning so the client does not retry into a duplicate sale.
 - Mobile batch workflow should use this one-request path rather than creating a sale first and linking it later.
 

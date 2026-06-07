@@ -2,11 +2,11 @@
 
 ## 1. Executive Summary
 
-The current mobile app is still item-centric: one QR scan or manual jewellery entry becomes one `Sale` record. That is correct for the existing release, but it is not yet enough for the new batch workflow.
+The current mobile app is still item-centric for standalone sales, but the batch-aware capture path is now live: batch context threads from batch detail into scanner and sale entry, and a Sale can now be created with an optional `batchId`. The backend now also has a live `CaptureSession` API layer with best-effort parent-session aggregate sync after batch changes, mobile now has live capture-session UI for My Sessions, Create Session, and Session Detail, and the backend report query foundation now supports item-ledger, session, and supplier-section scopes. Mobile reporting and any future UI/reporting rollups remain deferred, even though the admin settlement report UI is already live.
 
-Backend batch APIs are already implemented and validated. Admin can create, assign, review, finalize, reopen, and inspect revision history. The missing piece is the mobile batch experience.
+Backend batch APIs are already implemented and validated. Admin can create, assign, review, finalize, reopen, and inspect revision history. The remaining mobile work is reporting polish and any future batch/session refinements.
 
-The key implementation risk is orphan data. If mobile first creates a `Sale` and then links it to a batch in a second request, a network failure can leave an unbatched Sale behind. That risk is real with the current offline queue and retry behavior.
+The key implementation risk is orphan data. If mobile first creates a `Sale` and then links it to a batch in a second request, a network failure can leave an unbatched Sale behind. The live implementation avoids that by attaching `batchId` during the sale create call and by using the existing backend fallback screen when the network is unavailable.
 
 Safest practical direction:
 - keep each jewellery item as an individual `Sale`
@@ -21,7 +21,7 @@ Safest practical direction:
 - Flutter 3.41.6
 - Riverpod for state management
 - Dio for HTTP
-- flutter_secure_storage for JWT and offline queue persistence
+- flutter_secure_storage for JWT storage
 - mobile_scanner for QR capture
 - go_router for navigation
 
@@ -66,10 +66,10 @@ The app uses `go_router` with auth-based redirects:
 | Login | `mobile/lib/features/auth/presentation/login_screen.dart` | Authenticate user and store token | identifier/password, theme toggle, submit | `POST /api/v1/auth/login` | No change needed except eventual batch-aware landing |
 | Dashboard | `mobile/lib/main.dart` (`DashboardScreen`) | Current landing page and quick summary | recent sales card, logout, theme toggle | recent sales query | Could become a shortcut hub for batch actions, but it is not batch-specific today |
 | Scanner | `mobile/lib/features/scanner/presentation/scanner_screen.dart` | Scan QR and hand off parsed result | camera, torch, manual entry button | `POST /api/v1/suppliers/parse-qr` | Must eventually accept selected batch context |
-| Sale Entry | `mobile/lib/features/sale_entry/presentation/sale_entry_screen.dart` | Review parsed QR or manually enter sale details | supplier, category, item code, metal, purity, weights, notes, duplicate confirm, save | `GET /api/v1/suppliers`, `GET /api/v1/business/overview`, `POST /api/v1/sales` | Needs batch context and batch-safe submission in the next phase |
+| Sale Entry | `mobile/lib/features/sale_entry/presentation/sale_entry_screen.dart` | Review parsed QR or manually enter sale details | supplier, category, item code, metal, purity, weights, notes, duplicate confirm, save | `GET /api/v1/suppliers`, `GET /api/v1/business/overview`, `POST /api/v1/sales` | Batch context is now threaded through the sale-entry flow for assigned batches |
 | Sale Success | `mobile/lib/features/sale_entry/presentation/sale_success_screen.dart` | Confirm a saved sale | sale ref, duplicate badge, scan another | no new API | Should later return user to batch detail when a batch is active |
 | Sales History | `mobile/lib/features/history/presentation/sales_history_screen.dart` | Search recent item sales | search, scope, sort, duplicates-only toggle | history query APIs | Not batch-specific, but may later need batch filters |
-| Pending Queue Banner | `mobile/lib/features/sale_entry/presentation/widgets/pending_sales_banner.dart` | Show offline/pending entries inside sale entry | pending count, failed count, retry actions | offline queue + `POST /api/v1/sales` retry | Must preserve batch context once batch mode is added |
+| Network Fallback | `mobile/lib/shared/widgets/backend_fallback_screen.dart` | Show backend unavailable / no-internet state | retry | backend boot + write failure handling | Mobile sale writes are online-only; retry happens when the backend is reachable |
 
 Supporting UI pieces:
 - supplier picker / selectors live under `mobile/lib/features/sale_entry/presentation/widgets/*`
@@ -86,11 +86,12 @@ Current flow:
 6. User can edit fields manually
 7. Duplicate QR can be confirmed explicitly
 8. Submit calls `POST /api/v1/sales`
-9. If saving fails, the sale is preserved in the pending queue and can be retried
+9. If saving fails because the network is unavailable, the app shows the existing backend fallback / no-internet state and the user retries after reconnecting
 
 ### Current payload sent to `POST /api/v1/sales`
 The mobile app currently sends:
 - `supplierId`
+- `batchId` when batch mode is active
 - `category`
 - `itemCode`
 - `metalType`
@@ -127,9 +128,9 @@ The mobile app currently sends:
 - the user can confirm and continue with `overrideDuplicate: true`
 - duplicate handling is already part of the same sale submission path
 
-### Batch integration gap
-`POST /api/v1/sales` now accepts optional `batchId` in the request body.
-The remaining mobile gap is to thread that batch context through the scanner, sale-entry flow, and offline queue.
+### Batch integration status
+`POST /api/v1/sales` accepts optional `batchId` in the request body.
+The batch context is now threaded through the scanner and sale-entry flow for assigned-batch capture. Batch changes refresh parent session aggregates best-effort on the backend, while explicit session submit/finalize remains manual. Mobile now also exposes capture-session list, create, and detail screens; the backend report query foundation is live; the remaining work is mobile/reporting UI polish and any future batch/session refinements.
 
 ## 5. Current Manual Entry Flow
 
@@ -143,41 +144,25 @@ Current manual entry characteristics:
 - supplier can be selected manually
 - weights and item details can be typed in
 - the sale still submits as one `Sale` record
-- pending queue also preserves manual entries
+- manual entries follow the same online-only submission path
 
 Batch implication:
 - manual entry should remain available inside batch mode
 - it should not become a separate batch architecture
 - QR and manual items should remain child `Sale` records of the selected batch
 
-## 6. Current Pending Queue / Offline Flow
+## 6. Current Network Handling
 
-The current offline queue is item/sale-centric.
+The current mobile write path is online-only and item/sale-centric.
 
 ### Storage and persistence
-- queue is stored in `flutter_secure_storage`
-- storage key: `pending_sale_queue_v1`
-- queue items persist:
-  - supplierId
-  - supplierName
-  - category
-  - itemCode
-  - metalType
-  - purity
-  - notes
-  - grossWeight
-  - stoneWeight
-  - netWeight
-  - qrRaw
-  - overrideDuplicate
-  - displaySnapshot
-  - parsedSnapshot
-  - parseSnapshot
+- JWT is stored in `flutter_secure_storage`
+- there is no active local retry store in the live flow
 
 ### Retry behavior
-- failed drafts stay in the queue
-- the user can retry individual drafts
-- `sale_entry_provider` replays the same create-sale payload
+- failed writes surface immediately through the existing backend fallback / no-internet state
+- the user retries after connectivity returns
+- `sale_entry_provider` preserves idempotency on the live submit path
 - duplicate retry is handled explicitly
 
 ### Current risk
@@ -189,14 +174,10 @@ an offline or network failure can create an orphan/unbatched `Sale`.
 
 That is the main failure mode the batch workflow must avoid.
 
-### Queue future needs
-Once batch mode is added, the queue will likely need to preserve:
-- `batchId`
-- `batchRef`
-- batch revision context
-- maybe selected supplier lock
+### Network handling
+There is no active local write storage in the live flow.
 
-At the moment, the queue does not carry batch context.
+If the backend is unreachable, the app surfaces the existing backend fallback/no-internet state and the user retries after connectivity returns.
 
 ## 7. Backend Contract Recommendation
 
@@ -286,7 +267,7 @@ Suggested behavior:
 Suggested behavior:
 - keep the current QR/manual flow
 - preserve duplicate handling
-- preserve offline queue
+- preserve live batch context on the submit path
 - attach batch context to the sale create path
 - after save, return to batch detail rather than the generic success flow when batch mode is active
 
@@ -346,7 +327,6 @@ Files likely touched:
 - `mobile/lib/features/sale_entry/presentation/sale_entry_screen.dart`
 - `mobile/lib/features/sale_entry/presentation/sale_entry_provider.dart`
 - `mobile/lib/features/sale_entry/data/sale_repository.dart`
-- `mobile/lib/features/sale_entry/data/pending_sale_queue.dart`
 
 Backend changes required:
 - thread optional `batchId` through sale creation now that the backend already supports it
@@ -386,27 +366,26 @@ Checks:
 - reopened revision increments
 - current revision items are clearly marked
 
-### Phase M4: Offline queue batch context and orphan prevention
+### Phase M4: Network failure handling and orphan prevention
 Files likely touched:
-- `mobile/lib/features/sale_entry/data/pending_sale_queue.dart`
-- `mobile/lib/features/sale_entry/presentation/pending_sale_queue_provider.dart`
 - `mobile/lib/features/sale_entry/presentation/sale_entry_provider.dart`
+- `mobile/lib/features/sale_entry/presentation/widgets/sale_entry_form_body.dart`
+- `mobile/lib/shared/widgets/backend_fallback_screen.dart`
 
 Backend changes required:
 - none if single-request batch-aware sale create is already in place
 
 Goals:
-- preserve batch context in queued drafts
-- retry stays idempotent
-- offline flow does not create orphan items
+- preserve batch context on the live submit path
+- keep idempotency intact
+- surface network failures immediately
 
 Risks:
-- queue schema versioning
 - retry mismatch after batch reopen/revision changes
 
 Checks:
-- retry draft keeps batch context
-- failed queued item can be retried safely
+- failed write shows fallback state
+- retry works after connectivity returns
 - no duplicate link occurs
 
 ## 11. Risks
@@ -414,7 +393,7 @@ Checks:
 Main risks to call out early:
 - orphan Sale records if mobile uses a two-step link flow
 - duplicate linking if the same draft is replayed without batch-aware idempotency
-- batch context loss in the offline queue
+- batch context loss during network failure handling
 - supplier changes after first scan if the UI does not lock supplier properly
 - user confusion if batch mode and legacy standalone sale mode are mixed too loosely
 - stale batch totals if the batch detail is not refreshed after item save
@@ -434,8 +413,8 @@ Main risks to call out early:
 4. Should `POST /sales` accept optional `batchId` directly?
    - Yes. The backend already supports it, so mobile should use that one-request path.
 
-5. Can the pending queue preserve batch context safely?
-   - Yes, but not yet. The queue schema will need `batchId`/`batchRef`/revision fields added.
+5. How should batch context behave when the network is unavailable?
+   - It stays on the live form state until the user retries; there is no active local retry store in v1.
 
 6. What happens if an offline user creates a batch before network exists?
    - Not currently supported in the mobile app. Defer offline batch creation for v1.

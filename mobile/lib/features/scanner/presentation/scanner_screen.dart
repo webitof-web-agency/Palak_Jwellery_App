@@ -3,14 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../batches/domain/batch_capture_context.dart';
 import '../../sale_entry/data/sale_repository.dart';
 import '../../sale_entry/presentation/sale_entry_provider.dart';
+import '../../sale_entry/presentation/sale_entry_launch_args.dart';
 import '../../../shared/navigation/app_route_observer.dart';
 import '../../../shared/theme/app_theme.dart';
 import 'widgets/scanner_widgets.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
-  const ScannerScreen({super.key});
+  const ScannerScreen({super.key, this.batchContext});
+
+  final BatchCaptureContext? batchContext;
 
   @override
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
@@ -169,7 +173,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     saleEntryNotifier.reset();
     saleEntryNotifier.setParseResult(result);
 
-    await context.push('/sale-entry', extra: result);
+    await context.push(
+      '/sale-entry',
+      extra: SaleEntryLaunchArgs(
+        parseResult: result,
+        batchContext: widget.batchContext,
+      ),
+    );
 
     if (!mounted) return;
     await _resetScannerState();
@@ -189,7 +199,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     final saleEntryNotifier = ref.read(saleEntryProvider.notifier);
     saleEntryNotifier.reset();
     saleEntryNotifier.setParseResult(emptyResult);
-    await context.push('/sale-entry', extra: emptyResult);
+    await context.push(
+      '/sale-entry',
+      extra: SaleEntryLaunchArgs(
+        parseResult: emptyResult,
+        batchContext: widget.batchContext,
+      ),
+    );
 
     if (!mounted) return;
     await _resetScannerState();
@@ -225,6 +241,40 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                   onToggleTorch: _toggleTorch,
                   torchOn: _torchOn,
                 ),
+                if (widget.batchContext != null) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceAlt,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.inventory_2_rounded,
+                            color: AppColors.accent,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Batch ${widget.batchContext!.batchRef} • ${widget.batchContext!.noticeText}',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 Expanded(
                   child: Padding(

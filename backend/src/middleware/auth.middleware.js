@@ -4,12 +4,18 @@ import { User } from '../models/User.js'
 
 export const authenticate = async (req, res, next) => {
   try {
+    let token = null
     const authHeader = req.headers.authorization
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1]
+    } else if (req.query.token) {
+      token = req.query.token
+    }
+
+    if (!token) {
       return res.status(401).json({ success: false, error: 'No token provided', code: 'NO_TOKEN' })
     }
 
-    const token = authHeader.split(' ')[1]
     const decoded = jwt.verify(token, config.jwtSecret)
 
     const user = await User.findById(decoded.userId).lean()

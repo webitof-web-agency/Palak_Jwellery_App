@@ -98,7 +98,7 @@ Backend foundation note:
 - `Sale.settlementInputs` tracks karat, purity percent, wastage percent, source labels, and override flags
 - `Sale.calculationSnapshot` is built from resolved settlement inputs, not raw UI fields alone
 - sale detail returns those stored snapshots for verification/debugging
-- the first batch/session foundation now exists in backend code: `ScanBatch`, optional `Sale.batchId` metadata, a batch lifecycle helper, and the backend batch API surface; admin batch review UI exists and mobile batch UI remains next-phase work
+- the first batch/session/reporting foundation now exists in backend code: `ScanBatch`, optional `Sale.batchId` metadata, a live `CaptureSession` API layer with `ScanBatch.sessionId`, a batch lifecycle helper, the backend batch API surface, and the new backend report query scopes; parent session aggregates auto-refresh best-effort after batch changes while explicit session submit/finalize remains manual, admin session/batch/item UI now exists in Sales, admin settlement reporting now has live session/supplier-section/item-ledger scopes, and mobile session UI now exists for My Sessions, Create Session, and Session Detail while any extra reporting polish remains next-phase work
 - exact category wastage and karat purity values are still pending business confirmation and should remain placeholder-safe
 
 ## 4. Purity and Wastage Rules
@@ -590,7 +590,7 @@ Reports should be designed as settlement analysis, not QR debug output.
 
 ## 9. Backend Changes Needed
 
-This section describes required backend direction. A standalone calculation service now exists, sale creation stores a calculation snapshot, and QR parsing already uses the live settlement helpers. Settlement reporting still keeps a partial legacy path, so downstream wiring is not fully unified yet.
+This section describes required backend direction. A standalone calculation service now exists, sale creation stores a calculation snapshot, QR parsing already uses the live settlement helpers, and the backend report query foundation now supports item-ledger, session, and supplier-section scopes. Settlement reporting still keeps a partial legacy path, so downstream wiring is not fully unified yet.
 
 ### Proposed backend changes
 
@@ -672,7 +672,7 @@ Add support for:
 
 ### Batch session
 
-If implemented later, add a batch/session identifier for multi-item scan sessions.
+The backend now already has a live `CaptureSession` identifier layer for multi-item scan workflows that can span more than one supplier batch; future work is UI/reporting integration, not the identifier itself.
 
 ## 11. API Changes Needed
 

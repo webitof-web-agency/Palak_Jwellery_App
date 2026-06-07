@@ -10,7 +10,47 @@ import {
 
 const valueOrDash = (value) => {
   if (value === null || value === undefined || value === '') {
-    return '—'
+    return '-'
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((entry) => valueOrDash(entry))
+      .filter((entry) => entry && entry !== '-')
+      .join(' | ')
+    return joined || '-'
+  }
+
+  if (typeof value === 'object') {
+    const candidates = [
+      value.text,
+      value.message,
+      value.summary,
+      value.description,
+      value.explanation,
+      value.reason,
+      value.label,
+    ]
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean)
+
+    if (candidates.length > 0) {
+      return candidates.join(' | ')
+    }
+
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return '-'
+    }
   }
 
   return String(value)
@@ -38,6 +78,51 @@ const formatMoneyValue = (value) => {
   }
 
   return formatCurrency(value)
+}
+
+const formatExplanationValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (Array.isArray(value)) {
+    const joined = value
+      .map((entry) => valueOrDash(entry))
+      .filter((entry) => entry && entry !== '-')
+      .join(' | ')
+    return joined || '-'
+  }
+
+  if (typeof value === 'object') {
+    const preferred = [
+      value.explanation,
+      value.summary,
+      value.message,
+      value.description,
+      value.text,
+      value.reason,
+      value.netFormula,
+      value.fineFormula,
+    ]
+      .map((entry) => (typeof entry === 'string' ? entry.trim() : ''))
+      .filter(Boolean)
+
+    if (preferred.length > 0) {
+      return preferred.join(' | ')
+    }
+
+    try {
+      return JSON.stringify(value, null, 2)
+    } catch {
+      return '-'
+    }
+  }
+
+  return String(value)
 }
 
 const formatSourceLabel = (value) => {
@@ -131,6 +216,11 @@ const SnapshotNotice = ({ children }) => (
   </div>
 )
 
+const heavySectionStyle = {
+  contentVisibility: 'auto',
+  containIntrinsicSize: '1px 420px',
+}
+
 export default function SaleDetailModal({ open, sale, loading, error, onClose }) {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false)
 
@@ -185,7 +275,6 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
   const itemCode = parsedItem?.itemCode || parsedItem?.designCode || sale?.itemCode || '—'
   const designCode = parsedItem?.designCode || parsedItem?.itemCode || sale?.itemCode || '—'
   const category = parsedItem?.category || parsedItem?.colorCategory || sale?.category || '—'
-  const metalType = parsedItem?.metalType || sale?.metalType || '—'
   const karat = settlementInputs?.karat || parsedItem?.karat || sale?.purity || '—'
   const purityPercent = settlementInputs?.purityPercent ?? calculation?.purityPercent ?? null
   const wastagePercent = settlementInputs?.wastagePercent ?? calculation?.wastagePercent ?? null
@@ -197,7 +286,7 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
 
   const modalContent = (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-[color:var(--jsm-overlay)] p-3 backdrop-blur-md backdrop-saturate-75 md:p-6"
+      className="fixed inset-0 z-[120] flex items-center justify-center bg-[color:var(--jsm-overlay)] p-3 backdrop-blur-0 backdrop-saturate-100 md:p-6"
       role="dialog"
       aria-modal="true"
       onClick={(event) => {
@@ -206,7 +295,7 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
         }
       }}
     >
-      <div className="flex h-[calc(100vh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-[28px] bg-[color:var(--jsm-surface)] panel-border shadow-[0_24px_80px_rgba(0,0,0,0.42)] md:h-[90vh]">
+      <div className="flex h-[calc(100vh-1.5rem)] w-full max-w-7xl flex-col overflow-hidden rounded-[28px] bg-[color:var(--jsm-surface)] panel-border shadow-[0_10px_24px_rgba(0,0,0,0.2)] md:h-[90vh]">
         <div className="flex items-start justify-between gap-4 border-b panel-border px-5 py-4 md:px-6">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -232,7 +321,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] px-5 py-5 md:px-6">
+        <div
+          className="flex-1 overflow-y-auto overscroll-contain [scrollbar-gutter:stable] px-5 py-5 md:px-6"
+          style={{ contain: 'content' }}
+        >
           {loading ? (
             <div className="flex min-h-[40vh] items-center justify-center">
               <div className="flex items-center gap-3 text-muted">
@@ -253,7 +345,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                 </SnapshotNotice>
               ) : null}
 
-              <section className="rounded-3xl surface-panel-soft panel-border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+              <section
+                className="rounded-3xl surface-panel-soft panel-border p-5 shadow-none"
+                style={heavySectionStyle}
+              >
                 <SectionTitle
                   title="Header"
                   description="Sale reference and who recorded it."
@@ -266,7 +361,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                 </div>
               </section>
 
-              <section className="rounded-3xl surface-panel-soft panel-border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+              <section
+                className="rounded-3xl surface-panel-soft panel-border p-5 shadow-none"
+                style={heavySectionStyle}
+              >
                 <SectionTitle
                   title="Key summary"
                   description="Quick business scan of the record."
@@ -283,7 +381,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
               </section>
 
               <div className="grid gap-4 xl:grid-cols-2">
-                <section className="rounded-3xl surface-panel-soft panel-border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+                <section
+                  className="rounded-3xl surface-panel-soft panel-border p-5 shadow-none"
+                  style={heavySectionStyle}
+                >
                   <SectionTitle
                     title="Item details"
                     description="What was scanned and how the item was identified."
@@ -291,7 +392,6 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <DetailField label="Design Code" value={valueOrDash(designCode)} />
                     <DetailField label="Category / Color" value={valueOrDash(category)} />
-                    <DetailField label="Metal Type" value={valueOrDash(metalType)} />
                     <DetailField
                       label="Raw QR"
                       value={rawQr ? 'Present' : 'Not available'}
@@ -299,7 +399,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                   </div>
                 </section>
 
-                <section className="rounded-3xl surface-panel-soft panel-border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+                <section
+                  className="rounded-3xl surface-panel-soft panel-border p-5 shadow-none"
+                  style={heavySectionStyle}
+                >
                   <SectionTitle
                     title="Settlement Inputs"
                     description="The settlement values and their source."
@@ -365,7 +468,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                 </section>
               </div>
 
-              <section className="rounded-3xl surface-panel-soft panel-border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+              <section
+                className="rounded-3xl surface-panel-soft panel-border p-5 shadow-none"
+                style={heavySectionStyle}
+              >
                 <SectionTitle
                   title="Weight check"
                   description="Weights used to verify the sale."
@@ -413,7 +519,10 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                 </div>
               </section>
 
-              <section className="rounded-3xl surface-panel-soft panel-border p-5 shadow-[0_10px_30px_rgba(0,0,0,0.04)]">
+              <section
+                className="rounded-3xl surface-panel-soft panel-border p-5 shadow-none"
+                style={heavySectionStyle}
+              >
                 <SectionTitle
                   title="Calculation"
                   description="Backend values stored at the time of sale."
@@ -426,18 +535,7 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                   <DetailField label="Tolerance" value={formatWeightValue(calculation?.tolerance)} />
                 </div>
 
-                <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                  <div className="rounded-2xl surface-panel-faint panel-border p-4">
-                    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
-                      Net weight check
-                    </div>
-                    <div className="mt-2 text-sm text-heading">
-                      {calculation?.requiresReview ? 'Needs review' : 'Within tolerance'}
-                    </div>
-                    <div className="mt-1 text-sm text-muted">
-                      {valueOrDash(calculation?.explanation)}
-                    </div>
-                  </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-1">
                   <div className="rounded-2xl surface-panel-faint panel-border p-4">
                     <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
                       Formula
@@ -517,12 +615,6 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                             value={formatMoneyValue(parsedAmounts?.stoneAmount)}
                           />
                           <DetailField
-                            label="Parsed net check"
-                            value={parsedCalculation?.mismatch === undefined
-                              ? '—'
-                              : (parsedCalculation?.mismatch ? 'Mismatch found' : 'Within tolerance')}
-                          />
-                          <DetailField
                             label="Parsed warnings"
                             value={parsedWarnings.length > 0 ? `${parsedWarnings.length}` : 'None'}
                           />
@@ -538,8 +630,8 @@ export default function SaleDetailModal({ open, sale, loading, error, onClose })
                       <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
                         Parsed explanation
                       </div>
-                      <div className="mt-2 text-sm text-muted">
-                        {valueOrDash(parsedCalculation?.explanation)}
+                      <div className="mt-2 whitespace-pre-wrap break-words text-sm text-muted">
+                        {formatExplanationValue(parsedCalculation?.explanation)}
                       </div>
                     </div>
                   </div>

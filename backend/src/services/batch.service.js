@@ -3,6 +3,7 @@ import { ScanBatch } from '../models/ScanBatch.js'
 import { Sale } from '../models/Sale.js'
 import { Supplier } from '../models/Supplier.js'
 import { User } from '../models/User.js'
+import { syncParentSessionForBatchBestEffort } from './captureSessionSync.service.js'
 import {
   ALLOWED_BATCH_ENTRY_MODES,
   ALLOWED_BATCH_STATUSES,
@@ -564,11 +565,15 @@ export const refreshBatchAggregates = async (batchOrId = {}) => {
 
   const { batch: batchDoc, currentSales } = await refreshBatchCountsAndTotals(batch)
   await batchDoc.save()
+  const sessionSync = await syncParentSessionForBatchBestEffort(batchDoc, {
+    operation: 'refreshBatchAggregates',
+  })
 
   return {
     batch: batchDoc,
     currentSales,
     summary: buildBatchSummary(batchDoc),
+    sessionSyncWarning: Boolean(sessionSync?.warning),
   }
 }
 
@@ -760,7 +765,7 @@ export const getBatchRevisions = async ({ id, actor = {} } = {}) => {
   }
 }
 
-export const createBatch = async ({ body = {}, actor = {} } = {}) => {
+export const createBatch = async ({ body = {}, actor = {}, sessionId = null } = {}) => {
   if (actor?.role !== 'admin' && actor?.role !== 'salesman') {
     throw new BatchServiceError('Insufficient permissions', 'FORBIDDEN', 403)
   }
@@ -778,6 +783,7 @@ export const createBatch = async ({ body = {}, actor = {} } = {}) => {
     batchRef,
     supplierId: supplier._id,
     supplierCode: supplier.code || null,
+    sessionId,
     salesmanId: salesman._id,
     assignedSalesmanId: salesman._id,
     customerName,
@@ -788,7 +794,14 @@ export const createBatch = async ({ body = {}, actor = {} } = {}) => {
     createdBy: actor.id || actor._id || null,
   })
 
-  return getBatchDetail({ id: batch._id, actor })
+  const detail = await getBatchDetail({ id: batch._id, actor })
+  const sessionSync = await syncParentSessionForBatchBestEffort(batch, {
+    operation: 'createBatch',
+  })
+
+  return sessionSync?.warning
+    ? { ...detail, sessionSyncWarning: true }
+    : detail
 }
 
 export const addBatchItems = async ({ id, body = {}, actor = {} } = {}) => {
@@ -841,7 +854,14 @@ export const addBatchItems = async ({ id, body = {}, actor = {} } = {}) => {
   batchDoc.entryMode = currentSales.length > 0 ? deriveBatchEntryMode(currentSales) : null
   await batchDoc.save()
 
-  return getBatchDetail({ id: batchDoc._id, actor })
+  const detail = await getBatchDetail({ id: batchDoc._id, actor })
+  const sessionSync = await syncParentSessionForBatchBestEffort(batchDoc, {
+    operation: 'addBatchItems',
+  })
+
+  return sessionSync?.warning
+    ? { ...detail, sessionSyncWarning: true }
+    : detail
 }
 
 export const submitBatch = async ({ id, actor = {} } = {}) => {
@@ -878,7 +898,14 @@ export const submitBatch = async ({ id, actor = {} } = {}) => {
   batch.manualOverrideCount = stats.manualOverrideCount
 
   await batch.save()
-  return getBatchDetail({ id: batch._id, actor })
+  const detail = await getBatchDetail({ id: batch._id, actor })
+  const sessionSync = await syncParentSessionForBatchBestEffort(batch, {
+    operation: 'submitBatch',
+  })
+
+  return sessionSync?.warning
+    ? { ...detail, sessionSyncWarning: true }
+    : detail
 }
 
 export const finalizeBatch = async ({ id, actor = {} } = {}) => {
@@ -934,7 +961,14 @@ export const finalizeBatch = async ({ id, actor = {} } = {}) => {
   batch.revisions = updated.revisions
 
   await batch.save()
-  return getBatchDetail({ id: batch._id, actor })
+  const detail = await getBatchDetail({ id: batch._id, actor })
+  const sessionSync = await syncParentSessionForBatchBestEffort(batch, {
+    operation: 'finalizeBatch',
+  })
+
+  return sessionSync?.warning
+    ? { ...detail, sessionSyncWarning: true }
+    : detail
 }
 
 export const reopenBatch = async ({ id, body = {}, actor = {} } = {}) => {
@@ -957,7 +991,14 @@ export const reopenBatch = async ({ id, body = {}, actor = {} } = {}) => {
   batch.finalizedBy = updated.finalizedBy
 
   await batch.save()
-  return getBatchDetail({ id: batch._id, actor })
+  const detail = await getBatchDetail({ id: batch._id, actor })
+  const sessionSync = await syncParentSessionForBatchBestEffort(batch, {
+    operation: 'reopenBatch',
+  })
+
+  return sessionSync?.warning
+    ? { ...detail, sessionSyncWarning: true }
+    : detail
 }
 
 export const updateBatchAssignment = async ({ id, body = {}, actor = {} } = {}) => {
@@ -991,7 +1032,14 @@ export const updateBatchAssignment = async ({ id, body = {}, actor = {} } = {}) 
   batch.salesmanId = targetSalesman._id
   await batch.save()
 
-  return getBatchDetail({ id: batch._id, actor })
+  const detail = await getBatchDetail({ id: batch._id, actor })
+  const sessionSync = await syncParentSessionForBatchBestEffort(batch, {
+    operation: 'updateBatchAssignment',
+  })
+
+  return sessionSync?.warning
+    ? { ...detail, sessionSyncWarning: true }
+    : detail
 }
 
 export const batchService = {

@@ -4,7 +4,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 enum AppThemePreset { roseLight, midnightRose }
 
-AppThemePreset activePreset = AppThemePreset.roseLight;
+AppThemePreset activePreset = AppThemePreset.midnightRose;
 
 class ThemePreferences {
   const ThemePreferences._();

@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../sale_entry/data/sale_repository.dart';
+import '../../sale_entry/presentation/sale_entry_launch_args.dart';
+import '../../scanner/presentation/scanner_launch_args.dart';
+import '../data/batch_repository.dart';
 import '../../../shared/theme/app_theme.dart';
+import '../../batches/domain/batch_capture_context.dart';
 import '../domain/batch_models.dart';
 import 'batches_provider.dart';
 import 'widgets/batch_ui.dart';
@@ -16,6 +22,8 @@ class BatchDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
+  bool _submittingBatch = false;
+
   Future<void> _refresh() async {
     ref.invalidate(batchDetailProvider(widget.batchId));
     await ref.read(batchDetailProvider(widget.batchId).future);
@@ -52,6 +60,74 @@ class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
         return 'Cancelled';
       default:
         return value?.trim().isNotEmpty == true ? value!.trim() : '—';
+    }
+  }
+
+  String _captureNotice(String? status) {
+    switch ((status ?? '').toLowerCase()) {
+      case 'draft':
+      case 'open':
+      case 'reopened':
+        return 'Assigned salesman can add items from the mobile app.';
+      case 'submitted':
+        return 'This batch is awaiting admin review. Finalize it or return it for correction.';
+      case 'finalized':
+        return 'This batch is finalized. Reopen it to allow the assigned salesman to add more items.';
+      case 'cancelled':
+        return 'This batch is cancelled. No new items can be added.';
+      default:
+        return 'Batch item capture follows the current batch status.';
+    }
+  }
+
+  bool _canCaptureItems(String? status) {
+    switch ((status ?? '').toLowerCase()) {
+      case 'draft':
+      case 'open':
+      case 'reopened':
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  BatchCaptureContext _captureContext(BatchDetail detail) {
+    return BatchCaptureContext.fromDetail(detail);
+  }
+
+  bool _canSubmitBatch(BatchDetail detail) {
+    return ['draft', 'open', 'reopened'].contains(detail.status.toLowerCase()) &&
+        detail.itemCount > 0;
+  }
+
+  Future<void> _submitBatch(BatchDetail detail) async {
+    if (_submittingBatch || !_canSubmitBatch(detail)) {
+      return;
+    }
+
+    setState(() {
+      _submittingBatch = true;
+    });
+
+    try {
+      await ref.read(batchRepositoryProvider).submitBatch(widget.batchId);
+      await _refresh();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Batch submitted for session review.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is BatchApiException ? error.message : error.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _submittingBatch = false;
+        });
+      }
     }
   }
 
@@ -345,6 +421,7 @@ class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
           data: (detail) {
             final totals = detail.totals;
             final currentRevision = detail.currentRevision;
+            final captureContext = _captureContext(detail);
             return RefreshIndicator(
               onRefresh: _refresh,
               child: ListView(
@@ -415,16 +492,161 @@ class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
                           ],
                         ),
                         const SizedBox(height: 14),
-                        Text(
-                          'Read only in M1. Item capture will be added in the next mobile phase.',
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            height: 1.5,
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceAlt,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.phone_iphone_rounded,
+                                color: AppColors.accent,
+                                size: 18,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _captureNotice(detail.status),
+                                  style: TextStyle(
+                                    color: AppColors.textSecondary,
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  BatchSectionCard(
+                    title: 'Capture items',
+                    subtitle:
+                        'Mobile-only workflow for QR scan or manual item entry.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          captureContext.noticeText,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        if (_canCaptureItems(detail.status) &&
+                            captureContext.supplierId.isNotEmpty)
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 12,
+                            children: [
+                              SizedBox(
+                                height: 48,
+                                child: ElevatedButton.icon(
+                                  onPressed: () => context.push(
+                                    '/scanner',
+                                    extra: ScannerLaunchArgs(
+                                      sessionKey:
+                                          '${detail.batchRef}-${DateTime.now().microsecondsSinceEpoch}',
+                                      batchContext: captureContext,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.qr_code_scanner_rounded,
+                                  ),
+                                  label: const Text('Scan item'),
+                                ),
+                              ),
+                              SizedBox(
+                                height: 48,
+                                child: OutlinedButton.icon(
+                                  onPressed: () => context.push(
+                                    '/sale-entry',
+                                    extra: SaleEntryLaunchArgs(
+                                      parseResult: ParseQrResult.empty(''),
+                                      batchContext: captureContext,
+                                    ),
+                                  ),
+                                  icon: const Icon(Icons.edit_note_rounded),
+                                  label: const Text('Add manually'),
+                                ),
+                              ),
+                            ],
+                          )
+                        else
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.warningSoft,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppColors.warning.withValues(alpha: 0.25),
+                              ),
+                            ),
+                            child: Text(
+                              'Item capture is disabled for this batch status.',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                height: 1.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_canSubmitBatch(detail))
+                    BatchSectionCard(
+                      title: 'Batch actions',
+                      subtitle: 'Submit this supplier batch when item capture is complete.',
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: _submittingBatch ? null : () => _submitBatch(detail),
+                          icon: _submittingBatch
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.send_rounded),
+                          label: Text(
+                            _submittingBatch ? 'Submitting...' : 'Submit Batch',
+                          ),
+                        ),
+                      ),
+                    )
+                  else if (['draft', 'open', 'reopened'].contains(detail.status.toLowerCase()))
+                    BatchSectionCard(
+                      title: 'Batch actions',
+                      subtitle: 'Submit this supplier batch when item capture is complete.',
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.warningSoft,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: AppColors.warning.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: Text(
+                          'Add at least one item before submitting this batch.',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   BatchSectionCard(
                     title: 'Batch info',
@@ -616,7 +838,7 @@ class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
                             icon: Icons.inbox_rounded,
                             title: 'No items yet',
                             message:
-                                'This batch is ready for mobile item capture in the next phase.',
+                                'Use Scan item or Add manually to start item capture from mobile.',
                           )
                         : Column(
                             children: [

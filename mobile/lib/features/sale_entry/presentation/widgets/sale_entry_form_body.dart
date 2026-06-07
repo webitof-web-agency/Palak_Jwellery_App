@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/theme/app_theme.dart';
+import '../../../batches/domain/batch_capture_context.dart';
+import '../../../batches/presentation/batches_provider.dart';
 import '../../data/sale_repository.dart';
 import '../sale_entry_provider.dart';
+import '../../../../shared/widgets/backend_fallback_screen.dart';
 import 'sale_entry_banners.dart';
-import 'pending_sales_banner.dart';
 import 'sale_entry_debug_panel.dart';
 import 'sale_entry_footer.dart';
 import 'sale_entry_form_widgets.dart';
@@ -19,14 +21,15 @@ class SaleEntryFormBody extends ConsumerWidget {
     super.key,
     required this.formKey,
     required this.parseResult,
+    this.batchContext,
     required this.suppliers,
     required this.supplierId,
     required this.supplierName,
+    required this.supplierLocked,
     required this.selectedCategories,
-    required this.availableMetals,
     required this.categoryController,
     required this.itemCodeController,
-    required this.metalTypeController,
+    required this.karatController,
     required this.purityController,
     required this.notesController,
     required this.grossController,
@@ -34,36 +37,35 @@ class SaleEntryFormBody extends ConsumerWidget {
     required this.netController,
     required this.categoryParsed,
     required this.itemCodeParsed,
-    required this.purityParsed,
+    required this.karatParsed,
     required this.grossParsed,
     required this.stoneParsed,
     required this.netParsed,
+    required this.karatOptions,
     required this.useCustomCategory,
-    required this.useCustomMetal,
     required this.debugExpanded,
     required this.isLoading,
     required this.onSupplierChanged,
     required this.onSupplierCleared,
     required this.onUseCustomCategoryChanged,
     required this.onCategorySelected,
-    required this.onUseCustomMetalChanged,
     required this.onFieldChanged,
     required this.onSubmit,
     required this.onConfirmDuplicate,
-    required this.onRetry,
     required this.onToggleDebug,
   });
 
   final GlobalKey<FormState> formKey;
   final ParseQrResult parseResult;
+  final BatchCaptureContext? batchContext;
   final List<SupplierModel> suppliers;
   final String? supplierId;
   final String? supplierName;
+  final bool supplierLocked;
   final List<String> selectedCategories;
-  final List<String> availableMetals;
   final TextEditingController categoryController;
   final TextEditingController itemCodeController;
-  final TextEditingController metalTypeController;
+  final TextEditingController karatController;
   final TextEditingController purityController;
   final TextEditingController notesController;
   final TextEditingController grossController;
@@ -71,12 +73,12 @@ class SaleEntryFormBody extends ConsumerWidget {
   final TextEditingController netController;
   final bool categoryParsed;
   final bool itemCodeParsed;
-  final bool purityParsed;
+  final bool karatParsed;
   final bool grossParsed;
   final bool stoneParsed;
   final bool netParsed;
+  final List<KaratOption> karatOptions;
   final bool useCustomCategory;
-  final bool useCustomMetal;
   final bool debugExpanded;
   final bool isLoading;
   final void Function(String? id, String? name, List<String> categories)
@@ -84,11 +86,9 @@ class SaleEntryFormBody extends ConsumerWidget {
   final VoidCallback onSupplierCleared;
   final ValueChanged<bool> onUseCustomCategoryChanged;
   final ValueChanged<String> onCategorySelected;
-  final ValueChanged<bool> onUseCustomMetalChanged;
   final VoidCallback onFieldChanged;
   final Future<void> Function({bool overrideDuplicate}) onSubmit;
   final Future<void> Function() onConfirmDuplicate;
-  final Future<void> Function() onRetry;
   final VoidCallback onToggleDebug;
 
   SupplierModel? _findSupplierById(String? id) {
@@ -106,6 +106,12 @@ class SaleEntryFormBody extends ConsumerWidget {
     ref.watch(themeControllerProvider);
     final saleState = ref.watch(saleEntryProvider);
     final submitState = saleState.value ?? const SaleEntryState();
+    final detectedSupplierId = parseResult.supplier?.id;
+    final batchSupplierMismatch = batchContext != null &&
+        parseResult.supplierDetected &&
+        detectedSupplierId != null &&
+        detectedSupplierId.trim().isNotEmpty &&
+        detectedSupplierId.trim() != batchContext!.supplierId;
 
     ref.listen(saleEntryProvider, (previous, next) {
       final nextState = next.value;
@@ -113,7 +119,35 @@ class SaleEntryFormBody extends ConsumerWidget {
       if (previousStatus != SaleSubmitStatus.success &&
           nextState?.status == SaleSubmitStatus.success &&
           nextState?.createdSale != null) {
-        context.pushReplacement('/sale-success', extra: nextState!.createdSale);
+        final createdSale = nextState!.createdSale;
+        if (createdSale == null) {
+          return;
+        }
+
+        if (batchContext != null) {
+          ref.invalidate(batchDetailProvider(batchContext!.batchId));
+        }
+        ref.read(saleEntryProvider.notifier).reset();
+        if (batchContext != null) {
+          context.push('/batches/${batchContext!.batchId}');
+        } else {
+          context.pushReplacement('/sale-success', extra: createdSale);
+        }
+        return;
+      }
+
+      if (previousStatus != SaleSubmitStatus.error &&
+          nextState?.status == SaleSubmitStatus.error &&
+          nextState?.isNetworkError == true &&
+          context.mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => BackendFallbackScreen(
+              error: nextState?.errorMessage ?? 'No internet connection.',
+              onRetry: () => Navigator.of(context).pop(),
+            ),
+          ),
+        );
       }
     });
 
@@ -133,56 +167,92 @@ class SaleEntryFormBody extends ConsumerWidget {
                     onSaveAnyway: onConfirmDuplicate,
                     onCancel: () => ref.read(saleEntryProvider.notifier).reset(),
                   ),
-                if (submitState.status == SaleSubmitStatus.error)
+                if (submitState.status == SaleSubmitStatus.error &&
+                    !submitState.isNetworkError)
                   ErrorBanner(
                     message: submitState.errorMessage ?? 'Failed to save sale',
-                    retryCount: submitState.retryCount,
-                    onRetry: () => onRetry(),
                   ),
-                const PendingSalesBanner(compact: true),
+                if (batchSupplierMismatch)
+                  BatchSupplierMismatchBanner(
+                    batchSupplierName: batchContext!.supplierName,
+                    detectedSupplierName: parseResult.supplier!.name,
+                  ),
+                if (batchContext != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(
+                          Icons.inventory_2_rounded,
+                          color: AppColors.accent,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Batch ${batchContext!.batchRef}',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                batchContext!.noticeText,
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 ParseStatusChip(parseResult: parseResult),
                 const SizedBox(height: 20),
                 const SectionLabel('Supplier'),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.center,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    child: supplierId != null
-                        ? SupplierChip(
-                            name: supplierName ?? '',
-                            onClear: onSupplierCleared,
-                          )
-                        : SupplierDropdown(
-                            selectedId: supplierId,
-                            onSelected: (id, name) {
-                              final supplier = _findSupplierById(id);
-                              onSupplierChanged(
-                                id,
-                                name,
-                                supplier?.categories ?? const [],
-                              );
-                            },
-                          ),
-                  ),
-                ),
+                supplierId != null
+                    ? SupplierChip(
+                        name: supplierName ?? '',
+                        onClear: supplierLocked ? null : onSupplierCleared,
+                      )
+                    : SupplierDropdown(
+                        selectedId: supplierId,
+                        onSelected: (id, name) {
+                          final supplier = _findSupplierById(id);
+                          onSupplierChanged(
+                            id,
+                            name,
+                            supplier?.categories ?? const [],
+                          );
+                        },
+                      ),
                 const SizedBox(height: 20),
                 const SectionLabel('Item Details'),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.center,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    child: CategorySelector(
-                      controller: categoryController,
-                      parsed: categoryParsed,
-                      showParseState: false,
-                      categories: selectedCategories,
-                      useCustomCategory: useCustomCategory,
-                      onUseCustomChanged: onUseCustomCategoryChanged,
-                      onCategorySelected: onCategorySelected,
-                    ),
-                  ),
+                CategorySelector(
+                  controller: categoryController,
+                  parsed: categoryParsed,
+                  showParseState: false,
+                  categories: selectedCategories,
+                  useCustomCategory: useCustomCategory,
+                  onUseCustomChanged: onUseCustomCategoryChanged,
+                  onCategorySelected: onCategorySelected,
                 ),
                 const SizedBox(height: 12),
                 const SectionLabel('Classification'),
@@ -201,29 +271,31 @@ class SaleEntryFormBody extends ConsumerWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: SaleField(
-                        label: 'Purity',
-                        controller: purityController,
-                        parsed: purityParsed,
-                        showParseState: false,
-                        onChanged: onFieldChanged,
-                        hint: '18KT, 22KT, 925',
+                      child: KaratSelector(
+                        controller: karatController,
+                        parsed: karatParsed,
+                        karatOptions: karatOptions,
+                        onSelected: onFieldChanged,
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Align(
-                  alignment: Alignment.center,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    child: MetalSelector(
-                      controller: metalTypeController,
-                      useCustomMetal: useCustomMetal,
-                      metals: availableMetals,
-                      onUseCustomChanged: onUseCustomMetalChanged,
-                      onChanged: onFieldChanged,
-                    ),
+                SaleField(
+                  label: 'Purity %',
+                  controller: purityController,
+                  parsed: false,
+                  showParseState: false,
+                  showClearButton: false,
+                  readOnly: true,
+                  hint: 'Derived from karat',
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Purity is resolved from the selected karat and supplier override.',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
                   ),
                 ),
                 const SizedBox(height: 12),

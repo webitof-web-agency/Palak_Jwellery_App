@@ -125,6 +125,25 @@ class BatchRepository {
     }
   }
 
+  Future<BatchDetail> submitBatch(String batchId) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '$_batchesPath/$batchId/submit',
+      );
+      final data = _dataMap(response);
+      if (data == null) {
+        throw const BatchApiException(
+          'Failed to submit batch',
+          code: 'INVALID_RESPONSE',
+        );
+      }
+
+      return BatchDetail.fromJson(data);
+    } on DioException catch (error) {
+      throw _mapDioError(error);
+    }
+  }
+
   Future<BatchRevisionsResponse> getBatchRevisions(String batchId) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(

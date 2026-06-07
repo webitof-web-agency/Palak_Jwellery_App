@@ -4,6 +4,7 @@ import { ScanBatch } from '../models/ScanBatch.js'
 import { Supplier } from '../models/Supplier.js'
 import { User } from '../models/User.js'
 import { loadSettlementSettings } from '../services/settlementSettings.service.js'
+import { loadKaratOptions } from '../services/karatOptions.service.js'
 import {
   buildSaleCalculationSnapshot,
   buildSaleParsedSnapshot,
@@ -243,7 +244,7 @@ const normalizeOptionalId = (value) => {
   return text || null
 }
 
-const buildSaleCreateResponse = (sale, { batch = null, batchSyncWarning = false, message } = {}) => {
+const buildSaleCreateResponse = (sale, { batch = null, batchSyncWarning = false, sessionSyncWarning = false, message } = {}) => {
   const data = {
     _id: sale._id,
     ref: '#' + sale._id.toString().slice(-6).toUpperCase(),
@@ -264,9 +265,17 @@ const buildSaleCreateResponse = (sale, { batch = null, batchSyncWarning = false,
     data.batchSyncWarning = true
   }
 
+  if (sessionSyncWarning) {
+    data.sessionSyncWarning = true
+  }
+
   return {
     data,
-    message: message || (batchSyncWarning ? 'Sale recorded successfully. Batch totals may need refresh.' : 'Sale recorded successfully'),
+    message:
+      message ||
+      (batchSyncWarning || sessionSyncWarning
+        ? 'Sale recorded successfully. Batch or session totals may need refresh.'
+        : 'Sale recorded successfully'),
   }
 }
 
@@ -311,7 +320,7 @@ const buildSalesCsv = (sales) => {
     'Supplier',
     'Category',
     'Item Code',
-    'Metal Type',
+    'Karat',
     'Purity',
     'Gross Weight',
     'Stone Weight',
@@ -327,7 +336,7 @@ const buildSalesCsv = (sales) => {
     sale.supplier?.name || '',
     sale.category || '',
     sale.itemCode || '',
-    sale.metalType || '',
+    sale.karat || sale.metalType || '',
     sale.purity || '',
     sale.grossWeight ?? '',
     sale.stoneWeight ?? '',
@@ -367,11 +376,13 @@ export const createSale = async (req, res) => {
       if (existingRequest) {
         let batchSummary = null
         let batchSyncWarning = false
+        let sessionSyncWarning = false
 
         if (existingRequest.batchId) {
           try {
             const refreshed = await refreshBatchAggregates(existingRequest.batchId)
             batchSummary = refreshed.summary
+            sessionSyncWarning = Boolean(refreshed.sessionSyncWarning)
           } catch (refreshError) {
             console.error('refreshBatchAggregates error on cached sale response:', refreshError)
             batchSummary = await buildBatchSummaryFromStoredDoc(existingRequest.batchId)
@@ -382,8 +393,9 @@ export const createSale = async (req, res) => {
         const response = buildSaleCreateResponse(existingRequest, {
           batch: batchSummary,
           batchSyncWarning,
-          message: batchSyncWarning
-            ? 'Sale recorded successfully. Batch totals may need refresh.'
+          sessionSyncWarning,
+          message: (batchSyncWarning || sessionSyncWarning)
+            ? 'Sale recorded successfully. Batch or session totals may need refresh.'
             : 'Sale recorded successfully (Idempotent cached response)',
         })
 
@@ -460,6 +472,7 @@ export const createSale = async (req, res) => {
     }
 
     const settlementSettings = await loadSettlementSettings()
+    const karatDefaults = await loadKaratOptions()
     const parsedSnapshotInput = pickParsedSnapshotInput(req.body)
     const parsedSnapshot = buildSaleParsedSnapshot(parsedSnapshotInput)
     const settlementInputs = buildSaleSettlementInputs({
@@ -467,6 +480,7 @@ export const createSale = async (req, res) => {
       supplier,
       parsedSnapshot,
       settlementSettings,
+      karatDefaults,
     })
     const calculationSnapshot = buildSaleCalculationSnapshot({
       source: req.body,
@@ -474,6 +488,7 @@ export const createSale = async (req, res) => {
       parsedSnapshot,
       settlementSettings,
       settlementInputs,
+      karatDefaults,
     })
     const saleEntryMode = batchContext
       ? resolveSaleEntryMode({
@@ -525,7 +540,9 @@ export const createSale = async (req, res) => {
       category: category && typeof category === 'string' && category.trim() ? category.trim() : null,
       itemCode: itemCode && typeof itemCode === 'string' && itemCode.trim() ? itemCode.trim() : null,
       metalType: metalType && typeof metalType === 'string' && metalType.trim() ? metalType.trim() : null,
-      purity: purity && typeof purity === 'string' && purity.trim() ? purity.trim() : null,
+      purity: settlementInputs?.purityPercent !== null && settlementInputs?.purityPercent !== undefined
+        ? String(settlementInputs.purityPercent)
+        : (purity && typeof purity === 'string' && purity.trim() ? purity.trim() : null),
       notes: notes && typeof notes === 'string' && notes.trim() ? notes.trim() : null,
       settlementInputs,
       calculationSnapshot,
@@ -548,10 +565,12 @@ export const createSale = async (req, res) => {
 
     let batchSummary = null
     let batchSyncWarning = false
+    let sessionSyncWarning = false
     if (batchContext) {
       try {
         const refreshed = await refreshBatchAggregates(batchContext._id)
         batchSummary = refreshed.summary
+        sessionSyncWarning = Boolean(refreshed.sessionSyncWarning)
       } catch (refreshError) {
         console.error('refreshBatchAggregates error after sale create:', refreshError)
         batchSummary = await buildBatchSummaryFromStoredDoc(batchContext._id)
@@ -562,8 +581,9 @@ export const createSale = async (req, res) => {
     const response = buildSaleCreateResponse(sale, {
       batch: batchSummary,
       batchSyncWarning,
-      message: batchSyncWarning
-        ? 'Sale recorded successfully. Batch totals may need refresh.'
+      sessionSyncWarning,
+      message: (batchSyncWarning || sessionSyncWarning)
+        ? 'Sale recorded successfully. Batch or session totals may need refresh.'
         : 'Sale recorded successfully',
     })
 
@@ -577,11 +597,13 @@ export const createSale = async (req, res) => {
         if (existingRequest) {
           let batchSummary = null
           let batchSyncWarning = false
+          let sessionSyncWarning = false
 
           if (existingRequest.batchId) {
             try {
               const refreshed = await refreshBatchAggregates(existingRequest.batchId)
               batchSummary = refreshed.summary
+              sessionSyncWarning = Boolean(refreshed.sessionSyncWarning)
             } catch (refreshError) {
               console.error('refreshBatchAggregates error after idempotency collision:', refreshError)
               batchSummary = await buildBatchSummaryFromStoredDoc(existingRequest.batchId)
@@ -592,8 +614,9 @@ export const createSale = async (req, res) => {
           const response = buildSaleCreateResponse(existingRequest, {
             batch: batchSummary,
             batchSyncWarning,
-            message: batchSyncWarning
-              ? 'Sale recorded successfully. Batch totals may need refresh.'
+            sessionSyncWarning,
+            message: (batchSyncWarning || sessionSyncWarning)
+              ? 'Sale recorded successfully. Batch or session totals may need refresh.'
               : 'Sale recorded successfully (Idempotent cached response)',
           })
 

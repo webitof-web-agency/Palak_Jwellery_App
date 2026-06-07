@@ -1,12 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../features/auth/presentation/auth_notifier.dart';
-import '../data/pending_sale_queue.dart';
+
 import '../data/sale_repository.dart';
-import 'pending_sale_queue_provider.dart';
-
-// ─── Providers ────────────────────────────────────────────────────────────────
-
-
 
 final suppliersProvider = FutureProvider<List<SupplierModel>>((ref) {
   return ref.watch(saleRepositoryProvider).getSuppliers();
@@ -16,7 +10,9 @@ final businessOverviewProvider = FutureProvider<BusinessOverview>((ref) {
   return ref.watch(saleRepositoryProvider).getBusinessOverview();
 });
 
-// ─── Sale Entry State ─────────────────────────────────────────────────────────
+final karatOptionsProvider = FutureProvider<List<KaratOption>>((ref) {
+  return ref.watch(saleRepositoryProvider).getKaratOptions();
+});
 
 enum SaleSubmitStatus { idle, loading, duplicateWarning, success, error }
 
@@ -27,9 +23,8 @@ class SaleEntryState {
     this.createdSale,
     this.errorMessage,
     this.duplicateDate,
-    this.retryCount = 0,
-    this.pendingDraftId,
     this.submissionKey,
+    this.isNetworkError = false,
   });
 
   final SaleSubmitStatus status;
@@ -37,9 +32,8 @@ class SaleEntryState {
   final CreatedSale? createdSale;
   final String? errorMessage;
   final DateTime? duplicateDate;
-  final int retryCount;
-  final String? pendingDraftId;
   final String? submissionKey;
+  final bool isNetworkError;
 
   SaleEntryState copyWith({
     SaleSubmitStatus? status,
@@ -47,9 +41,8 @@ class SaleEntryState {
     CreatedSale? createdSale,
     String? errorMessage,
     DateTime? duplicateDate,
-    int? retryCount,
-    String? pendingDraftId,
     String? submissionKey,
+    bool? isNetworkError,
   }) {
     return SaleEntryState(
       status: status ?? this.status,
@@ -57,9 +50,8 @@ class SaleEntryState {
       createdSale: createdSale ?? this.createdSale,
       errorMessage: errorMessage ?? this.errorMessage,
       duplicateDate: duplicateDate ?? this.duplicateDate,
-      retryCount: retryCount ?? this.retryCount,
-      pendingDraftId: pendingDraftId ?? this.pendingDraftId,
       submissionKey: submissionKey ?? this.submissionKey,
+      isNetworkError: isNetworkError ?? this.isNetworkError,
     );
   }
 }
@@ -83,12 +75,15 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
     );
   }
 
-  /// Submit a sale. Handles duplicates, retries, and all error states.
   Future<void> submit({
     required String supplierId,
+    String? batchId,
+    String? batchRef,
+    int? batchRevision,
     String? category,
     String? itemCode,
     String? metalType,
+    String? karat,
     String? purity,
     String? notes,
     required double grossWeight,
@@ -103,205 +98,139 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
       return;
     }
 
-    final retryCount = overrideDuplicate ? 0 : current.retryCount;
-    final queueNotifier = ref.read(pendingSaleQueueProvider.notifier);
-    final user = ref.read(authSessionProvider).value?.user;
+    final currentKey = idempotencyKey ?? current.submissionKey ?? DateTime.now().microsecondsSinceEpoch.toString();
     final rawQr = qrRaw?.trim().isNotEmpty == true ? qrRaw!.trim() : null;
-    final existingDraft = current.pendingDraftId == null
-        ? await queueNotifier.findMatchingDraft(
-            rawQr: rawQr ?? '',
-            supplierId: supplierId,
-          )
-        : null;
-    final currentKey = idempotencyKey ??
-        current.submissionKey ??
-        existingDraft?.idempotencyKey ??
-        DateTime.now().microsecondsSinceEpoch.toString();
-    final payload = PendingSalePayload(
-      supplierId: supplierId,
-      supplierName: null,
-      category: category,
-      itemCode: itemCode,
-      metalType: metalType,
-      purity: purity,
-      notes: notes,
-      grossWeight: grossWeight,
-      stoneWeight: stoneWeight,
-      netWeight: netWeight,
-      qrRaw: rawQr,
-      overrideDuplicate: overrideDuplicate,
-      displaySnapshot: current.parseResult?.displaySnapshot ?? const {},
-      parsedSnapshot: current.parseResult?.normalizedSnapshot ?? const {},
-      parseSnapshot: current.parseResult == null
-          ? const {}
-          : {
-              'raw': current.parseResult!.raw,
-              'success': current.parseResult!.success,
-              'itemCode': {
-                'value': current.parseResult!.itemCode.value,
-                'parsed': current.parseResult!.itemCode.parsed,
-              },
-              'category': {
-                'value': current.parseResult!.category.value,
-                'parsed': current.parseResult!.category.parsed,
-              },
-              'purity': {
-                'value': current.parseResult!.purity.value,
-                'parsed': current.parseResult!.purity.parsed,
-              },
-              'grossWeight': {
-                'value': current.parseResult!.grossWeight.value,
-                'parsed': current.parseResult!.grossWeight.parsed,
-              },
-              'stoneWeight': {
-                'value': current.parseResult!.stoneWeight.value,
-                'parsed': current.parseResult!.stoneWeight.parsed,
-              },
-              'netWeight': {
-                'value': current.parseResult!.netWeight.value,
-                'parsed': current.parseResult!.netWeight.parsed,
-              },
-              'errors': current.parseResult!.errors
-                  .map(
-                    (error) => {
-                      'field': error.field,
-                      'reason': error.reason,
-                    },
-                  )
-                  .toList(),
-              if (current.parseResult!.supplier != null)
-                'supplier': {
-                  'id': current.parseResult!.supplier!.id,
-                  'name': current.parseResult!.supplier!.name,
-                  'code': current.parseResult!.supplier!.code,
-                },
-              if (current.parseResult!.matchType != null)
-                'matchType': current.parseResult!.matchType,
+    final parseSnapshot = current.parseResult == null
+        ? const <String, dynamic>{}
+        : {
+            'raw': current.parseResult!.raw,
+            'success': current.parseResult!.success,
+            'itemCode': {
+              'value': current.parseResult!.itemCode.value,
+              'parsed': current.parseResult!.itemCode.parsed,
             },
-    );
-
-    final draftId = existingDraft?.id ?? current.pendingDraftId ?? currentKey;
-    final draft = await queueNotifier.savePending(
-      draft: PendingSaleDraft(
-        id: draftId,
-        idempotencyKey: currentKey,
-        payload: payload,
-        status: PendingSaleStatus.pending,
-        createdAt: existingDraft?.createdAt ?? DateTime.now(),
-        updatedAt: DateTime.now(),
-        retryCount: existingDraft?.retryCount ?? retryCount,
-        createdByUserName: user?.name ?? 'Salesman',
-        createdByUserId: user?.id,
-        errorMessage: existingDraft?.errorMessage,
-      ),
-      payload: payload,
-      createdByUserName: user?.name ?? 'Salesman',
-      createdByUserId: user?.id,
-      status: PendingSaleStatus.pending,
-    );
+            'category': {
+              'value': current.parseResult!.category.value,
+              'parsed': current.parseResult!.category.parsed,
+            },
+            'karat': {
+              'value': current.parseResult!.karat.value,
+              'parsed': current.parseResult!.karat.parsed,
+            },
+            'purity': {
+              'value': current.parseResult!.purity.value,
+              'parsed': current.parseResult!.purity.parsed,
+            },
+            'grossWeight': {
+              'value': current.parseResult!.grossWeight.value,
+              'parsed': current.parseResult!.grossWeight.parsed,
+            },
+            'stoneWeight': {
+              'value': current.parseResult!.stoneWeight.value,
+              'parsed': current.parseResult!.stoneWeight.parsed,
+            },
+            'netWeight': {
+              'value': current.parseResult!.netWeight.value,
+              'parsed': current.parseResult!.netWeight.parsed,
+            },
+            'errors': current.parseResult!.errors
+                .map(
+                  (error) => {
+                    'field': error.field,
+                    'reason': error.reason,
+                  },
+                )
+                .toList(),
+            if (current.parseResult!.supplier != null)
+              'supplier': {
+                'id': current.parseResult!.supplier!.id,
+                'name': current.parseResult!.supplier!.name,
+                'code': current.parseResult!.supplier!.code,
+              },
+            if (current.parseResult!.matchType != null)
+              'matchType': current.parseResult!.matchType,
+          };
 
     state = AsyncData(
       current.copyWith(
         status: SaleSubmitStatus.loading,
         errorMessage: null,
-        pendingDraftId: draft.id,
-        submissionKey: draft.idempotencyKey,
+        isNetworkError: false,
+        submissionKey: currentKey,
       ),
     );
 
     try {
-      final repo = ref.read(saleRepositoryProvider);
-      final created = await repo.createSale(
+      final created = await ref.read(saleRepositoryProvider).createSale(
         supplierId: supplierId,
+        batchId: batchId,
         category: category,
         itemCode: itemCode,
         metalType: metalType,
+        karat: karat,
         purity: purity,
         notes: notes,
         grossWeight: grossWeight,
         stoneWeight: stoneWeight,
         netWeight: netWeight,
-        qrRaw: qrRaw,
-        displaySnapshot: payload.displaySnapshot.isEmpty ? null : payload.displaySnapshot,
-        parsedSnapshot: payload.parsedSnapshot.isEmpty
-            ? (payload.parseSnapshot.isEmpty ? null : payload.parseSnapshot)
-            : payload.parsedSnapshot,
+        qrRaw: rawQr,
+        displaySnapshot: current.parseResult?.displaySnapshot,
+        parsedSnapshot: current.parseResult?.normalizedSnapshot ?? (parseSnapshot.isEmpty ? null : parseSnapshot),
         overrideDuplicate: overrideDuplicate,
-        idempotencyKey: draft.idempotencyKey,
+        idempotencyKey: currentKey,
       );
 
-      await queueNotifier.markSynced(draft.id);
       state = AsyncData(
         SaleEntryState(
           status: SaleSubmitStatus.success,
           createdSale: created,
           parseResult: current.parseResult,
-          pendingDraftId: null,
           submissionKey: null,
         ),
       );
     } on DuplicateQrException catch (e) {
-      final nextRetry = draft.retryCount + 1;
-      await queueNotifier.markFailed(
-        draft.id,
-        e.message,
-        retryCount: nextRetry,
-      );
       state = AsyncData(
         SaleEntryState(
           status: SaleSubmitStatus.duplicateWarning,
           duplicateDate: e.previousSaleDate,
           errorMessage: e.message,
           parseResult: current.parseResult,
-          retryCount: nextRetry,
-          pendingDraftId: draft.id,
-          submissionKey: draft.idempotencyKey,
+          submissionKey: currentKey,
         ),
       );
     } on SaleException catch (e) {
-      final nextRetry = draft.retryCount + 1;
-      await queueNotifier.markFailed(
-        draft.id,
-        e.message,
-        retryCount: nextRetry,
-      );
       state = AsyncData(
         SaleEntryState(
           status: SaleSubmitStatus.error,
-          errorMessage: e.message,
+          errorMessage: e.code == 'NETWORK_ERROR'
+              ? 'No internet connection. Try again when connected.'
+              : e.message,
           parseResult: current.parseResult,
-          retryCount: nextRetry,
-          pendingDraftId: draft.id,
-          submissionKey: draft.idempotencyKey,
+          submissionKey: currentKey,
+          isNetworkError: e.code == 'NETWORK_ERROR',
         ),
       );
     } catch (e) {
-      final errorMessage = e.toString();
-      final nextRetry = draft.retryCount + 1;
-      await queueNotifier.markFailed(
-        draft.id,
-        errorMessage,
-        retryCount: nextRetry,
-      );
       state = AsyncData(
         SaleEntryState(
           status: SaleSubmitStatus.error,
-          errorMessage: errorMessage,
+          errorMessage: e.toString(),
           parseResult: current.parseResult,
-          retryCount: nextRetry,
-          pendingDraftId: draft.id,
-          submissionKey: draft.idempotencyKey,
+          submissionKey: currentKey,
         ),
       );
     }
   }
 
-  /// Call after user confirms "Save anyway" on duplicate warning
   Future<void> confirmDuplicate({
     required String supplierId,
+    String? batchId,
+    String? batchRef,
+    int? batchRevision,
     String? category,
     String? itemCode,
     String? metalType,
+    String? karat,
     String? purity,
     String? notes,
     required double grossWeight,
@@ -311,9 +240,13 @@ class SaleEntryNotifier extends AsyncNotifier<SaleEntryState> {
   }) async {
     await submit(
       supplierId: supplierId,
+      batchId: batchId,
+      batchRef: batchRef,
+      batchRevision: batchRevision,
       category: category,
       itemCode: itemCode,
       metalType: metalType,
+      karat: karat,
       purity: purity,
       notes: notes,
       grossWeight: grossWeight,

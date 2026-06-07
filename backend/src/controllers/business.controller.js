@@ -2,6 +2,7 @@ import mongoose from 'mongoose'
 import { BusinessOption } from '../models/BusinessOption.js'
 import { SettlementSetting } from '../models/SettlementSetting.js'
 import { invalidateSettlementSettingsCache, loadSettlementSettings } from '../services/settlementSettings.service.js'
+import { loadKaratOptions } from '../services/karatOptions.service.js'
 
 const sendSuccess = (res, data, message, status = 200) => {
   const payload = { success: true, data }
@@ -32,7 +33,8 @@ const toSafeSetting = (setting) => {
 
 const normalizeKind = (value) => {
   const kind = normalizeText(value).toLowerCase()
-  return ['category', 'metal_type'].includes(kind) ? kind : ''
+  if (kind === 'metal_type') return 'karat'
+  return ['category', 'karat'].includes(kind) ? kind : ''
 }
 
 export const listBusinessOptions = async (req, res) => {
@@ -58,6 +60,7 @@ export const createBusinessOption = async (req, res) => {
     const kind = normalizeKind(req.body.kind)
     const name = normalizeText(req.body.name)
     const code = normalizeText(req.body.code)
+    const purityPercentRaw = req.body.purityPercent
 
     if (!kind) {
       return sendError(res, 400, 'kind is required', 'MISSING_FIELDS')
@@ -66,10 +69,23 @@ export const createBusinessOption = async (req, res) => {
       return sendError(res, 400, 'name is required', 'MISSING_FIELDS')
     }
 
+    let purityPercent = null
+    if (kind === 'karat') {
+      if (purityPercentRaw === null || purityPercentRaw === undefined || purityPercentRaw === '') {
+        return sendError(res, 400, 'purityPercent is required for karat options', 'MISSING_FIELDS')
+      }
+      const parsedPurity = Number(purityPercentRaw)
+      if (!Number.isFinite(parsedPurity) || parsedPurity < 0 || parsedPurity > 100) {
+        return sendError(res, 400, 'purityPercent must be between 0 and 100', 'VALIDATION_ERROR')
+      }
+      purityPercent = parsedPurity
+    }
+
     const payload = {
       kind,
       name,
       code: code || null,
+      purityPercent,
       isActive: req.body.isActive !== false,
       sortOrder: Number.isFinite(Number(req.body.sortOrder)) ? Number(req.body.sortOrder) : 100,
     }
@@ -104,11 +120,25 @@ export const updateBusinessOption = async (req, res) => {
     const kind = normalizeKind(req.body.kind || option.kind)
     const name = normalizeText(req.body.name ?? option.name)
     const code = normalizeText(req.body.code ?? option.code)
+    const purityPercentRaw = req.body.purityPercent
     const sortOrder = Number.isFinite(Number(req.body.sortOrder)) ? Number(req.body.sortOrder) : option.sortOrder
 
     option.kind = kind || option.kind
     option.name = name
     option.code = code || null
+    if (kind === 'karat' || option.kind === 'karat') {
+      if (purityPercentRaw === undefined) {
+        option.purityPercent = option.purityPercent ?? null
+      } else if (purityPercentRaw === null || purityPercentRaw === '') {
+        option.purityPercent = null
+      } else {
+        const parsedPurity = Number(purityPercentRaw)
+        if (!Number.isFinite(parsedPurity) || parsedPurity < 0 || parsedPurity > 100) {
+          return sendError(res, 400, 'purityPercent must be between 0 and 100', 'VALIDATION_ERROR')
+        }
+        option.purityPercent = parsedPurity
+      }
+    }
     if (req.body.isActive !== undefined) {
       option.isActive = Boolean(req.body.isActive)
     }
@@ -210,9 +240,9 @@ export const upsertSettlementSettings = async (req, res) => {
 
 export const getBusinessOverview = async (req, res) => {
   try {
-    const [categories, metalTypes, settings] = await Promise.all([
+    const [categories, karats, settings] = await Promise.all([
       BusinessOption.find({ kind: 'category', isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
-      BusinessOption.find({ kind: 'metal_type', isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
+      loadKaratOptions(),
       loadSettlementSettings(),
     ])
 
@@ -221,13 +251,20 @@ export const getBusinessOverview = async (req, res) => {
         delete item.__v
         return item
       }),
-      metalTypes: metalTypes.map((item) => {
-        delete item.__v
-        return item
-      }),
+      karats,
+      metalTypes: karats,
       settings,
     })
   } catch (error) {
     return sendError(res, 500, 'Failed to load business overview', 'SERVER_ERROR')
+  }
+}
+
+export const getKaratOptions = async (req, res) => {
+  try {
+    const karats = await loadKaratOptions()
+    return sendSuccess(res, karats)
+  } catch (error) {
+    return sendError(res, 500, 'Failed to load karat options', 'SERVER_ERROR')
   }
 }

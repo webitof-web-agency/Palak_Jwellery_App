@@ -1,3 +1,5 @@
+import { formatDateTime } from '../../utils/formatters';
+
 export const sortOptions = [
   { value: "saleDate:desc", label: "Date newest first" },
   { value: "saleDate:asc", label: "Date oldest first" },
@@ -34,6 +36,27 @@ export const batchSortOptions = [
   { value: "itemCount:desc", label: "Most items" },
 ];
 
+export const sessionStatusOptions = [
+  { value: "", label: "All" },
+  { value: "draft", label: "Draft" },
+  { value: "open", label: "Open" },
+  { value: "submitted", label: "Submitted" },
+  { value: "finalized", label: "Finalized" },
+  { value: "cancelled", label: "Cancelled" },
+];
+
+export const sessionSortOptions = [
+  { value: "updatedAt:desc", label: "Recently updated" },
+  { value: "updatedAt:asc", label: "Oldest updated" },
+  { value: "createdAt:desc", label: "Newest created" },
+  { value: "createdAt:asc", label: "Oldest created" },
+  { value: "sessionRef:asc", label: "Session ref A-Z" },
+  { value: "sessionRef:desc", label: "Session ref Z-A" },
+  { value: "status:asc", label: "Status A-Z" },
+  { value: "itemCount:desc", label: "Most items" },
+  { value: "supplierCount:desc", label: "Most suppliers" },
+];
+
 export const formatBatchStatusLabel = (value) => {
   const status = String(value || "").toLowerCase();
   switch (status) {
@@ -50,9 +73,80 @@ export const formatBatchStatusLabel = (value) => {
     case "cancelled":
       return "Cancelled";
     default:
-      return "—";
+      return "-";
   }
 };
+
+export const formatSessionStatusLabel = (value) => {
+  const status = String(value || "").toLowerCase();
+  switch (status) {
+    case 'draft':
+      return 'Draft'
+    case 'open':
+      return 'Open'
+    case 'submitted':
+      return 'Submitted'
+    case 'finalized':
+      return 'Finalized'
+    case 'cancelled':
+      return 'Cancelled'
+    default:
+      return '-'
+  }
+}
+
+export const formatDateTimeOrDash = (value) => {
+  if (value === null || value === undefined || value === '' || value === 0 || value === '0') {
+    return '-'
+  }
+
+  const text = String(formatDateTime(value) || '').trim()
+  return text && text !== '-' ? text : '-'
+}
+
+export const formatCaptureSessionError = (error) => {
+  const code = String(error?.code || '').toUpperCase()
+  const details = error?.details && typeof error.details === 'object' ? error.details : null
+
+  const detailsText = details
+    ? Object.entries(details)
+        .map(([field, message]) => `${field}: ${message}`)
+        .join('  |  ')
+    : ''
+
+  switch (code) {
+    case 'INVALID_ID':
+      return 'The selected session could not be found.'
+    case 'INVALID_FILTER':
+      return 'One of the session filters is invalid.'
+    case 'NOT_FOUND':
+      return 'The requested session was not found.'
+    case 'FORBIDDEN':
+      return 'You do not have access to this session.'
+    case 'SESSION_LOCKED':
+      return 'This session is locked for changes.'
+    case 'SESSION_SUPPLIER_EXISTS':
+      return 'That supplier is already in this session.'
+    case 'ASSIGNMENT_MISMATCH':
+      return 'The selected salesman does not match this session.'
+    case 'BATCH_ALREADY_SESSION_LINKED':
+      return 'That batch already belongs to another session.'
+    case 'SESSION_EMPTY':
+      return 'Add at least one supplier batch before submitting.'
+    case 'SESSION_ACTIVE_BATCHES':
+      return 'All active child batches must be submitted before this session can be submitted.'
+    case 'SESSION_UNFINALIZED_BATCHES':
+      return 'All child batches must be finalized before this session can be finalized.'
+    case 'CANCEL_REASON_REQUIRED':
+      return 'A cancel reason is required.'
+    case 'DUPLICATE_KEY':
+      return 'This session reference already exists.'
+    case 'VALIDATION_ERROR':
+      return detailsText || 'Session data failed validation.'
+    default:
+      return error?.message || error?.error || 'Capture session operation failed.'
+  }
+}
 
 export const formatBatchEntryModeLabel = (value) => {
   const mode = String(value || "").toLowerCase();
@@ -66,7 +160,7 @@ export const formatBatchEntryModeLabel = (value) => {
     case "qr_scan_with_manual_override":
       return "QR scanned + edit";
     default:
-      return "—";
+      return "-";
   }
 };
 

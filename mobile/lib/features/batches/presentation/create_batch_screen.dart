@@ -309,7 +309,7 @@ class _CreateBatchScreenState extends ConsumerState<CreateBatchScreen> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'After creation, open the batch to review its details. QR scanning and item capture will come in the next mobile phase.',
+                      'After creation, open the batch to capture items from the mobile app and review the batch details.',
                       style: TextStyle(color: AppColors.textMuted, height: 1.5),
                     ),
                   ],

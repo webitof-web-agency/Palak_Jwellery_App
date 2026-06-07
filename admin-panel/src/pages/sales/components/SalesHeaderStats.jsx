@@ -13,20 +13,27 @@ export default function SalesHeaderStats({
   activeFilterCount,
   limit,
   formatNumber,
+  labels = {},
 }) {
+  const resolvedLabels = {
+    total: labels.total || 'Matching sales records',
+    activeFilters: labels.activeFilters || 'Applied search controls',
+    pageSize: labels.pageSize || 'Rows per page',
+  }
+
   return (
     <div className="grid gap-3 sm:grid-cols-3">
       <StatCard
         label="Results"
         value={formatNumber(total)}
-        hint="Matching sales records"
+        hint={resolvedLabels.total}
       />
       <StatCard
         label="Active Filters"
         value={activeFilterCount}
-        hint="Applied search controls"
+        hint={resolvedLabels.activeFilters}
       />
-      <StatCard label="Page Size" value={limit} hint="Rows per page" />
+      <StatCard label="Page Size" value={limit} hint={resolvedLabels.pageSize} />
     </div>
   )
 }

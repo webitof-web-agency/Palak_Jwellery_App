@@ -7,14 +7,14 @@ class SaleEntryAppBar extends StatelessWidget implements PreferredSizeWidget {
     super.key,
     required this.isLoading,
     required this.onReset,
-    required this.onSave,
     required this.onBack,
+    this.title = 'New Sale',
   });
 
   final bool isLoading;
   final VoidCallback onReset;
-  final VoidCallback onSave;
   final VoidCallback onBack;
+  final String title;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -22,56 +22,32 @@ class SaleEntryAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      title: const Text('New Sale'),
+      title: Text(title),
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_ios_new_rounded),
         onPressed: onBack,
       ),
       actions: [
-        TextButton(
+        OutlinedButton.icon(
           onPressed: isLoading ? null : onReset,
-          style: TextButton.styleFrom(
+          style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.accent,
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            side: BorderSide(color: AppColors.accent.withValues(alpha: 0.45)),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            minimumSize: const Size(0, 40),
+            tapTargetSize: MaterialTapTargetSize.padded,
           ),
-          child: Container(
-            margin: const EdgeInsets.only(right: 8, top: 2, bottom: 2),
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: AppColors.accent, width: 1.4),
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.restart_alt_rounded,
-                  size: 16,
-                  color: AppColors.accent,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'Reset',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: AppColors.accent,
-                  ),
-                ),
-              ],
-            ),
+          icon: Icon(
+            Icons.restart_alt_rounded,
+            size: 18,
+            color: AppColors.accent,
           ),
-        ),
-        TextButton(
-          onPressed: isLoading ? null : onSave,
-          child: Text(
-            'Save',
+          label: Text(
+            'Restore scan',
             style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
               color: AppColors.accent,
-              fontWeight: FontWeight.w600,
-              fontSize: 16,
             ),
           ),
         ),

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuthStore } from '../../store/authStore'
+import { captureSessionsApi } from '../../api/captureSessions.api'
 import { batchesApi } from '../../api/batches.api'
 import { salesApi } from '../../api/sales.api'
 import { getSuppliers } from '../../api/suppliers.api'
@@ -9,6 +10,10 @@ import PageHeader from '../../components/ui/PageHeader'
 import SectionCard from '../../components/ui/SectionCard'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { formatNumber } from '../../utils/formatters'
+import CaptureSessionDetailModal from './components/CaptureSessionDetailModal'
+import CaptureSessionCreateModal from './components/CaptureSessionCreateModal'
+import CaptureSessionFilterBar from './components/CaptureSessionFilterBar'
+import CaptureSessionRecordsTable from './components/CaptureSessionRecordsTable'
 import BatchDetailModal from './components/BatchDetailModal'
 import BatchCreateModal from './components/BatchCreateModal'
 import BatchFilterBar from './components/BatchFilterBar'
@@ -91,11 +96,36 @@ export default function SalesPage() {
   const [batchCreateOpen, setBatchCreateOpen] = useState(false)
   const [batchCreateError, setBatchCreateError] = useState('')
 
+  const [sessionFilters, setSessionFilters] = useState({
+    q: '',
+    status: '',
+    assignedSalesman: '',
+    startDate: '',
+    endDate: '',
+    sort: 'updatedAt:desc',
+  })
+  const [sessionPage, setSessionPage] = useState(1)
+  const [sessionPages, setSessionPages] = useState(1)
+  const [sessionTotal, setSessionTotal] = useState(0)
+  const [sessions, setSessions] = useState([])
+  const [sessionLoading, setSessionLoading] = useState(true)
+  const [sessionHasLoadedOnce, setSessionHasLoadedOnce] = useState(false)
+  const [sessionError, setSessionError] = useState('')
+  const [sessionCreateOpen, setSessionCreateOpen] = useState(false)
+  const [sessionCreateError, setSessionCreateError] = useState('')
+  const [selectedSessionId, setSelectedSessionId] = useState(null)
+  const [selectedSessionDetail, setSelectedSessionDetail] = useState(null)
+  const [sessionDetailOpen, setSessionDetailOpen] = useState(false)
+  const [sessionDetailLoading, setSessionDetailLoading] = useState(false)
+  const [sessionDetailError, setSessionDetailError] = useState('')
+
   const debouncedBatchFilters = useDebouncedValue(batchFilters, 250)
   const debouncedItemFilters = useDebouncedValue(itemFilters, 250)
+  const debouncedSessionFilters = useDebouncedValue(sessionFilters, 250)
 
   const [batchSortBy, batchSortOrder] = splitSort(debouncedBatchFilters.sort, 'updatedAt:desc')
   const [itemSortBy, itemSortOrder] = splitSort(debouncedItemFilters.sort, 'saleDate:desc')
+  const [sessionSortBy, sessionSortOrder] = splitSort(debouncedSessionFilters.sort, 'updatedAt:desc')
 
   useEffect(() => {
     let active = true
@@ -265,6 +295,58 @@ export default function SalesPage() {
   }, [activeView, debouncedItemFilters, itemPage, itemSortBy, itemSortOrder, refreshToken])
 
   useEffect(() => {
+    if (activeView !== 'session') {
+      return undefined
+    }
+
+    let active = true
+
+    const loadSessions = async () => {
+      setSessionLoading(true)
+      setSessionError('')
+
+      try {
+        const response = await captureSessionsApi.listSessions({
+          page: sessionPage,
+          limit: 10,
+          q: debouncedSessionFilters.q.trim(),
+          status: debouncedSessionFilters.status || undefined,
+          assignedSalesman: debouncedSessionFilters.assignedSalesman || undefined,
+          startDate: debouncedSessionFilters.startDate || undefined,
+          endDate: debouncedSessionFilters.endDate || undefined,
+          sortBy: sessionSortBy,
+          sortOrder: sessionSortOrder,
+        })
+
+        if (!active) return
+
+        const data = response?.data || {}
+        setSessions(Array.isArray(data.sessions) ? data.sessions : [])
+        setSessionTotal(Number(data.total) || 0)
+        setSessionPages(Number(data.pages) || 1)
+        setSessionPage(Number(data.page) || sessionPage)
+      } catch (err) {
+        if (!active) return
+        setSessionError(err?.error || err?.message || 'Failed to load capture sessions.')
+        setSessions([])
+        setSessionTotal(0)
+        setSessionPages(1)
+      } finally {
+        if (active) {
+          setSessionLoading(false)
+          setSessionHasLoadedOnce(true)
+        }
+      }
+    }
+
+    void loadSessions()
+
+    return () => {
+      active = false
+    }
+  }, [activeView, debouncedSessionFilters, refreshToken, sessionPage, sessionSortBy, sessionSortOrder])
+
+  useEffect(() => {
     if (!saleDetailOpen || !selectedSaleId) {
       return undefined
     }
@@ -330,6 +412,39 @@ export default function SalesPage() {
     }
   }, [batchDetailOpen, selectedBatchId, refreshToken])
 
+  useEffect(() => {
+    if (!sessionDetailOpen || !selectedSessionId) {
+      return undefined
+    }
+
+    let active = true
+
+    const loadSessionDetail = async () => {
+      setSessionDetailLoading(true)
+      setSessionDetailError('')
+
+      try {
+        const response = await captureSessionsApi.getSessionDetail(selectedSessionId)
+        if (!active) return
+        setSelectedSessionDetail(response?.data || null)
+      } catch (err) {
+        if (!active) return
+        setSelectedSessionDetail(null)
+        setSessionDetailError(err?.error || err?.message || 'Failed to load capture session detail.')
+      } finally {
+        if (active) {
+          setSessionDetailLoading(false)
+        }
+      }
+    }
+
+    void loadSessionDetail()
+
+    return () => {
+      active = false
+    }
+  }, [refreshToken, selectedSessionId, sessionDetailOpen])
+
   const activeFilterCount = useMemo(() => {
     if (activeView === 'batch') {
       return countActiveValues([
@@ -343,6 +458,17 @@ export default function SalesPage() {
       ])
     }
 
+    if (activeView === 'session') {
+      return countActiveValues([
+        debouncedSessionFilters.q,
+        debouncedSessionFilters.status,
+        debouncedSessionFilters.assignedSalesman,
+        debouncedSessionFilters.startDate,
+        debouncedSessionFilters.endDate,
+        debouncedSessionFilters.sort !== 'updatedAt:desc' ? debouncedSessionFilters.sort : '',
+      ])
+    }
+
     return countActiveValues([
       debouncedItemFilters.q,
       debouncedItemFilters.supplier,
@@ -352,12 +478,28 @@ export default function SalesPage() {
       debouncedItemFilters.duplicatesOnly,
       debouncedItemFilters.sort !== 'saleDate:desc' ? debouncedItemFilters.sort : '',
     ])
-  }, [activeView, debouncedBatchFilters, debouncedItemFilters])
+  }, [activeView, debouncedBatchFilters, debouncedItemFilters, debouncedSessionFilters])
 
-  const currentLoading = activeView === 'batch' ? batchLoading : salesLoading
-  const currentHasLoadedOnce = activeView === 'batch' ? batchHasLoadedOnce : salesHasLoadedOnce
-  const currentTotal = activeView === 'batch' ? batchTotal : itemTotal
-  const currentError = activeView === 'batch' ? batchError : salesError
+  const currentLoading = activeView === 'batch'
+    ? batchLoading
+    : activeView === 'session'
+      ? sessionLoading
+      : salesLoading
+  const currentHasLoadedOnce = activeView === 'batch'
+    ? batchHasLoadedOnce
+    : activeView === 'session'
+      ? sessionHasLoadedOnce
+      : salesHasLoadedOnce
+  const currentTotal = activeView === 'batch'
+    ? batchTotal
+    : activeView === 'session'
+      ? sessionTotal
+      : itemTotal
+  const currentError = activeView === 'batch'
+    ? batchError
+    : activeView === 'session'
+      ? sessionError
+      : salesError
   const showInitialLoading = currentLoading && !currentHasLoadedOnce
 
   const handleRefresh = () => {
@@ -368,6 +510,14 @@ export default function SalesPage() {
     if (nextView === activeView) {
       return
     }
+
+    setSessionCreateOpen(false)
+    setSessionCreateError('')
+    setSessionDetailOpen(false)
+    setSessionDetailLoading(false)
+    setSessionDetailError('')
+    setSelectedSessionId(null)
+    setSelectedSessionDetail(null)
 
     setBatchCreateOpen(false)
     setBatchCreateError('')
@@ -391,6 +541,11 @@ export default function SalesPage() {
   const handleItemFilterChange = (name, value) => {
     setItemPage(1)
     setItemFilters((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleSessionFilterChange = (name, value) => {
+    setSessionPage(1)
+    setSessionFilters((current) => ({ ...current, [name]: value }))
   }
 
   const openSaleDetail = useCallback((saleId) => {
@@ -423,10 +578,30 @@ export default function SalesPage() {
     setBatchDetailError('')
   }, [])
 
+  const openSessionDetail = useCallback((sessionId) => {
+    if (!sessionId) return
+
+    setSelectedSessionId(sessionId)
+    setSessionDetailOpen(true)
+  }, [])
+
+  const closeSessionDetail = useCallback(() => {
+    setSessionDetailOpen(false)
+    setSelectedSessionId(null)
+    setSelectedSessionDetail(null)
+    setSessionDetailError('')
+    setSessionDetailLoading(false)
+  }, [])
+
   const handleViewSaleFromBatch = useCallback((saleId) => {
     closeBatchDetail()
     openSaleDetail(saleId)
   }, [closeBatchDetail, openSaleDetail])
+
+  const handleViewBatchFromSession = useCallback((batchId) => {
+    closeSessionDetail()
+    openBatchDetail(batchId)
+  }, [closeSessionDetail, openBatchDetail])
 
   const handleCreateBatch = useCallback(async (payload) => {
     const response = await batchesApi.createBatch(payload)
@@ -446,6 +621,61 @@ export default function SalesPage() {
 
     return createdBatch
   }, [])
+
+  const handleCreateSession = useCallback(async (payload) => {
+    const response = await captureSessionsApi.createSession(payload)
+    const createdSession = response?.data || null
+
+    setSessionCreateOpen(false)
+    setSessionCreateError('')
+    setRefreshToken((current) => current + 1)
+
+    if (createdSession?._id) {
+      setSelectedSessionId(createdSession._id)
+      setSelectedSessionDetail(createdSession)
+      setSessionDetailError('')
+      setSessionDetailOpen(true)
+    }
+
+    return createdSession
+  }, [])
+
+  const handleCreateSupplierBatchInSession = useCallback(async (sessionId, payload) => {
+    const response = await captureSessionsApi.createSupplierBatch(sessionId, payload)
+    const data = response?.data || null
+    setRefreshToken((current) => current + 1)
+    return data
+  }, [])
+
+  const handleSessionSubmitAction = useCallback(async (sessionId) => {
+    const response = await captureSessionsApi.submitSession(sessionId)
+    const data = response?.data || null
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionDetail(data)
+    }
+    setRefreshToken((current) => current + 1)
+    return data
+  }, [selectedSessionId])
+
+  const handleSessionFinalizeAction = useCallback(async (sessionId) => {
+    const response = await captureSessionsApi.finalizeSession(sessionId)
+    const data = response?.data || null
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionDetail(data)
+    }
+    setRefreshToken((current) => current + 1)
+    return data
+  }, [selectedSessionId])
+
+  const handleSessionCancelAction = useCallback(async (sessionId, reason) => {
+    const response = await captureSessionsApi.cancelSession(sessionId, reason)
+    const data = response?.data || null
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionDetail(data)
+    }
+    setRefreshToken((current) => current + 1)
+    return data
+  }, [selectedSessionId])
 
   const handleBatchSubmitAction = useCallback(async (batchId) => {
     const response = await batchesApi.submitBatch(batchId)
@@ -526,6 +756,25 @@ export default function SalesPage() {
             activeFilterCount={activeFilterCount}
             limit={10}
             formatNumber={formatNumber}
+            labels={
+              activeView === 'session'
+                ? {
+                    total: 'Matching capture sessions',
+                    activeFilters: 'Applied session filters',
+                    pageSize: 'Sessions per page',
+                  }
+                : activeView === 'batch'
+                  ? {
+                      total: 'Matching batches',
+                      activeFilters: 'Applied batch filters',
+                      pageSize: 'Batches per page',
+                    }
+                  : {
+                      total: 'Matching sales records',
+                      activeFilters: 'Applied search controls',
+                      pageSize: 'Rows per page',
+                    }
+            }
           />
         }
       />
@@ -533,7 +782,15 @@ export default function SalesPage() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <SalesViewToggle activeView={activeView} onChange={handleViewChange} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-          {activeView === 'batch' ? (
+          {activeView === 'session' ? (
+            <button
+              type="button"
+              className={buttonStyles.primary}
+              onClick={() => setSessionCreateOpen(true)}
+            >
+              Create session
+            </button>
+          ) : activeView === 'batch' ? (
             <button
               type="button"
               className={buttonStyles.primary}
@@ -543,7 +800,9 @@ export default function SalesPage() {
             </button>
           ) : null}
           <div className="text-sm text-muted">
-            {activeView === 'batch'
+            {activeView === 'session'
+              ? 'Session View groups supplier batches under one capture umbrella.'
+              : activeView === 'batch'
               ? 'Batch View is the default operational workflow.'
               : 'Item View keeps the existing sales ledger intact.'}
           </div>
@@ -552,13 +811,13 @@ export default function SalesPage() {
 
       {suppliersLoading ? (
         <div className="rounded-2xl border border-dashed panel-border surface-panel-faint px-4 py-4 text-sm text-muted">
-          Loading supplier list for filters...
+          Loading supplier list for filters and batch setup...
         </div>
       ) : null}
 
       {salesmenLoading ? (
         <div className="rounded-2xl border border-dashed panel-border surface-panel-faint px-4 py-4 text-sm text-muted">
-          Loading salesman list for batch creation...
+          Loading salesman list for session and batch creation...
         </div>
       ) : null}
 
@@ -584,7 +843,15 @@ export default function SalesPage() {
         </div>
       ) : null}
 
-      {activeView === 'batch' ? (
+      {activeView === 'session' ? (
+        <SectionCard>
+          <CaptureSessionFilterBar
+            filters={sessionFilters}
+            salesmen={salesmen}
+            onFilterChange={handleSessionFilterChange}
+          />
+        </SectionCard>
+      ) : activeView === 'batch' ? (
         <SectionCard>
           <BatchFilterBar
             filters={batchFilters}
@@ -604,7 +871,20 @@ export default function SalesPage() {
         </SectionCard>
       )}
 
-      {activeView === 'batch' ? (
+      {activeView === 'session' ? (
+        <CaptureSessionRecordsTable
+          sessions={sessions}
+          loading={showInitialLoading}
+          page={sessionPage}
+          pages={sessionPages}
+          total={sessionTotal}
+          limit={10}
+          onPageChange={setSessionPage}
+          onViewSession={openSessionDetail}
+          viewingSessionId={selectedSessionId}
+          actionLoadingSessionId={sessionDetailLoading ? selectedSessionId : null}
+        />
+      ) : activeView === 'batch' ? (
         <BatchRecordsTable
           batches={batches}
           loading={showInitialLoading}
@@ -664,6 +944,35 @@ export default function SalesPage() {
           setBatchCreateError('')
         }}
         onCreate={handleCreateBatch}
+      />
+
+      <CaptureSessionDetailModal
+        open={sessionDetailOpen}
+        session={selectedSessionDetail}
+        loading={sessionDetailLoading}
+        error={sessionDetailError}
+        suppliers={suppliers}
+        currentUserRole={currentUserRole}
+        onClose={closeSessionDetail}
+        onViewBatch={handleViewBatchFromSession}
+        onCreateSupplierBatch={handleCreateSupplierBatchInSession}
+        onSubmitSession={handleSessionSubmitAction}
+        onFinalizeSession={handleSessionFinalizeAction}
+        onCancelSession={handleSessionCancelAction}
+      />
+
+      <CaptureSessionCreateModal
+        open={sessionCreateOpen}
+        users={salesmen}
+        currentUser={currentUser}
+        currentUserRole={currentUserRole}
+        loading={salesmenLoading}
+        error={sessionCreateError}
+        onClose={() => {
+          setSessionCreateOpen(false)
+          setSessionCreateError('')
+        }}
+        onCreate={handleCreateSession}
       />
 
       <SaleDetailModal

@@ -3,6 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../auth/presentation/auth_notifier.dart';
 
+String _normalizeKarat(String? value) {
+  return (value ?? '').replaceAll(RegExp(r'\s+'), '').toUpperCase();
+}
+
 // ─── Domain models ────────────────────────────────────────────────────────────
 
 class SupplierModel {
@@ -12,6 +16,7 @@ class SupplierModel {
     required this.code,
     required this.isActive,
     this.categories = const [],
+    this.businessSettings = const {},
   });
 
   final String id;
@@ -19,6 +24,7 @@ class SupplierModel {
   final String code;
   final bool isActive;
   final List<String> categories;
+  final Map<String, dynamic> businessSettings;
 
   factory SupplierModel.fromJson(Map<String, dynamic> json) {
     final cats = json['categories'];
@@ -28,8 +34,100 @@ class SupplierModel {
       code: json['code']?.toString() ?? '',
       isActive: json['isActive'] == true,
       categories: cats is List ? cats.map((e) => e.toString()).toList() : [],
+      businessSettings: json['businessSettings'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['businessSettings'] as Map)
+          : <String, dynamic>{},
     );
   }
+}
+
+class KaratOption {
+  const KaratOption({
+    required this.id,
+    required this.name,
+    required this.isActive,
+    this.code,
+    this.purityPercent,
+    this.sortOrder,
+  });
+
+  final String id;
+  final String name;
+  final String? code;
+  final bool isActive;
+  final double? purityPercent;
+  final int? sortOrder;
+
+  factory KaratOption.fromJson(Map<String, dynamic> json) {
+    return KaratOption(
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      name: json['name']?.toString().trim() ?? '',
+      code: json['code']?.toString().trim(),
+      isActive: json['isActive'] != false,
+      purityPercent: json['purityPercent'] is num
+          ? (json['purityPercent'] as num).toDouble()
+          : double.tryParse(json['purityPercent']?.toString() ?? ''),
+      sortOrder: json['sortOrder'] is int
+          ? json['sortOrder'] as int
+          : int.tryParse(json['sortOrder']?.toString() ?? ''),
+    );
+  }
+
+  static List<KaratOption> defaults() {
+    return const [
+      KaratOption(id: '', name: '9K', isActive: true, purityPercent: 37.5, sortOrder: 100),
+      KaratOption(id: '', name: '14K', isActive: true, purityPercent: 58.5, sortOrder: 110),
+      KaratOption(id: '', name: '18K', isActive: true, purityPercent: 75, sortOrder: 120),
+      KaratOption(id: '', name: '20K', isActive: true, purityPercent: 83.3, sortOrder: 130),
+      KaratOption(id: '', name: '22K', isActive: true, purityPercent: 91.6, sortOrder: 140),
+      KaratOption(id: '', name: '24K', isActive: true, purityPercent: 99.9, sortOrder: 150),
+    ];
+  }
+
+  String get displayLabel {
+    final purity = purityPercent;
+    if (purity == null) return name;
+    final isWhole = purity % 1 == 0;
+    return '$name (${purity.toStringAsFixed(isWhole ? 0 : 1)}%)';
+  }
+}
+
+double? resolvePurityPercentForKarat({
+  SupplierModel? supplier,
+  required String karat,
+  required List<KaratOption> karatOptions,
+}) {
+  final normalized = _normalizeKarat(karat);
+  if (normalized.isEmpty) {
+    return null;
+  }
+
+  final overrides = supplier?.businessSettings['purityOverrides'];
+  if (overrides is List) {
+    for (final item in overrides) {
+      if (item is! Map<String, dynamic>) continue;
+      if (item['isActive'] == false) continue;
+      final overrideKarat = _normalizeKarat(item['karat']?.toString());
+      if (overrideKarat != normalized) continue;
+      final purity = item['purityPercent'];
+      if (purity is num) {
+        return purity.toDouble();
+      }
+      final parsedPurity = double.tryParse(purity?.toString() ?? '');
+      if (parsedPurity != null) {
+        return parsedPurity;
+      }
+    }
+  }
+
+  for (final option in karatOptions) {
+    if (!option.isActive) continue;
+    final optionKarat = _normalizeKarat(option.name.isNotEmpty ? option.name : option.code);
+    if (optionKarat != normalized) continue;
+    return option.purityPercent;
+  }
+
+  return null;
 }
 
 class BusinessOverview {
@@ -175,6 +273,7 @@ class ParseQrResult {
     required this.raw,
     required this.itemCode,
     required this.category,
+    required this.karat,
     required this.purity,
     required this.grossWeight,
     required this.stoneWeight,
@@ -191,6 +290,7 @@ class ParseQrResult {
   final String raw;
   final ParsedField<String> itemCode;
   final ParsedField<String> category;
+  final ParsedField<String> karat;
   final ParsedField<String> purity;
   final ParsedField<double> grossWeight;
   final ParsedField<double> stoneWeight;
@@ -268,6 +368,27 @@ class ParseQrResult {
       ]);
     }
 
+    ParsedField<String> karatField = _fieldFromPaths<String>(
+      normalizedSnapshot,
+      [
+        ['display', 'item', 'karat'],
+        ['item', 'karat'],
+        ['karat'],
+        ['meta', 'karat'],
+      ],
+      (value) {
+        if (value == null) return null;
+        final text = value.toString().trim();
+        return text.isEmpty ? null : text;
+      },
+    );
+    if (!karatField.parsed) {
+      karatField = fieldString([
+        ['karat'],
+        ['meta', 'karat'],
+      ]);
+    }
+
     return ParseQrResult(
       success: parseResult != null && _collectParseErrors(parseResult).isEmpty,
       raw: raw,
@@ -279,6 +400,7 @@ class ParseQrResult {
       category: fieldString([
         ['category'],
       ]),
+      karat: karatField,
       purity: purityField,
       grossWeight: fieldDouble([
         ['grossWeight'],
@@ -308,6 +430,7 @@ class ParseQrResult {
       raw: raw,
       itemCode: const ParsedField(value: null, parsed: false),
       category: const ParsedField(value: null, parsed: false),
+      karat: const ParsedField(value: null, parsed: false),
       purity: const ParsedField(value: null, parsed: false),
       grossWeight: const ParsedField(value: null, parsed: false),
       stoneWeight: const ParsedField(value: null, parsed: false),
@@ -450,6 +573,36 @@ class SaleRepository {
     }
   }
 
+  Future<List<KaratOption>> getKaratOptions() async {
+    try {
+      final response = await _dio.get<Map<String, dynamic>>('/api/v1/business/karats');
+      final body = response.data;
+      final list = body?['data'] as List?;
+      if (body?['success'] != true || list == null) {
+        return KaratOption.defaults();
+      }
+
+      final karats = list
+          .whereType<Map<String, dynamic>>()
+          .map(KaratOption.fromJson)
+          .where((item) => item.isActive)
+          .toList();
+
+      if (karats.isEmpty) {
+        return KaratOption.defaults();
+      }
+
+      karats.sort((a, b) {
+        final orderCompare = (a.sortOrder ?? 0).compareTo(b.sortOrder ?? 0);
+        if (orderCompare != 0) return orderCompare;
+        return a.name.compareTo(b.name);
+      });
+      return karats;
+    } on DioException {
+      return KaratOption.defaults();
+    }
+  }
+
   /// Load all active suppliers for the manual dropdown
   Future<List<SupplierModel>> getSuppliers() async {
     try {
@@ -512,9 +665,11 @@ class SaleRepository {
   /// Save a sale. Throws [DuplicateQrException] on 409, [SaleException] on other errors.
   Future<CreatedSale> createSale({
     required String supplierId,
+    String? batchId,
     String? category,
     String? itemCode,
     String? metalType,
+    String? karat,
     String? purity,
     String? notes,
     required double grossWeight,
@@ -533,10 +688,12 @@ class SaleRepository {
         _salesPath,
         data: {
           'supplierId': supplierId,
+          if (batchId != null && batchId.isNotEmpty) 'batchId': batchId,
           if (category != null && category.isNotEmpty) 'category': category,
           if (itemCode != null && itemCode.isNotEmpty) 'itemCode': itemCode,
           if (metalType != null && metalType.isNotEmpty) 'metalType': metalType,
-          if (purity != null && purity.isNotEmpty) 'purity': purity,
+          if (karat != null && karat.isNotEmpty) 'karat': karat,
+          if ((karat == null || karat.isEmpty) && purity != null && purity.isNotEmpty) 'purity': purity,
           if (notes != null && notes.isNotEmpty) 'notes': notes,
           'grossWeight': grossWeight,
           'stoneWeight': stoneWeight,
@@ -580,6 +737,13 @@ class SaleRepository {
   }
 
   SaleException _mapDio(DioException e) {
+    if (e.response == null) {
+      return SaleException(
+        e.message ?? 'Request failed',
+        code: 'NETWORK_ERROR',
+      );
+    }
+
     final data = e.response?.data;
     if (data is Map<String, dynamic>) {
       return SaleException(

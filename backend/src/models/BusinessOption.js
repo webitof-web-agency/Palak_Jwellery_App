@@ -4,7 +4,7 @@ const businessOptionSchema = new mongoose.Schema(
   {
     kind: {
       type: String,
-      enum: ['category', 'metal_type'],
+      enum: ['category', 'karat', 'metal_type'],
       required: true,
       index: true,
     },
@@ -16,6 +16,10 @@ const businessOptionSchema = new mongoose.Schema(
     code: {
       type: String,
       trim: true,
+      default: null,
+    },
+    purityPercent: {
+      type: Number,
       default: null,
     },
     isActive: {

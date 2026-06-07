@@ -141,6 +141,12 @@ const scanBatchSchema = new Schema(
       trim: true,
       default: null,
     },
+    sessionId: {
+      type: Schema.Types.ObjectId,
+      ref: 'CaptureSession',
+      default: null,
+      index: true,
+    },
     salesmanId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -272,6 +278,15 @@ const scanBatchSchema = new Schema(
 
 scanBatchSchema.index({ supplierId: 1, status: 1 })
 scanBatchSchema.index({ assignedSalesmanId: 1, status: 1 })
+scanBatchSchema.index(
+  { sessionId: 1, supplierId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      sessionId: { $type: 'objectId' },
+    },
+  }
+)
 scanBatchSchema.index({ createdAt: -1 })
 scanBatchSchema.index({ status: 1, updatedAt: -1 })
 

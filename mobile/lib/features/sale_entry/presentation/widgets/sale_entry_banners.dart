@@ -99,13 +99,9 @@ class ErrorBanner extends StatelessWidget {
   const ErrorBanner({
     super.key,
     required this.message,
-    required this.retryCount,
-    required this.onRetry,
   });
 
   final String message;
-  final int retryCount;
-  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -129,32 +125,76 @@ class ErrorBanner extends StatelessWidget {
           ),
           const SizedBox(width: 10),
           Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: AppColors.danger,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BatchSupplierMismatchBanner extends StatelessWidget {
+  const BatchSupplierMismatchBanner({
+    super.key,
+    required this.batchSupplierName,
+    required this.detectedSupplierName,
+  });
+
+  final String batchSupplierName;
+  final String detectedSupplierName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.warningSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.warning.withValues(alpha: 0.35),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            color: AppColors.warning,
+            size: 18,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  message,
+                  'Supplier mismatch',
                   style: TextStyle(
-                    color: AppColors.danger,
+                    color: AppColors.warning,
                     fontSize: 13,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                if (retryCount > 0)
-                  Text(
-                    'Attempt $retryCount of 3',
-                    style: TextStyle(color: AppColors.textFaint, fontSize: 11),
+                const SizedBox(height: 4),
+                Text(
+                  'This scan was detected as $detectedSupplierName, but this batch belongs to $batchSupplierName. Save is blocked to avoid mixing suppliers in one batch.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 13,
+                    height: 1.35,
                   ),
+                ),
               ],
             ),
           ),
-          if (retryCount < 3)
-            TextButton(
-              onPressed: onRetry,
-              child: Text(
-                'Retry',
-                style: TextStyle(color: AppColors.accent),
-              ),
-            ),
         ],
       ),
     );

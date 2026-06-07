@@ -19,9 +19,25 @@ const emptySettings = {
   settlement_calculation_mode: 'strict',
 }
 
+const normalizeText = (value) => {
+  if (value === null || value === undefined) {
+    return ''
+  }
+
+  return String(value).trim()
+}
+
+const toNullableNumber = (value) => {
+  const text = normalizeText(value)
+  if (!text) return null
+
+  const parsed = Number(text)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
 const kindTitles = {
   category: 'Categories',
-  metal_type: 'Metal Types',
+  karat: 'Karats',
 }
 
 export default function BusinessSettingsPage() {
@@ -30,10 +46,11 @@ export default function BusinessSettingsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [categories, setCategories] = useState([])
-  const [metals, setMetals] = useState([])
+  const [karats, setKarats] = useState([])
   const [settings, setSettings] = useState(emptySettings)
   const [newCategory, setNewCategory] = useState('')
-  const [newMetal, setNewMetal] = useState('')
+  const [newKaratName, setNewKaratName] = useState('')
+  const [newKaratPurity, setNewKaratPurity] = useState('')
   const [editingOption, setEditingOption] = useState(null)
 
   const loadData = async () => {
@@ -52,8 +69,7 @@ export default function BusinessSettingsPage() {
         : settingsResponse
 
       setCategories(Array.isArray(overviewData?.categories) ? overviewData.categories : [])
-      setMetals(Array.isArray(overviewData?.metalTypes) ? overviewData.metalTypes : [])
-
+      setKarats(Array.isArray(overviewData?.karats) ? overviewData.karats : [])
       const nextSettings = { ...emptySettings }
       for (const row of Array.isArray(settingsData) ? settingsData : []) {
         if (!row?.key) continue
@@ -72,7 +88,38 @@ export default function BusinessSettingsPage() {
   }, [])
 
   const categoryRows = useMemo(() => categories, [categories])
-  const metalRows = useMemo(() => metals, [metals])
+  const karatRows = useMemo(() => karats, [karats])
+
+  const addKarat = async () => {
+    const trimmedName = newKaratName.trim()
+    if (!trimmedName) return
+
+    const purityPercent = toNullableNumber(newKaratPurity)
+    if (purityPercent === null || purityPercent < 0 || purityPercent > 100) {
+      setError('Enter a valid purity percent between 0 and 100.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      await createBusinessOption({
+        kind: 'karat',
+        name: trimmedName,
+        code: trimmedName,
+        purityPercent,
+      })
+      setNewKaratName('')
+      setNewKaratPurity('')
+      await loadData()
+      setSuccess('Karat added.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.error : err?.message || 'Failed to add karat.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const addOption = async (kind, name, reset) => {
     const trimmed = name.trim()
@@ -116,6 +163,7 @@ export default function BusinessSettingsPage() {
       id: item._id,
       kind,
       name: item.name || '',
+      purityPercent: item.purityPercent ?? '',
     })
   }
 
@@ -128,11 +176,22 @@ export default function BusinessSettingsPage() {
     setError('')
     setSuccess('')
     try {
-      await updateBusinessOption(editingOption.id, {
+      const payload = {
         kind: editingOption.kind,
         name: editingOption.name.trim(),
         code: editingOption.name.trim(),
-      })
+      }
+      if (editingOption.kind === 'karat') {
+        const purityPercent = toNullableNumber(editingOption.purityPercent)
+        if (purityPercent === null || purityPercent < 0 || purityPercent > 100) {
+          setError('Enter a valid purity percent between 0 and 100.')
+          setSaving(false)
+          return
+        }
+        payload.purityPercent = purityPercent
+      }
+
+      await updateBusinessOption(editingOption.id, payload)
       setEditingOption(null)
       await loadData()
       setSuccess(`${kindTitles[editingOption.kind] || 'Option'} updated.`)
@@ -172,7 +231,7 @@ export default function BusinessSettingsPage() {
       <PageHeader
         eyebrow="Business Master Data"
         title="Business Settings"
-        description="Manage categories, metal types, and settlement defaults without changing the core QR workflow."
+        description="Manage categories, karats, and settlement defaults without changing the core QR workflow."
         actions={
           <button
             type="button"
@@ -219,7 +278,7 @@ export default function BusinessSettingsPage() {
         </div>
       ) : null}
 
-      {loading && categories.length === 0 && metals.length === 0 ? (
+      {loading && categories.length === 0 ? (
         <SectionCard className="flex min-h-[220px] items-center justify-center">
           <div className="flex items-center gap-3 text-muted">
             <LoadingSpinner />
@@ -294,44 +353,71 @@ export default function BusinessSettingsPage() {
 
         <SectionCard className="space-y-4">
           <div>
-            <h2 className="text-xl font-bold font-display text-heading">Metal Types</h2>
-            <p className="text-sm text-muted">Used by mobile capture for fast selection.</p>
+            <h2 className="text-xl font-bold font-display text-heading">Karats</h2>
+            <p className="text-sm text-muted">
+              Manage the default karat list used by mobile and supplier purity overrides.
+            </p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr_auto] gap-2">
             <input
               className="input flex-1"
-              value={newMetal}
-              onChange={(event) => setNewMetal(event.target.value)}
-              placeholder="Add metal type"
+              value={newKaratName}
+              onChange={(event) => setNewKaratName(event.target.value)}
+              placeholder="e.g. 18K"
+            />
+            <input
+              className="input flex-1"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={newKaratPurity}
+              onChange={(event) => setNewKaratPurity(event.target.value)}
+              placeholder="Purity %"
             />
             <button
               type="button"
               className="primary-luxury-button"
-              disabled={saving || !newMetal.trim()}
-              onClick={() => addOption('metal_type', newMetal, setNewMetal)}
+              disabled={saving || !newKaratName.trim() || !String(newKaratPurity).trim()}
+              onClick={addKarat}
             >
               Add
             </button>
           </div>
           <div className="space-y-2">
-            {metalRows.length === 0 ? (
-              <div className="text-sm text-muted">No metal types configured.</div>
+            {karatRows.length === 0 ? (
+              <div className="text-sm text-muted">No karats configured.</div>
             ) : (
-              metalRows.map((item) => (
-                <div key={item._id} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  {editingOption?.id === item._id ? (
-                    <div className="flex flex-1 items-center gap-2">
+              karatRows.map((item) => (
+                <div key={item._id || item.id || item.name} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  {editingOption?.id === (item._id || item.id) ? (
+                    <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[1fr_0.7fr]">
                       <input
                         className="input flex-1"
                         value={editingOption.name}
                         onChange={(event) => setEditingOption((current) => ({ ...current, name: event.target.value }))}
                       />
+                      <input
+                        className="input flex-1"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={editingOption.purityPercent}
+                        onChange={(event) => setEditingOption((current) => ({ ...current, purityPercent: event.target.value }))}
+                        placeholder="Purity %"
+                      />
                     </div>
                   ) : (
-                    <span className="text-sm text-primary">{item.name}</span>
+                    <span className="text-sm text-primary">
+                      {item.name}
+                      <span className="text-xs text-muted ml-2">
+                        {item.purityPercent !== null && item.purityPercent !== undefined ? `${item.purityPercent}%` : 'No purity'}
+                      </span>
+                    </span>
                   )}
                   <div className="flex items-center gap-2">
-                    {editingOption?.id === item._id ? (
+                    {editingOption?.id === (item._id || item.id) ? (
                       <>
                         <button type="button" className="text-xs text-gold-500 hover:text-gold-400" disabled={saving} onClick={saveOption}>
                           Save
@@ -340,12 +426,16 @@ export default function BusinessSettingsPage() {
                           Cancel
                         </button>
                       </>
-                    ) : (
-                      <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving} onClick={() => beginEdit(item, 'metal_type')}>
+                    ) : (item._id || item.id) ? (
+                      <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving} onClick={() => beginEdit(item, 'karat')}>
                         Edit
                       </button>
+                    ) : (
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+                        Default fallback
+                      </span>
                     )}
-                    <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving} onClick={() => removeOption(item._id)}>
+                    <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving || !(item._id || item.id)} onClick={() => removeOption(item._id || item.id)}>
                       Delete
                     </button>
                   </div>

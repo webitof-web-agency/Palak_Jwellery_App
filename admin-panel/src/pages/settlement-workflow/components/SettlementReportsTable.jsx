@@ -3,12 +3,12 @@ import SectionCard from "../../../components/ui/SectionCard";
 import TableSkeleton from "../../../components/ui/TableSkeleton";
 import {
   formatCurrency,
-  formatDateTime,
   formatPercentage,
   formatWeight,
 } from "../../../utils/formatters";
+import { buttonStyles, formatDateTimeOrDash } from '../../sales/salesPage.utils'
 
-export default function SettlementReportsTable({ rows, loading }) {
+export default function SettlementReportsTable({ rows, loading, onViewDetail }) {
   return (
     <SectionCard className="!p-0 overflow-hidden">
       <div className="overflow-x-auto">
@@ -17,7 +17,6 @@ export default function SettlementReportsTable({ rows, loading }) {
             <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
               <th className="px-4 py-3">Supplier</th>
               <th className="px-4 py-3">Category</th>
-              <th className="px-4 py-3">Metal</th>
               <th className="px-4 py-3">Design Code</th>
               <th className="px-5 py-3">Gross</th>
               <th className="px-4 py-3">Stone</th>
@@ -27,6 +26,7 @@ export default function SettlementReportsTable({ rows, loading }) {
               <th className="px-4 py-3">Fine</th>
               <th className="px-4 py-3">Stone Amount</th>
               <th className="px-4 py-3 whitespace-nowrap">Recorded</th>
+              <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
 
@@ -59,14 +59,17 @@ export default function SettlementReportsTable({ rows, loading }) {
                         {row.supplier || "Unknown"}
                       </div>
                       <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
-                        {row.display_ref || row.sequence || "-"}
+                        {[
+                          row.display_ref || row.sequence || '-',
+                          row.batchRef ? `Batch ${row.batchRef}` : '',
+                          row.sessionRef || '',
+                        ]
+                          .filter(Boolean)
+                          .join(' | ') || '-'}
                       </div>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-primary">
                       {row.category || "-"}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-primary">
-                      {row.metal_type || "-"}
                     </td>
                     <td className="px-4 py-3 text-primary whitespace-nowrap font-mono text-sm">
                       {row.item_code || row.design_code || "-"}
@@ -93,7 +96,17 @@ export default function SettlementReportsTable({ rows, loading }) {
                       {formatCurrency(row.stone_amount)}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-muted">
-                      {formatDateTime(row.sale_date || row.createdAt)}
+                      {formatDateTimeOrDash(row.sale_date || row.createdAt)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        className={buttonStyles.ghost}
+                        onClick={() => onViewDetail?.(row.saleId || row.id)}
+                        aria-label={`View item ${row.display_ref || row.sequence || 'details'}`}
+                      >
+                        View item
+                      </button>
                     </td>
                   </tr>
                 );

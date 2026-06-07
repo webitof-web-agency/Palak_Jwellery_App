@@ -78,7 +78,7 @@ const resolveParsedPurityPercent = (parsedSnapshot = null) => {
   return null
 }
 
-const resolveBasePurityInfo = (supplier, karatHint) => {
+const resolveBasePurityInfo = (supplier, karatHint, globalFallback = null) => {
   const normalizedKarat = normalizeString(karatHint)?.replace(/\s+/g, '').toUpperCase() || null
   if (!normalizedKarat) {
     return {
@@ -102,7 +102,18 @@ const resolveBasePurityInfo = (supplier, karatHint) => {
     }
   }
 
-  const fallbackValue = DEFAULT_KARAT_PURITY_FALLBACK[normalizedKarat]
+  let fallbackValue = null
+  if (Array.isArray(globalFallback)) {
+    const match = globalFallback.find((item) => {
+      const itemKarat = normalizeString(item?.name || item?.code)?.replace(/\s+/g, '').toUpperCase()
+      return item?.isActive !== false && itemKarat === normalizedKarat
+    })
+    fallbackValue = match?.purityPercent ?? null
+  } else if (globalFallback && typeof globalFallback === 'object') {
+    fallbackValue = globalFallback[normalizedKarat] ?? globalFallback[karatHint] ?? globalFallback[normalizeString(karatHint)]
+  } else {
+    fallbackValue = DEFAULT_KARAT_PURITY_FALLBACK[normalizedKarat]
+  }
   if (fallbackValue !== undefined) {
     return {
       purityPercent: normalizeNumber(fallbackValue, null),
@@ -238,12 +249,13 @@ const buildSaleSettlementInputs = ({
   supplier = null,
   parsedSnapshot = null,
   settlementSettings = {},
+  karatDefaults = null,
 }) => {
   const safeSource = source && typeof source === 'object' ? source : {}
   const safeParsedSnapshot = normalizeParsedSnapshot(parsedSnapshot)
   const karat = resolveKaratHint(safeSource, safeParsedSnapshot)
   const parsedPurityPercent = resolveParsedPurityPercent(safeParsedSnapshot)
-  const basePurityInfo = resolveBasePurityInfo(supplier, karat)
+  const basePurityInfo = resolveBasePurityInfo(supplier, karat, karatDefaults)
   const explicitPurityPercent = resolveExplicitPurityPercent(safeSource)
   const finalPurityPercent = explicitPurityPercent !== null
     ? explicitPurityPercent
@@ -325,6 +337,7 @@ const buildSaleCalculationSnapshot = ({
   parsedSnapshot = null,
   settlementSettings = {},
   settlementInputs = null,
+  karatDefaults = null,
 }) => {
   const safeSource = source && typeof source === 'object' ? source : {}
   const safeParsedSnapshot = normalizeParsedSnapshot(parsedSnapshot)
@@ -343,8 +356,9 @@ const buildSaleCalculationSnapshot = ({
         source: safeSource,
         supplier,
         parsedSnapshot: safeParsedSnapshot,
-        settlementSettings,
-      })
+      settlementSettings,
+      karatDefaults,
+    })
   const purityPercent = normalizeNumber(resolvedSettlementInputs?.purityPercent, null)
   const wastagePercent = normalizeNumber(resolvedSettlementInputs?.wastagePercent, null)
   const tolerance = normalizeNumber(

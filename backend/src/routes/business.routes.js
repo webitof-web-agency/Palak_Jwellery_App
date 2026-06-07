@@ -4,6 +4,7 @@ import {
   createBusinessOption,
   deleteBusinessOption,
   getBusinessOverview,
+  getKaratOptions,
   listBusinessOptions,
   listSettlementSettings,
   upsertSettlementSettings,
@@ -13,6 +14,8 @@ import {
 const router = Router()
 
 router.use(authenticate)
+
+router.get('/karats', getKaratOptions)
 router.use(requireRole('admin'))
 
 router.get('/overview', getBusinessOverview)

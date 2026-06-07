@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../features/sale_entry/data/sale_repository.dart';
@@ -6,6 +7,76 @@ import '../../../../shared/theme/app_theme.dart';
 import '../sale_entry_provider.dart';
 import 'sale_entry_form_widgets.dart';
 import 'sale_entry_picker_sheet.dart';
+
+class KaratSelector extends StatelessWidget {
+  const KaratSelector({
+    super.key,
+    required this.controller,
+    required this.parsed,
+    required this.karatOptions,
+    required this.onSelected,
+  });
+
+  final TextEditingController controller;
+  final bool parsed;
+  final List<KaratOption> karatOptions;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = karatOptions.isNotEmpty
+        ? karatOptions
+        : const <KaratOption>[];
+    final currentValue = controller.text.trim();
+    final normalizedCurrent = currentValue.replaceAll(RegExp(r'\s+'), '').toUpperCase();
+    final selectedValue = options.any(
+      (option) => option.name.replaceAll(RegExp(r'\s+'), '').toUpperCase() == normalizedCurrent,
+    )
+        ? currentValue
+        : (currentValue.isNotEmpty ? currentValue : null);
+
+    return buildPickerField(
+      hint: 'Select karat',
+      value: selectedValue,
+      prefixIcon: parsed ? Icons.check_circle_rounded : Icons.workspace_premium_rounded,
+      prefixColor: parsed ? AppColors.success : AppColors.accent,
+      onTap: () async {
+        if (options.isEmpty) return;
+
+        final choice = await showPickerSheet<KaratOption>(
+          context: context,
+          title: 'Select karat',
+          choices: options
+              .map(
+                (karat) => PickerChoice<KaratOption>(
+                  value: karat,
+                  label: karat.name,
+                  subtitle: karat.purityPercent == null
+                      ? null
+                      : 'Default purity ${karat.purityPercent!.toStringAsFixed(karat.purityPercent! % 1 == 0 ? 0 : 1)}%',
+                  leading: Icon(
+                    Icons.workspace_premium_rounded,
+                    color: AppColors.accent,
+                    size: 18,
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        );
+
+        if (!context.mounted || choice == null) return;
+        controller.text = choice.name;
+        onSelected();
+      },
+      onClear: selectedValue == null
+          ? null
+          : () {
+              controller.clear();
+              onSelected();
+            },
+    );
+  }
+}
 
 class CategorySelector extends StatelessWidget {
   const CategorySelector({
@@ -37,6 +108,7 @@ class CategorySelector extends StatelessWidget {
         showParseState: false,
         hint: 'e.g. RING, NECKLACE, BANGLE',
         required: false,
+        inputFormatters: [CategoryTextInputFormatter()],
       );
     }
 
@@ -133,6 +205,7 @@ class CategorySelector extends StatelessWidget {
                 showParseState: false,
                 hint: 'Type business category',
                 required: false,
+                inputFormatters: [CategoryTextInputFormatter()],
               ),
             ),
           ),
@@ -142,157 +215,36 @@ class CategorySelector extends StatelessWidget {
   }
 }
 
-class MetalSelector extends StatelessWidget {
-  const MetalSelector({
-    super.key,
-    required this.controller,
-    required this.useCustomMetal,
-    required this.metals,
-    required this.onUseCustomChanged,
-    this.onChanged,
-  });
-
-  final TextEditingController controller;
-  final bool useCustomMetal;
-  final List<String> metals;
-  final ValueChanged<bool> onUseCustomChanged;
-  final VoidCallback? onChanged;
-
-  // Material-accurate color swatches for each metal
-  static const Map<String, Color> _metalColors = {
-    'Gold': Color(0xFFD4A44C),
-    'Silver': Color(0xFFA8B0BB),
-    'Platinum': Color(0xFFD0D8E4),
-    'Diamond': Color(0xFFA8D8EA),
-  };
-
-  static Widget _metalSwatch(String metal) {
-    final color = _metalColors[metal] ?? const Color(0xFFCCCCCC);
-    return Container(
-      width: 18,
-      height: 18,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: color,
-        border: Border.all(
-          color: Colors.black.withValues(alpha: 0.08),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: color.withValues(alpha: 0.45),
-            blurRadius: 4,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-    );
-  }
-
+class CategoryTextInputFormatter extends TextInputFormatter {
   @override
-  Widget build(BuildContext context) {
-    final availableMetals = metals.isNotEmpty
-        ? metals
-        : const <String>['Gold', 'Silver', 'Platinum', 'Diamond'];
-    final currentValue = controller.text.trim();
-    final selectedValue = useCustomMetal
-        ? currentValue
-        : (availableMetals.contains(currentValue) ? currentValue : null);
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final lettersOnly = newValue.text.replaceAll(RegExp(r'\d'), '');
+    final upper = lettersOnly.toUpperCase();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        buildPickerField(
-          hint: 'Select metal',
-          value: selectedValue,
-          prefixIcon: Icons.workspace_premium_rounded,
-          onTap: () async {
-            final choice = await showPickerSheet<String>(
-              context: context,
-              title: 'Metal type',
-              choices: availableMetals
-                  .map(
-                    (metal) => PickerChoice<String>(
-                      value: metal,
-                      label: metal,
-                      leading: _metalSwatch(metal),
-                    ),
-                  )
-                  .toList(growable: false),
-              customActionLabel: 'Other metal',
-              customActionIcon: Icons.auto_awesome_rounded,
-              onCustomAction: () {
-                controller.clear();
-                onUseCustomChanged(true);
-                onChanged?.call();
-              },
-            );
+    int selectionOffset = newValue.selection.baseOffset;
+    int digitsCount = 0;
+    for (int i = 0; i < newValue.selection.baseOffset.clamp(0, newValue.text.length); i++) {
+      if (RegExp(r'\d').hasMatch(newValue.text[i])) {
+        digitsCount++;
+      }
+    }
+    selectionOffset = (selectionOffset - digitsCount).clamp(0, upper.length);
 
-            if (!context.mounted || choice == null) return;
-            controller.text = choice;
-            onUseCustomChanged(false);
-            onChanged?.call();
-          },
-          onClear: selectedValue == null
-              ? null
-              : () {
-                  controller.clear();
-                  onUseCustomChanged(false);
-                  onChanged?.call();
-                },
-        ),
-        if (useCustomMetal) ...[
-          const SizedBox(height: 8),
-          DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppColors.accent.withValues(alpha: 0.25),
-              ),
-              color: AppColors.surfaceAlt,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: SaleField(
-                label: 'Other Metal',
-                controller: controller,
-                parsed: false,
-                showParseState: false,
-                onChanged: onChanged,
-                hint: 'e.g. Rose Gold, Mixed Metal',
-                required: false,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.accent,
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              onPressed: () {
-                controller.clear();
-                onUseCustomChanged(false);
-                onChanged?.call();
-              },
-              icon: const Icon(Icons.list_alt_rounded, size: 16),
-              label: const Text('Choose from preset metals'),
-            ),
-          ),
-        ],
-      ],
+    return TextEditingValue(
+      text: upper,
+      selection: TextSelection.collapsed(offset: selectionOffset),
     );
   }
 }
 
 class SupplierChip extends StatelessWidget {
-  const SupplierChip({super.key, required this.name, required this.onClear});
+  const SupplierChip({super.key, required this.name, this.onClear});
 
   final String name;
-  final VoidCallback onClear;
+  final VoidCallback? onClear;
 
   @override
   Widget build(BuildContext context) {
@@ -316,14 +268,15 @@ class SupplierChip extends StatelessWidget {
               ),
             ),
           ),
-          GestureDetector(
-            onTap: onClear,
-            child: Icon(
-              Icons.close_rounded,
-              color: AppColors.textFaint,
-              size: 18,
+          if (onClear != null)
+            GestureDetector(
+              onTap: onClear,
+              child: Icon(
+                Icons.close_rounded,
+                color: AppColors.textFaint,
+                size: 18,
+              ),
             ),
-          ),
         ],
       ),
     );

@@ -1,11 +1,49 @@
-const KARAT_OPTIONS = ['9K', '14K', '18K', '20K', '22K', '24K']
+const DEFAULT_KARAT_OPTIONS = [
+  { name: '9K', purityPercent: 37.5 },
+  { name: '14K', purityPercent: 58.5 },
+  { name: '18K', purityPercent: 75 },
+  { name: '20K', purityPercent: 83.3 },
+  { name: '22K', purityPercent: 91.6 },
+  { name: '24K', purityPercent: 99.9 },
+]
+
+const normalizeText = (value) => {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+const normalizeKarat = (value) => normalizeText(value).replace(/\s+/g, '').toUpperCase()
 
 export default function SupplierFormKaratPuritySection({
   form,
+  karatOptions,
   onAddPurityOverride,
   onPurityOverrideChange,
   onRemovePurityOverride,
 }) {
+  const availableKarats = (Array.isArray(karatOptions) && karatOptions.length > 0
+    ? karatOptions
+    : DEFAULT_KARAT_OPTIONS
+  )
+    .map((item) => {
+      if (item && typeof item === 'object') {
+        const name = normalizeKarat(item.name || item.code)
+        if (!name) return null
+        return {
+          name,
+          purityPercent: item.purityPercent ?? null,
+        }
+      }
+
+      const name = normalizeKarat(item)
+      if (!name) return null
+      return {
+        name,
+        purityPercent: null,
+      }
+    })
+    .filter(Boolean)
+
   const overrides = Array.isArray(form.businessSettings?.purityOverrides)
     ? form.businessSettings.purityOverrides
     : []
@@ -75,9 +113,11 @@ export default function SupplierFormKaratPuritySection({
                       aria-label={`Purity override ${index + 1} karat`}
                     >
                       <option value="">Select karat</option>
-                      {KARAT_OPTIONS.map((karat) => (
-                        <option key={karat} value={karat}>
-                          {karat}
+                      {availableKarats.map((karat) => (
+                        <option key={karat.name} value={karat.name}>
+                          {karat.purityPercent !== null && karat.purityPercent !== undefined
+                            ? `${karat.name} (${karat.purityPercent}%)`
+                            : karat.name}
                         </option>
                       ))}
                     </select>

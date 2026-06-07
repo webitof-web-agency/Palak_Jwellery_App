@@ -87,7 +87,7 @@ const PALETTES = {
   },
 }
 
-export const DEFAULT_THEME = 'roseLight'
+export const DEFAULT_THEME = 'midnightRose'
 export const THEME_STORAGE_KEY = 'jewellery-admin-theme'
 export const APP_BRAND_NAME = 'Jewellery Management'
 export const APP_BRAND_SHORT = 'Jewellery'

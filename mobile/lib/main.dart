@@ -11,10 +11,14 @@ import 'features/batches/presentation/my_batches_screen.dart';
 import 'features/history/presentation/sales_history_provider.dart';
 import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
-import 'features/sale_entry/presentation/widgets/pending_sales_banner.dart';
+import 'features/sale_entry/presentation/sale_entry_launch_args.dart';
 import 'features/sale_entry/presentation/sale_entry_screen.dart';
 import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
+import 'features/scanner/presentation/scanner_launch_args.dart';
+import 'features/sessions/presentation/create_session_screen.dart';
+import 'features/sessions/presentation/my_sessions_screen.dart';
+import 'features/sessions/presentation/session_detail_screen.dart';
 import 'shared/constants/app_brand.dart';
 import 'shared/navigation/app_route_observer.dart';
 import 'shared/theme/app_theme.dart';
@@ -44,19 +48,48 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const DashboardScreen(),
       ),
       GoRoute(
+        path: '/sessions',
+        builder: (context, state) => const MySessionsScreen(),
+      ),
+      GoRoute(
+        path: '/sessions/create',
+        builder: (context, state) => const CreateSessionScreen(),
+      ),
+      GoRoute(
+        path: '/sessions/:sessionId',
+        builder: (context, state) {
+          final sessionId = state.pathParameters['sessionId'] ?? '';
+          return SessionDetailScreen(sessionId: sessionId);
+        },
+      ),
+      GoRoute(
         path: '/scanner',
         builder: (context, state) {
-          final sessionKey = state.extra?.toString() ?? 'default';
-          return ScannerScreen(key: ValueKey('scanner-$sessionKey'));
+          final args = state.extra is ScannerLaunchArgs
+              ? state.extra as ScannerLaunchArgs
+              : ScannerLaunchArgs(
+                  sessionKey: state.extra?.toString() ?? 'default',
+                );
+          return ScannerScreen(
+            key: ValueKey('scanner-${args.sessionKey}'),
+            batchContext: args.batchContext,
+          );
         },
       ),
       GoRoute(
         path: '/sale-entry',
         builder: (context, state) {
-          final parseResult = state.extra is ParseQrResult
-              ? state.extra as ParseQrResult
-              : ParseQrResult.empty('');
-          return SaleEntryScreen(parseResult: parseResult);
+          final args = state.extra is SaleEntryLaunchArgs
+              ? state.extra as SaleEntryLaunchArgs
+              : SaleEntryLaunchArgs(
+                  parseResult: state.extra is ParseQrResult
+                      ? state.extra as ParseQrResult
+                      : ParseQrResult.empty(''),
+                );
+          return SaleEntryScreen(
+            parseResult: args.parseResult,
+            batchContext: args.batchContext,
+          );
         },
       ),
       GoRoute(
@@ -320,8 +353,7 @@ class DashboardScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                const PendingSalesBanner(),
-                SizedBox(height: 24),
+                const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -355,6 +387,24 @@ class DashboardScreen extends ConsumerWidget {
                 SizedBox(
                   width: double.infinity,
                   height: 52,
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.push('/sessions'),
+                    icon: const Icon(Icons.hub_rounded),
+                    label: const Text('My Sessions'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'For multi-supplier customer requests',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
                   child: OutlinedButton.icon(
                     onPressed: () => context.push('/batches'),
                     icon: const Icon(Icons.inventory_2_rounded),
@@ -366,6 +416,14 @@ class DashboardScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'For quick single-supplier work',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 12,
                   ),
                 ),
                 SizedBox(height: 24),

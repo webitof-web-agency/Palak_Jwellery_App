@@ -30,9 +30,9 @@ The recommended direction is:
 
 Phase 1 status:
 
-- backend foundation code is now in place for `ScanBatch`, optional `Sale` batch metadata, and a batch lifecycle helper
-- batch APIs and admin batch review/create UI are now live
-- mobile batch capture is still the next major phase
+- backend foundation code is now in place for `ScanBatch`, optional `Sale` batch metadata, live `CaptureSession` API support, and a batch lifecycle helper
+- admin now has live session, batch, and item views in Sales, plus batch review/create and session create/detail flows
+- mobile batch capture is now partially live through batch detail, scanner, and sale-entry routing for assigned batches; the backend session API layer is live, batch mutations best-effort refresh parent session aggregates, and mobile session UI is now live through My Sessions, Create Session, and Session Detail while reporting remains intentionally unwired and explicit session submit/finalize remains manual
 
 ---
 
@@ -88,6 +88,7 @@ Current behavior:
 - validates a supplier exists and resolves settlement inputs
 - computes `parsedSnapshot`, `settlementInputs`, and `calculationSnapshot`
 - stores one `Sale` document per request
+- accepts optional `batchId` and saves the item directly into an open/assigned batch when provided
 - supports idempotency with `x-idempotency-key`
 - supports duplicate QR detection using `qrHash`
 - on duplicate without override, returns `409 DUPLICATE_QR` with `previousSale`
@@ -175,9 +176,10 @@ Current settlement reporting behavior:
 
 - primary source is `Sale`
 - legacy fallback is approved `QrIngestion` records only when no `Sale` rows exist
-- settlement rows are finalized item rows, not batch rows
+- the admin settlement page now exposes session, supplier-section, and item-ledger scopes backed by the live backend query layer
+- settlement rows remain item-ledger rows by default, but the report surface is now scope-aware
 
-This means settlement reporting is still item-based and can be extended later to batch-aware reporting without breaking older data.
+This means settlement reporting is still safe for older data while also supporting session-first and supplier-section reporting in the live admin UI.
 
 ### 2.8 Current mobile submission behavior
 
@@ -186,7 +188,6 @@ Files checked:
 - `mobile/lib/features/scanner/presentation/scanner_screen.dart`
 - `mobile/lib/features/sale_entry/presentation/sale_entry_screen.dart`
 - `mobile/lib/features/sale_entry/presentation/sale_entry_provider.dart`
-- `mobile/lib/features/sale_entry/data/pending_sale_queue.dart`
 - `mobile/lib/features/sale_entry/data/sale_repository.dart`
 
 Current mobile flow:
@@ -195,24 +196,15 @@ Current mobile flow:
 2. parser result is loaded into sale entry
 3. sale form is auto-filled where parsing succeeded
 4. user manually edits fields if needed
-5. submit calls `POST /api/v1/sales`
+5. submit calls `POST /api/v1/sales` with optional `batchId` when batch mode is active
 6. duplicate QR returns a 409 warning and can be confirmed
-7. pending submissions are stored in secure storage and retried
+7. if saving fails because the network is unavailable, the existing backend fallback/no-internet state is shown and the user retries after reconnecting
+Important mobile write behavior:
 
-Important mobile queue behavior:
-
-- the pending queue is persisted in `flutter_secure_storage`
-- pending records store:
-  - supplierId
-  - item fields
-  - gross / stone / net
-  - raw QR
-  - display snapshot
-  - parsed snapshot
-  - parse snapshot
-  - duplicate override state
-- there is no batch/session concept yet
-- offline recovery is item-level only
+- mobile sale writes are online-only
+- there is no live local retry store in the current flow
+- batch id and batch ref stay on the live submit path when batch mode is active
+- duplicate handling remains item-level
 
 ### 2.9 Current admin sales page structure
 
@@ -717,7 +709,7 @@ The current mobile flow is item-by-item:
 - parse
 - fill form
 - submit one sale
-- store pending queue locally if needed
+- show backend fallback on network error and retry when connected
 
 ### Future batch flow on mobile
 
@@ -731,13 +723,12 @@ Later mobile flow should become:
 6. show assigned reopened batches
 7. add more items after admin reopen
 
-### Offline queue implications
+### Network handling implications
 
-Current offline queue is item-level. Future batch support should:
+Current mobile writes are online-only. Future batch support should:
 
-- keep pending item drafts
-- attach drafts to a batch id when available
-- preserve retry and duplicate handling
+- keep batch context on the live submit path
+- preserve idempotency and duplicate handling
 - not lose item-level snapshots
 
 ### Failure recovery
@@ -747,7 +738,7 @@ Mobile must still support:
 - partial parse
 - duplicate QR warning
 - manual entry fallback
-- offline retry
+- backend fallback on network failure
 
 ### Important mobile rule
 
@@ -834,7 +825,7 @@ Current sales and detail pages should continue to function for item-level audit.
 
 ### Existing mobile flow
 
-Current mobile sale entry should continue to submit one sale at a time until batch support is deliberately added later.
+Current mobile sale entry should continue to submit one sale at a time when batch mode is not active; the batch-aware path is already partially live for assigned batches and should remain additive, not replacing standalone sales.
 
 ### Customer concept
 
@@ -965,13 +956,12 @@ Scope:
 - open/assigned batch picker
 - add items to batch
 - batch submit
-- offline queue batch tagging
+- network-failure handling
 
 Files likely touched:
 
 - `mobile/lib/features/scanner/*`
 - `mobile/lib/features/sale_entry/*`
-- pending queue data/provider files
 
 Risk:
 
@@ -979,7 +969,7 @@ Risk:
 
 Tests to plan:
 
-- offline retry
+- connectivity loss handling
 - duplicate item handling
 - reopened batch continuation
 
@@ -1070,5 +1060,5 @@ UNCLEAR items based on inspected files:
   - `addedBy`
   - `addedAt`
   - `entryMode`
-- Batch totals/counts are refreshed after the sale is stored.
+- Batch totals/counts are refreshed after the sale is stored, and the batch refresh helper best-effort refreshes the parent capture session when the sale belongs to a batch.
 - If refresh fails after a successful sale save, the backend returns success with a warning instead of forcing an orphan-prone retry.

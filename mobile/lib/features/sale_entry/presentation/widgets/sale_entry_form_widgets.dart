@@ -12,12 +12,14 @@ class SaleField extends StatefulWidget {
     this.parsedOverride = false,
     this.showParseState = true,
     this.showClearButton = true,
+    this.readOnly = false,
     this.onChanged,
     this.hint = '',
     this.numeric = false,
     this.required = false,
     this.expandOnFocus = false,
     this.maxLines = 1,
+    this.inputFormatters,
   });
 
   final String label;
@@ -26,12 +28,14 @@ class SaleField extends StatefulWidget {
   final bool parsedOverride;
   final bool showParseState;
   final bool showClearButton;
+  final bool readOnly;
   final VoidCallback? onChanged;
   final String hint;
   final bool numeric;
   final bool required;
   final bool expandOnFocus;
   final int maxLines;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   State<SaleField> createState() => _SaleFieldState();
@@ -79,7 +83,10 @@ class _SaleFieldState extends State<SaleField> {
     final isFocused = _focusNode.hasFocus;
     final isExpanded = widget.expandOnFocus &&
         (isFocused || widget.controller.text.trim().isNotEmpty);
-    final isMissed = widget.showParseState && !widget.parsed && !widget.parsedOverride;
+    final isMissed = widget.showParseState &&
+        !widget.parsed &&
+        !widget.parsedOverride &&
+        widget.controller.text.trim().isEmpty;
     final borderColor = isMissed ? AppColors.warning.withValues(alpha: 0.8) : AppColors.border;
     final focusBorderColor = isMissed ? AppColors.warning : AppColors.accent;
 
@@ -133,14 +140,16 @@ class _SaleFieldState extends State<SaleField> {
     return TextFormField(
       focusNode: _focusNode,
       controller: widget.controller,
+      readOnly: widget.readOnly,
       maxLines: maxLines,
       minLines: widget.expandOnFocus ? 1 : null,
       keyboardType: widget.numeric
           ? const TextInputType.numberWithOptions(decimal: true)
           : (maxLines > 1 ? TextInputType.multiline : TextInputType.text),
-      inputFormatters: widget.numeric
-          ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
-          : null,
+      inputFormatters: widget.inputFormatters ??
+          (widget.numeric
+              ? [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))]
+              : null),
       textInputAction: maxLines > 1 ? TextInputAction.newline : TextInputAction.next,
       decoration: InputDecoration(
         labelText: widget.label,

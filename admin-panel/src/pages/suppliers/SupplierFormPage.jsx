@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ApiError } from '../../api/client'
+import { getBusinessOverview } from '../../api/business.api'
 import { createSupplier, updateSupplier } from '../../api/suppliers.api'
 import PageHeader from '../../components/ui/PageHeader'
 import SupplierFormActions from './components/SupplierFormActions'
@@ -532,6 +533,7 @@ export default function SupplierFormPage() {
   const [error, setError] = useState('')
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false)
   const [activeSection, setActiveSection] = useState('basic')
+  const [karatOptions, setKaratOptions] = useState([])
 
   useEffect(() => {
     setForm(isEditing ? supplierToForm(supplier) : createEmptyForm())
@@ -539,6 +541,28 @@ export default function SupplierFormPage() {
     setShowAdvancedSettings(false)
     setActiveSection('basic')
   }, [isEditing, supplier])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadKaratOptions = async () => {
+      try {
+        const response = await getBusinessOverview()
+        const data = response?.data ?? response
+        if (!isMounted) return
+        setKaratOptions(Array.isArray(data?.karats) ? data.karats : [])
+      } catch {
+        if (!isMounted) return
+        setKaratOptions([])
+      }
+    }
+
+    void loadKaratOptions()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   const handleFormChange = (field, value) => {
     setForm((current) => ({
@@ -860,6 +884,7 @@ export default function SupplierFormPage() {
           {activeSection === 'karat' ? (
             <SupplierFormKaratPuritySection
               form={form}
+              karatOptions={karatOptions}
               onAddPurityOverride={handleAddPurityOverride}
               onPurityOverrideChange={handlePurityOverrideChange}
               onRemovePurityOverride={handleRemovePurityOverride}

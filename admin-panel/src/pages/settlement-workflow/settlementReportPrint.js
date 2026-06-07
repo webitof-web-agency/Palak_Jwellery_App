@@ -414,10 +414,26 @@ export const buildSettlementPrintHtml = ({
           </div>
         </div>
         <div class="toolbar-actions">
-          <button class="toolbar-btn" type="button" onclick="window.close()">Close</button>
-          <button class="toolbar-btn primary" type="button" onclick="window.print()">&#8595;&nbsp; Download PDF</button>
+          <button class="toolbar-btn" type="button" id="settlement-preview-close-btn">Close</button>
+          <button class="toolbar-btn primary" type="button" id="settlement-preview-print-btn">&#8595;&nbsp; Download PDF</button>
         </div>
       </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', function () {
+          var closeButton = document.getElementById('settlement-preview-close-btn');
+          var printButton = document.getElementById('settlement-preview-print-btn');
+          if (closeButton) {
+            closeButton.addEventListener('click', function () {
+              window.close();
+            });
+          }
+          if (printButton) {
+            printButton.addEventListener('click', function () {
+              window.print();
+            });
+          }
+        });
+      </script>
 
       <div class="preview-shell">
         <div class="page">

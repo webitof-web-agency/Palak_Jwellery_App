@@ -18,6 +18,13 @@ export default function SalesViewToggle({ activeView, onChange }) {
   return (
     <div className="inline-flex flex-wrap gap-2 rounded-2xl surface-panel-faint panel-border p-2">
       <ToggleButton
+        active={activeView === 'session'}
+        onClick={() => onChange('session')}
+        ariaLabel="Switch to session view"
+      >
+        Session View
+      </ToggleButton>
+      <ToggleButton
         active={activeView === 'batch'}
         onClick={() => onChange('batch')}
         ariaLabel="Switch to batch view"
