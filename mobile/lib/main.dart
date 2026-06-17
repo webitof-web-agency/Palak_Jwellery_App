@@ -5,10 +5,12 @@ import 'package:go_router/go_router.dart';
 import 'core/system/backend_status.dart';
 import 'features/auth/presentation/auth_notifier.dart';
 import 'features/auth/presentation/login_screen.dart';
+import 'features/customers/domain/customer_record.dart';
+import 'features/customers/presentation/customer_selection_screen.dart';
+import 'features/dashboard/presentation/dashboard_home_screen.dart';
 import 'features/batches/presentation/batch_detail_screen.dart';
 import 'features/batches/presentation/create_batch_screen.dart';
 import 'features/batches/presentation/my_batches_screen.dart';
-import 'features/history/presentation/sales_history_provider.dart';
 import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
 import 'features/sale_entry/presentation/sale_entry_launch_args.dart';
@@ -19,12 +21,10 @@ import 'features/scanner/presentation/scanner_launch_args.dart';
 import 'features/sessions/presentation/create_session_screen.dart';
 import 'features/sessions/presentation/my_sessions_screen.dart';
 import 'features/sessions/presentation/session_detail_screen.dart';
-import 'shared/constants/app_brand.dart';
+import 'features/sessions/presentation/scan_session_screen.dart';
 import 'shared/navigation/app_route_observer.dart';
 import 'shared/theme/app_theme.dart';
-import 'shared/widgets/app_logo.dart';
 import 'shared/widgets/backend_fallback_screen.dart';
-import 'shared/widgets/theme_toggle_button.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +45,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/dashboard',
-        builder: (context, state) => const DashboardScreen(),
+        builder: (context, state) => const DashboardHomeScreen(),
+      ),
+      GoRoute(
+        path: '/customers',
+        builder: (context, state) => const CustomerSelectionScreen(),
+      ),
+      GoRoute(
+        path: '/scan-session',
+        builder: (context, state) {
+          final selectedCustomer = state.extra is CustomerRecord
+              ? state.extra as CustomerRecord
+              : null;
+          return ScanSessionScreen(selectedCustomer: selectedCustomer);
+        },
       ),
       GoRoute(
         path: '/sessions',
@@ -99,7 +112,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ? state.extra as CreatedSale
               : null;
           return sale == null
-              ? const DashboardScreen()
+              ? const DashboardHomeScreen()
               : SaleSuccessScreen(sale: sale);
         },
       ),
@@ -199,334 +212,6 @@ class _BootScreen extends StatelessWidget {
           width: 28,
           height: 28,
           child: CircularProgressIndicator(strokeWidth: 3),
-        ),
-      ),
-    );
-  }
-}
-
-class DashboardScreen extends ConsumerWidget {
-  const DashboardScreen({super.key});
-
-  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 8),
-          contentPadding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-          actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          title: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const AppLogo(size: 52),
-              const SizedBox(height: 16),
-              Text(
-                'Sign out?',
-                style: TextStyle(
-                  color: AppColors.accent,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          content: Text(
-            'You will be returned to the login screen. Unsaved sale entry changes will be lost.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.textSecondary, height: 1.5),
-          ),
-          actions: [
-            SizedBox(
-              width: double.infinity,
-              child: Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(true),
-                      child: const Text('Yes, sign out'),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-
-    if (shouldLogout == true) {
-      ref.read(authSessionProvider.notifier).clearSession();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(themeControllerProvider);
-    final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
-    const todayQuery = SalesHistoryQuery(
-      page: 1,
-      searchTerm: '',
-      searchScope: 'all',
-      sortBy: 'saleDate',
-      sortOrder: 'desc',
-      duplicatesOnly: false,
-    );
-    final recentSalesAsync = ref.watch(recentSalesPageProvider(todayQuery));
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Dashboard'),
-        actions: [
-          const Padding(
-            padding: EdgeInsets.only(right: 8),
-            child: ThemeToggleButton(size: 40),
-          ),
-          IconButton(
-            onPressed: () => _confirmLogout(context, ref),
-            icon: Icon(Icons.logout_rounded),
-            tooltip: 'Sign out',
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(recentSalesPageProvider(todayQuery));
-            await ref.read(recentSalesPageProvider(todayQuery).future);
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [AppColors.warningSoft, AppColors.surface],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppLogo(size: 60),
-                      SizedBox(height: 16),
-                      Text(
-                        AppBrand.mobileDashboardTitle,
-                        style: TextStyle(
-                          color: AppColors.accent,
-                          letterSpacing: 1.2,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Welcome, $user',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        'Start a QR scan or enter a sale manually.',
-                        style: TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const SizedBox(height: 24),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: () => context.push('/scanner'),
-                    icon: Icon(Icons.qr_code_scanner_rounded),
-                    label: Text('Scan QR'),
-                  ),
-                ),
-                SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    onPressed: () => context.push(
-                      '/sale-entry',
-                      extra: ParseQrResult.empty(''),
-                    ),
-                    icon: Icon(Icons.edit_note_rounded),
-                    label: Text('Enter Manually'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textPrimary,
-                      side: BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton.icon(
-                    onPressed: () => context.push('/sessions'),
-                    icon: const Icon(Icons.hub_rounded),
-                    label: const Text('My Sessions'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'For multi-supplier customer requests',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    onPressed: () => context.push('/batches'),
-                    icon: const Icon(Icons.inventory_2_rounded),
-                    label: const Text('My Batches'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textPrimary,
-                      side: BorderSide(color: AppColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'For quick single-supplier work',
-                  style: TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
-                ),
-                SizedBox(height: 24),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceAlt,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Text(
-                    'Track today’s sales and start a new entry from here.',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: recentSalesAsync.when(
-                    loading: () => Row(
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Loading entries...',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                    error: (error, stackTrace) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Today's Entries",
-                          style: TextStyle(
-                            color: AppColors.accent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Could not load entry count right now.',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
-                    data: (page) => Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Today's Entries",
-                          style: TextStyle(
-                            color: AppColors.accent,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          '${page.total}',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'See how many sales have been recorded today.',
-                          style: TextStyle(color: AppColors.textSecondary),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: () => context.push('/sales-history'),
-                            icon: const Icon(Icons.receipt_long_rounded),
-                            label: const Text('View entries'),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ),
       ),
     );

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'app_tokens.dart';
+
 enum AppThemePreset { roseLight, midnightRose }
 
 AppThemePreset activePreset = AppThemePreset.midnightRose;
@@ -231,7 +233,7 @@ class AppTheme {
           disabledBackgroundColor: colors.accent.withValues(alpha: 0.5),
           disabledForegroundColor: colors.accentOn.withValues(alpha: 0.7),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
           textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
         ),
@@ -241,7 +243,7 @@ class AppTheme {
           foregroundColor: colors.textPrimary,
           side: BorderSide(color: colors.border),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(AppRadius.md),
           ),
         ),
       ),
@@ -249,7 +251,7 @@ class AppTheme {
         color: colors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
           side: BorderSide(color: colors.border),
         ),
       ),
@@ -261,23 +263,23 @@ class AppTheme {
         helperStyle: TextStyle(color: colors.textFaint),
         errorStyle: TextStyle(color: colors.danger),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: colors.border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: colors.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: colors.accent, width: 1.3),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: colors.danger),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           borderSide: BorderSide(color: colors.danger, width: 1.3),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -299,7 +301,7 @@ class AppTheme {
         color: colors.surface,
         textStyle: TextStyle(color: colors.textPrimary),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(AppRadius.lg),
           side: BorderSide(color: colors.border),
         ),
       ),
@@ -307,7 +309,7 @@ class AppTheme {
         backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(AppRadius.xl),
           side: BorderSide(color: colors.border),
         ),
       ),
