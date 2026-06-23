@@ -499,7 +499,7 @@ export default function CustomersPage() {
           ].map((stat) => (
             <div key={stat.label} className="rounded-[22px] border border-[var(--jsm-border)] surface-panel-soft p-5">
               <div className="text-[10px] font-bold uppercase tracking-widest text-heading">{stat.label}</div>
-              <div className="mt-2 text-3xl font-bold text-primary">{statsLoading ? '—' : formatMetric(stat.value)}</div>
+              <div className="mt-2 text-3xl font-bold text-primary">{statsLoading ? '-' : formatMetric(stat.value)}</div>
               <div className="mt-2 text-xs text-muted">{stat.helper}</div>
             </div>
           ))}
