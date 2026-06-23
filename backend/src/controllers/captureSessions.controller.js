@@ -79,6 +79,8 @@ export const listSessions = async (req, res) => {
       limit: req.query.limit,
       status: req.query.status,
       assignedSalesman: req.query.assignedSalesman,
+      supplier: req.query.supplier,
+      warningsOnly: req.query.warningsOnly,
       q: req.query.q,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
@@ -185,3 +187,5 @@ export const cancelSession = async (req, res) => {
     return handleSessionError(res, 'cancelSession', error)
   }
 }
+
+

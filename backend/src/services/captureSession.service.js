@@ -151,6 +151,8 @@ const normalizeSessionStatusFilter = (value) => {
 
 const normalizeSortOrder = (value) => String(value || '').toLowerCase() === 'asc' ? 'asc' : 'desc'
 
+const normalizeBoolean = (value) => ['true', '1', 'yes', 'on'].includes(String(value || '').toLowerCase())
+
 const resolveAssignedSalesman = async (body = {}, actor = {}) => {
   const raw = actor?.role === 'salesman' ? actor.id : body.assignedSalesmanId
   const assignedSalesmanId = resolveIdValue(raw)
@@ -228,7 +230,7 @@ const loadSessionBatches = async (sessionId) => {
     .lean()
 }
 
-const resolveSessionFilters = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
+const resolveSessionFilters = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, supplier, warningsOnly, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
   const p = Math.max(1, Number.parseInt(page, 10) || 1)
   const l = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20))
   const skip = (p - 1) * l
@@ -270,6 +272,40 @@ const resolveSessionFilters = async ({ actor = {}, page = 1, limit = 20, status,
       ).lean()
       andConditions.push({ assignedSalesmanId: { $in: matches.map((entry) => entry._id) } })
     }
+  }
+
+  if (supplier) {
+    const supplierText = normalizeText(supplier)
+    if (!supplierText) {
+      throw new CaptureSessionServiceError('Invalid supplier filter', 'INVALID_FILTER', 400)
+    }
+
+    let supplierIds = []
+    if (mongoose.isValidObjectId(supplierText)) {
+      supplierIds = [supplierText]
+    } else {
+      const supplierMatches = await Supplier.find(
+        {
+          $or: [
+            { name: { $regex: escapeRegex(supplierText), $options: 'i' } },
+            { code: { $regex: escapeRegex(supplierText), $options: 'i' } },
+          ],
+        },
+        { _id: 1 }
+      ).lean()
+      supplierIds = supplierMatches.map((entry) => entry._id)
+    }
+
+    if (supplierIds.length === 0) {
+      andConditions.push({ _id: { $in: [] } })
+    } else {
+      const sessionIds = await ScanBatch.distinct('sessionId', { supplierId: { $in: supplierIds } })
+      andConditions.push({ _id: { $in: sessionIds } })
+    }
+  }
+
+  if (normalizeBoolean(warningsOnly)) {
+    andConditions.push({ warningsCount: { $gt: 0 } })
   }
 
   const start = normalizeDateInput(startDate)
@@ -421,9 +457,9 @@ const createSession = async ({ assignedSalesmanId, customerName, customerPhone, 
   )
 }
 
-const listSessions = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
+const listSessions = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, supplier, warningsOnly, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
   const { p, l, skip, query, sort, sortBy: normalizedSortBy, sortOrder: normalizedSortOrder } =
-    await resolveSessionFilters({ actor, page, limit, status, assignedSalesman, q, startDate, endDate, sortBy, sortOrder })
+    await resolveSessionFilters({ actor, page, limit, status, assignedSalesman, supplier, warningsOnly, q, startDate, endDate, sortBy, sortOrder })
 
   const [sessions, total] = await Promise.all([
     CaptureSession.find(query)
@@ -699,3 +735,4 @@ export {
   cancelSession,
   refreshSessionAggregates,
 }
+

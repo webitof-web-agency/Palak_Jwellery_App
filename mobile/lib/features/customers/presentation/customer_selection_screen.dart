@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../domain/customer_record.dart';
@@ -22,54 +23,7 @@ class CustomerSelectionScreen extends StatefulWidget {
 class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  final List<CustomerRecord> _customers = <CustomerRecord>[
-    const CustomerRecord(
-      id: 'c-1001',
-      name: 'Aadinath Jewels',
-      phone: '+91 98765 43210',
-      area: 'Andheri West',
-      email: 'orders@aadinath.com',
-      isRecent: true,
-      lastSeenLabel: 'Seen today',
-    ),
-    const CustomerRecord(
-      id: 'c-1002',
-      name: 'Yug Traders',
-      phone: '+91 98989 89898',
-      area: 'Bandra East',
-      isRecent: true,
-      lastSeenLabel: 'Seen yesterday',
-    ),
-    const CustomerRecord(
-      id: 'c-1003',
-      name: 'Venzora Trading',
-      phone: '+91 99880 11223',
-      area: 'Zaveri Bazaar',
-      email: 'venzora@trade.in',
-      isRecent: true,
-      lastSeenLabel: 'Seen 3 days ago',
-    ),
-    const CustomerRecord(
-      id: 'c-1004',
-      name: 'Shree Ornaments',
-      phone: '+91 91234 56789',
-      area: 'Borivali',
-      lastSeenLabel: 'Seen last week',
-    ),
-    const CustomerRecord(
-      id: 'c-1005',
-      name: 'Palak Jewellery',
-      phone: '+91 90000 11111',
-      area: 'Ghatkopar',
-      email: 'purchase@palakjewellery.com',
-    ),
-    const CustomerRecord(
-      id: 'c-1006',
-      name: 'Ruchi Gold House',
-      phone: '+91 97777 66554',
-      area: 'Dadar',
-    ),
-  ];
+  final List<CustomerRecord> _customers = <CustomerRecord>[];
 
   String _searchTerm = '';
   String? _selectedCustomerId;
@@ -195,8 +149,8 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
             ),
             const SizedBox(height: AppSpacing.md),
             AppBanner(
-              title: 'V2 flow',
-              message: 'Add a new customer from the same screen if the customer is not listed yet.',
+              title: 'Customer first',
+              message: 'Choose or add a customer from this screen before starting the scan.',
               tone: AppBannerTone.info,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -268,7 +222,7 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '${selected.phone} • ${selected.area}',
+                      '${selected.phone} | ${selected.area}',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     if ((selected.email ?? '').isNotEmpty) ...[
@@ -293,7 +247,7 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
             ],
             const SizedBox(height: AppSpacing.lg),
             AppSectionHeader(
-              title: showingSearchResults ? 'Search results' : 'Recent customers',
+              title: showingSearchResults ? 'Search results' : 'Customers',
               subtitle: filtered.isEmpty
                   ? 'No customers match that name or phone.'
                   : '${filtered.length} customer${filtered.length == 1 ? '' : 's'} shown.',
@@ -301,8 +255,10 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
             const SizedBox(height: AppSpacing.sm),
             if (filtered.isEmpty)
               AppBanner(
-                title: 'No match found',
-                message: 'Add a new customer now, or clear the search and pick from the recent list.',
+                title: showingSearchResults ? 'No match found' : 'No customers yet',
+                message: showingSearchResults
+                    ? 'Add a new customer now, or clear the search and try again.'
+                    : 'Add the first customer to start a scan session.',
                 tone: AppBannerTone.warning,
                 actionLabel: 'Add New Customer',
                 onAction: _openAddCustomerSheet,
@@ -406,3 +362,9 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
     );
   }
 }
+
+
+
+
+
+

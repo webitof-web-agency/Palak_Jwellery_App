@@ -4,6 +4,7 @@ import {
   toText,
 } from './qrParser.shared.js'
 import {
+  isLikelyAayraSlashRaw,
   isLikelyAdinathRaw,
   isLikelyAdinathStructuralRaw,
   isLikelyUtsavRaw,
@@ -155,6 +156,11 @@ const getDefaultParserConfig = (supplierKey) => {
           netWeight: 4,
         },
       }
+    case 'aayra':
+      return {
+        strategy: 'aayra',
+        fieldMap: {},
+      }
     default:
       return null
   }
@@ -215,6 +221,17 @@ const getBuiltInPatternVariants = (supplierKey) => {
           source: 'builtin',
         },
       ]
+    case 'aayra':
+      return [
+        {
+          name: 'aayra_slash_format',
+          priority: 1,
+          strategy: 'aayra',
+          matcher: (raw) => isLikelyAayraSlashRaw(raw),
+          parserConfig: getDefaultParserConfig('aayra'),
+          source: 'builtin',
+        },
+      ]
     default:
       return [
         ...getBuiltInPatternVariants('yug'),
@@ -236,8 +253,19 @@ const getConfigPatternVariants = (supplier) => {
     .filter(Boolean)
 }
 
+const resolveSupplierParserKey = (supplier) => {
+  const supplierKey = toText(normalizeSupplierKey(supplier))?.toLowerCase() || ''
+  const supplierName = toText(supplier?.name)?.toLowerCase() || ''
+
+  if (supplierName === 'aayra' || supplierKey === 'aayra') {
+    return 'aayra'
+  }
+
+  return supplierKey
+}
+
 const getFallbackParserConfig = (supplier) => {
-  const supplierKey = normalizeSupplierKey(supplier)
+  const supplierKey = resolveSupplierParserKey(supplier)
   return supplier?.qrMapping && Object.keys(supplier.qrMapping).length > 0
     ? buildParserConfig(supplier?.qrMapping?.strategy, supplier?.qrMapping, supplier)
     : getDefaultParserConfig(supplierKey) || {
@@ -249,7 +277,7 @@ const getFallbackParserConfig = (supplier) => {
 
 const buildParserCandidates = (raw, supplier = null) => {
   const rawText = normalizeRaw(raw)
-  const supplierKey = normalizeSupplierKey(supplier).toLowerCase()
+  const supplierKey = resolveSupplierParserKey(supplier)
 
   const configCandidates = [
     ...getConfigPatternVariants(supplier),
@@ -345,3 +373,4 @@ export {
   normalizeParserVariant,
   scoreConfidence,
 }
+

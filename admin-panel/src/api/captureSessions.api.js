@@ -8,6 +8,8 @@ const toQueryString = (params = {}) => {
 
   if (params.status) query.set('status', params.status)
   if (params.assignedSalesman) query.set('assignedSalesman', params.assignedSalesman)
+  if (params.supplier) query.set('supplier', params.supplier)
+  if (params.warningsOnly) query.set('warningsOnly', 'true')
   if (params.q) query.set('q', params.q)
   if (params.startDate) query.set('startDate', params.startDate)
   if (params.endDate) query.set('endDate', params.endDate)
@@ -74,3 +76,4 @@ export const captureSessionsApi = {
 }
 
 export default captureSessionsApi
+

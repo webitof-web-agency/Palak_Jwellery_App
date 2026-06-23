@@ -20,6 +20,7 @@ export const Layout = () => {
 
   const navLinks = [
     { name: "Dashboard", path: "/dashboard" },
+    { name: "Customers", path: "/customers" },
     { name: "Sales", path: "/sales" },
     { name: "Settlement Reports", path: "/settlement-reports" },
     { name: "Suppliers", path: "/suppliers" },
@@ -27,7 +28,6 @@ export const Layout = () => {
   ];
 
   const internalNavLinks = [
-    { name: "Exceptions", path: "/exceptions" },
     ...(user?.role === "admin"
       ? [{ name: "Business Settings", path: "/business-settings" }]
       : []),
@@ -227,3 +227,5 @@ export const Layout = () => {
     </div>
   );
 };
+
+

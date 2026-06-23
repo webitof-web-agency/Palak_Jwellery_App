@@ -4,6 +4,45 @@ String _scanSessionNormalizeText(String? value) {
   return (value ?? '').trim().toLowerCase();
 }
 
+String _scanSessionDisplayWarningLabel(String label) {
+  final trimmed = label.trim();
+  if (trimmed.isEmpty) {
+    return trimmed;
+  }
+
+  final normalized = trimmed.toLowerCase();
+  if (normalized.contains('expected number') ||
+      normalized.contains('not a valid number') ||
+      normalized.contains('invalid number')) {
+    return 'Invalid QR value';
+  }
+  if (normalized.contains('missing') && normalized.contains('value')) {
+    return 'Missing QR value';
+  }
+  if (normalized.contains('supplier mismatch')) {
+    return 'Supplier mismatch';
+  }
+  if (normalized.contains('duplicate')) {
+    return 'Duplicate item';
+  }
+  if (normalized.contains('requires review')) {
+    return 'Needs review';
+  }
+  if (normalized.contains('manual entry')) {
+    return 'Manual entry';
+  }
+  if (normalized.contains('karat mismatch')) {
+    return 'QR Karat Mismatch';
+  }
+
+  final compact = trimmed.split(';').first.trim().replaceAll(RegExp(r'\s+'), ' ');
+  if (compact.length <= 28) {
+    return compact;
+  }
+
+  return '${compact.substring(0, 25).trimRight()}...';
+}
+
 String? _scanSessionSupplierKeyFor(String? supplier) {
   final normalized = (supplier ?? '').trim().toUpperCase();
   if (normalized.isEmpty) {
@@ -212,7 +251,9 @@ void _scanSessionSetWastage(_ScanSessionScreenState state, String value) {
 }
 
 void _scanSessionSetNotes(_ScanSessionScreenState state, String value) {
-  state._draft = state._draft.copyWith(notes: value);
+  state._updateDraftState(() {
+    state._draft = state._draft.copyWith(notes: value);
+  });
 }
 
 void _scanSessionChangeCustomer(_ScanSessionScreenState state) {
@@ -330,96 +371,95 @@ void _scanSessionUnlockDetails(_ScanSessionScreenState state) {
   });
 }
 
-void _scanSessionSimulateScanItem(_ScanSessionScreenState state) {
+Future<void> _scanSessionStartScanner(_ScanSessionScreenState state) async {
   if (!state._draft.isLocked) {
     return;
   }
 
-  final sequence = state._draft.totalItems + 1;
-  const samples = <({
-    String code,
-    double gross,
-    double stone,
-    double other,
-    double stoneAmount,
-    double? otherAmount,
-    double? msAmount,
-    double? ssAmount,
-    double? totalStoneAmount,
-  })>[
-    (
-      code: 'TGGR-808',
-      gross: 5.499,
-      stone: 0.000,
-      other: 0.000,
-      stoneAmount: 0.00,
-      otherAmount: null,
-      msAmount: null,
-      ssAmount: null,
-      totalStoneAmount: 0.00,
+  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  final rawQr = await state.context.push<String>(
+    '/scanner',
+    extra: ScannerLaunchArgs(
+      sessionKey: 'scan-session-${DateTime.now().microsecondsSinceEpoch}',
+      mode: ScannerLaunchMode.scanSession,
     ),
-    (
-      code: 'SWJ-289',
-      gross: 7.180,
-      stone: 0.174,
-      other: 0.000,
-      stoneAmount: 0.00,
-      otherAmount: null,
-      msAmount: null,
-      ssAmount: null,
-      totalStoneAmount: 0.00,
-    ),
-    (
-      code: 'TCCBJ-167-SIZE23',
-      gross: 6.100,
-      stone: 0.043,
-      other: 0.000,
-      stoneAmount: 0.00,
-      otherAmount: null,
-      msAmount: null,
-      ssAmount: null,
-      totalStoneAmount: 0.00,
-    ),
-    (
-      code: 'YNGR-136-RF',
-      gross: 4.840,
-      stone: 0.000,
-      other: 0.125,
-      stoneAmount: 0.00,
-      otherAmount: null,
-      msAmount: null,
-      ssAmount: null,
-      totalStoneAmount: 0.00,
-    ),
-  ];
-  final sample = samples[(sequence - 1) % samples.length];
-  final supplierName = state._draft.supplier ?? 'Selected supplier';
-  final category = state._draft.selectedCategory;
-  final karat = state._draft.karat ?? '18K';
-  final purity = state._draft.selectedPurity ?? 75.15;
-  final wastage = state._draft.selectedWastage ?? 10.0;
-  final item = ScannedSessionItem(
-    id: 'scan-item-$sequence',
-    itemCode: sample.code,
-    supplier: supplierName,
-    category: category,
-    karat: karat,
-    purityPercent: purity,
-    wastagePercent: wastage,
-    grossWeight: sample.gross,
-    stoneWeight: sample.stone,
-    otherWeight: sample.other,
-    stoneAmount: sample.stoneAmount,
-    otherAmount: sample.otherAmount,
-    msAmount: sample.msAmount,
-    ssAmount: sample.ssAmount,
-    totalStoneAmount: sample.totalStoneAmount,
-    hasPurityOverride: state._draft.purityIsCustom,
-    hasWastageOverride: state._draft.wastageIsCustom,
-    warningLabel: state._draft.purityIsCustom || state._draft.wastageIsCustom
-        ? 'Custom values applied'
-        : null,
   );
+  if (rawQr == null || rawQr.trim().isEmpty) {
+    return;
+  }
+  if (!state.mounted) {
+    return;
+  }
+
+  ParseQrResult parsed;
+  try {
+    parsed = await state.ref.read(saleRepositoryProvider).parseQr(
+          rawQr,
+          supplierId: supplierModel?.id,
+        );
+  } catch (_) {
+    parsed = ParseQrResult.empty(rawQr);
+  }
+
+  if (!state.mounted) {
+    return;
+  }
+
+  final item = _scanSessionBuildScannedItemFromParse(
+    state: state,
+    rawQr: rawQr,
+    parseResult: parsed,
+  );
+
+  final shouldWarn =
+      item.isDuplicate || item.hasSupplierMismatch || item.requiresReview || item.warningLabel != null;
+  if (shouldWarn) {
+    final warnings = <String>[
+      if (item.isDuplicate) 'This item already exists in this session.',
+      if (item.hasSupplierMismatch) 'This scan belongs to a different supplier.',
+      if (item.requiresReview) 'Net mismatch requires review.',
+      if (item.warningLabel != null && item.warningLabel!.trim().isNotEmpty) item.warningLabel!.trim(),
+    ];
+
+    final keepItem = await showDialog<bool>(
+      context: state.context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Scan warning'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('This scan has warnings. Choose whether to keep it in the session.'),
+              const SizedBox(height: 12),
+              ...warnings.map(
+                (warning) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('- ${_scanSessionDisplayWarningLabel(warning)}'),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              child: const Text('Discard item'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Keep item'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (keepItem != true || !state.mounted) {
+      return;
+    }
+  }
 
   state._updateDraftState(() {
     state._draft = state._draft.copyWith(
@@ -429,8 +469,128 @@ void _scanSessionSimulateScanItem(_ScanSessionScreenState state) {
       ],
     );
   });
-  SystemSound.play(SystemSoundType.click);
+  await state._playSuccessTone();
   HapticFeedback.selectionClick();
+}
+
+ScannedSessionItem _scanSessionBuildScannedItemFromParse({
+  required _ScanSessionScreenState state,
+  required String rawQr,
+  required ParseQrResult parseResult,
+}) {
+  String? pickText(ParsedField<String> field) {
+    final value = field.value?.trim();
+    return value == null || value.isEmpty ? null : value;
+  }
+
+  double pickDouble(ParsedField<double> field, double fallback) {
+    return field.value ?? fallback;
+  }
+
+  double roundToPrecision(double value, {int digits = 3}) {
+    return double.parse(value.toStringAsFixed(digits));
+  }
+
+  double? readNestedDouble(Map<String, dynamic>? root, List<String> path) {
+    dynamic current = root;
+    for (final segment in path) {
+      if (current is Map<String, dynamic>) {
+        current = current[segment];
+        continue;
+      }
+      return null;
+    }
+
+    if (current is num) {
+      return current.toDouble();
+    }
+    return double.tryParse(current?.toString() ?? '');
+  }
+
+  final selectedSupplier = state._draft.supplier?.trim();
+  final parsedSupplier = parseResult.supplier?.name.trim();
+  final parsedKarat = pickText(parseResult.karat);
+  final lockedKarat = state._draft.karat?.trim();
+  final appliedKarat = (lockedKarat != null && lockedKarat.isNotEmpty)
+      ? lockedKarat
+      : (parsedKarat ?? '18K');
+  final hasKaratMismatch =
+      lockedKarat != null &&
+      lockedKarat.isNotEmpty &&
+      parsedKarat != null &&
+      _scanSessionNormalizeText(parsedKarat) != _scanSessionNormalizeText(lockedKarat);
+  final displayRequiresReview = parseResult.displaySnapshot?['requiresReview'] == true;
+  final supplierName = (parsedSupplier != null && parsedSupplier.isNotEmpty)
+      ? parsedSupplier
+      : (selectedSupplier != null && selectedSupplier.isNotEmpty)
+          ? selectedSupplier
+          : 'Selected supplier';
+  final itemCode = pickText(parseResult.itemCode) ?? rawQr.trim();
+  final category = pickText(parseResult.category) ?? state._draft.selectedCategory;
+  final purity = state._draft.selectedPurity ?? state._draft.originalPurity ?? 0;
+  final wastage = state._draft.selectedWastage ?? state._draft.resolvedWastageDefault;
+  final displaySnapshot = parseResult.displaySnapshot;
+  final stoneAmount = readNestedDouble(displaySnapshot, ['amounts', 'stoneAmount']);
+  final otherAmount = readNestedDouble(displaySnapshot, ['amounts', 'otherAmount']);
+  final grossWeight = roundToPrecision(pickDouble(parseResult.grossWeight, 0));
+  final stoneWeight = roundToPrecision(pickDouble(parseResult.stoneWeight, 0));
+  final otherWeight = roundToPrecision(pickDouble(parseResult.otherWeight, 0));
+  final isDuplicate = state._draft.scannedItems.any(
+    (item) =>
+        _scanSessionNormalizeText(item.itemCode) == _scanSessionNormalizeText(itemCode) &&
+        _scanSessionNormalizeText(item.supplier) == _scanSessionNormalizeText(supplierName),
+  );
+  final hasSupplierMismatch =
+      selectedSupplier != null &&
+      parsedSupplier != null &&
+      _scanSessionNormalizeText(parsedSupplier) != _scanSessionNormalizeText(selectedSupplier);
+  final warnings = <String>[];
+  if (parseResult.hasErrors) {
+    warnings.add(parseResult.errors.first.reason);
+  }
+  if (displayRequiresReview) {
+    warnings.add('Net mismatch requires review');
+  }
+  if (hasSupplierMismatch) {
+    warnings.add('Supplier mismatch');
+  }
+  if (hasKaratMismatch) {
+    warnings.add('QR Karat Mismatch');
+  }
+  if (isDuplicate) {
+    warnings.add('Duplicate item');
+  }
+
+  return ScannedSessionItem(
+    id: 'scan-item-${DateTime.now().microsecondsSinceEpoch}',
+    itemCode: itemCode,
+    supplier: supplierName,
+    rawQr: rawQr.trim(),
+    category: category,
+    jewelType: null,
+    qrKarat: parsedKarat,
+    karat: appliedKarat,
+    purityPercent: purity,
+    wastagePercent: wastage,
+    grossWeight: grossWeight,
+    stoneWeight: stoneWeight,
+    otherWeight: otherWeight,
+    stoneAmount: stoneAmount == null ? null : roundToPrecision(stoneAmount, digits: 2),
+    otherAmount: otherAmount == null ? null : roundToPrecision(otherAmount, digits: 2),
+    msAmount: null,
+    ssAmount: null,
+    totalStoneAmount: stoneAmount == null ? null : roundToPrecision(stoneAmount, digits: 2),
+    isDuplicate: isDuplicate,
+    hasSupplierMismatch: hasSupplierMismatch,
+    hasKaratMismatch: hasKaratMismatch,
+    hasWeightMismatch: displayRequiresReview,
+    hasPurityOverride: state._draft.purityIsCustom,
+    hasWastageOverride: state._draft.wastageIsCustom,
+    requiresReview: displayRequiresReview,
+    warningLabel: warnings.isEmpty
+        ? null
+        : warnings.map(_scanSessionDisplayWarningLabel).join('; '),
+  );
 }
 
 List<ScannedSessionItem> _scanSessionVisibleScannedItems(
@@ -476,3 +636,66 @@ Future<String?> _scanSessionShowSelectionSheet(
     },
   );
 }
+
+void _scanSessionDiscardDraft(_ScanSessionScreenState state) {
+  state._updateDraftState(() {
+    state._draft = const ScanSessionDraft(customer: null);
+    state._purityController.clear();
+    state._wastageController.clear();
+    state._itemSearchController.clear();
+    state._localValidationMessage = null;
+  });
+}
+
+void _scanSessionClearItems(_ScanSessionScreenState state) {
+  state._updateDraftState(() {
+    state._draft = state._draft.copyWith(scannedItems: const <ScannedSessionItem>[]);
+  });
+}
+
+Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
+  if (!state._draft.isLocked) {
+    return;
+  }
+
+  final item = await showModalBottomSheet<ScannedSessionItem>(
+    context: state.context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) {
+      return ScanSessionManualEntrySheet(draft: state._draft);
+    },
+  );
+
+  if (!state.mounted || item == null) {
+    return;
+  }
+
+  state._updateDraftState(() {
+    state._draft = state._draft.copyWith(
+      scannedItems: <ScannedSessionItem>[
+        ...state._draft.scannedItems,
+        item,
+      ],
+    );
+  });
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -198,6 +198,8 @@ Re-use list and card primitives for:
 - summary totals
 - share/download placeholders
 - item tables
+- report-mode chips
+- customer profile session rows
 
 ## 6. Navigation Flow
 
@@ -221,7 +223,10 @@ Keep GoRouter, but align routes to the V2 flow:
 - No dashboard manual-entry CTA as a primary action.
 - Customer selection should be the first meaningful step after starting a scan.
 - Scan setup and active scanning are two states of the same scan-session flow.
-- Final save returns to summary or history, not to a batch screen.
+- Final save returns to Sales Summary first, then My Sales / Scans or Customer Profile.
+- Sales Summary must always have a clear back button.
+- Report preview must always have a clear back button.
+- My Sales / Scans must not trap the user after save.
 
 ## 7. Customer Model
 
@@ -249,7 +254,9 @@ Customer profile should show:
 - phone
 - area / location
 - optional email
-- recent scan-session references
+- lifetime total sessions
+- lifetime fine weight
+- recent sessions
 - any relevant notes
 
 ## 8. Scan Session State
@@ -465,12 +472,23 @@ Sales Summary should show:
 - customer
 - totals
 - share/download placeholders
+- report options:
+  - Item-wise
+  - Supplier-wise
+  - Karat-wise
+  - Wastage-wise
+  - Category-wise
 - filters
 - item list/table
 
 ### 13.9 My Sales / Scans
 
 This is the read-only history surface for finalized or saved scan sessions.
+It should:
+- show recent saved sales
+- search by customer name or phone
+- open Customer Profile when a customer has multiple saved sessions
+- open Sales Summary directly when a single session is selected
 
 ### 13.10 Back Confirmation Modal
 
@@ -594,4 +612,4 @@ Likely touch points:
 - Should return/deletion requests be shown in history immediately, or only after admin approval?
 - Should the dashboard offer one universal `Start Scan` action, or separate entry points for setup and resume?
 - Should draft recovery auto-restore on app start, or ask for confirmation first?
-
+- Should report-mode selection persist across returning to Sales Summary, or reset to Item-wise each time?

@@ -15,7 +15,8 @@
     "test:qr-reporting": "node src/scripts/test-qr-reporting.js",
     "test:qr-corrections": "node src/scripts/test-qr-corrections.js",
     "test:precision": "node src/scripts/test-precision.js",
-    "test:qr-samples": "node src/scripts/test-qr-sample-regression.js"
+    "test:qr-samples": "node src/scripts/test-qr-sample-regression.js",
+    "test:aayra": "node src/scripts/test-aayra-parser.js"
   },
   "keywords": [],
   "author": "",

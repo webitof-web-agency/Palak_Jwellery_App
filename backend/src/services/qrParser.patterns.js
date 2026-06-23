@@ -213,6 +213,70 @@ const isLikelyVenzoraRaw = (raw) => {
   return hasInternalId && hasKarat && hasGrossPrefix && hasLessPrefix && hasNetPrefix && hasStoneAmount && hasDesignCode
 }
 
+// ─── Aayra detection helpers ──────────────────────────────────────────────────
+
+/**
+ * Detects Aayra slash-format QR.
+ * Format: <itemCode>/<grossToken>/<stoneToken>/<netToken>/<optionalRef>
+ * Example: N66162/G 4.168/L 0.52/N 3.648/LR-M271
+ *
+ * Rules:
+ * - Exactly 5 slash-separated tokens
+ * - Token 0 is non-empty (item/design code)
+ * - Tokens 1, 2, 3 each contain a parseable number after stripping any leading alpha prefix
+ * - Does NOT require token 4 to match any fixed prefix (LR- or otherwise)
+ * - Supplier-safe: only fires when the matched supplier is named "aayra"
+ */
+const isLikelyAayraSlashRaw = (raw) => {
+  const text = normalizeRaw(raw)
+  // Must not contain a tab — that's the tab-format path
+  if (text.includes('\t')) return false
+
+  const parts = text.split('/').map((p) => p.trim())
+  if (parts.length !== 5) return false
+  if (!parts[0]) return false // token 0 = item code, must be non-empty
+
+  // Strip any leading alphabetic prefix + optional whitespace, then parse as number
+  const extractNumber = (token) => {
+    const numeric = token.replace(/^[A-Za-z]+\s*/, '').trim()
+    return numeric !== '' && Number.isFinite(Number(numeric))
+  }
+
+  // Tokens 1, 2, 3 must all yield a valid number
+  return extractNumber(parts[1]) && extractNumber(parts[2]) && extractNumber(parts[3])
+}
+
+/**
+ * Detects Aayra tab-separated QR.
+ * Format: <code>\t<itemText>\t<gross>\t<stone>\t<net>
+ * Example: 00002416\tNMLR18 B0019\t2.586\t0.000\t2.586
+ *
+ * Rules:
+ * - ≥ 5 tab-separated fields
+ * - Field 0 non-empty (serial/code, numeric or alphanumeric — not assumed 8-digit)
+ * - Field 1 non-empty (item/category text)
+ * - Fields 2, 3, 4 are numerically parseable
+ *
+ * Note: The tab format is structurally generic; it only fires if the detected supplier is "aayra".
+ * Ambiguous parses are flagged as lower confidence / requiresReview rather than failing.
+ */
+const isLikelyAayraTabRaw = (raw) => {
+  const text = normalizeRaw(raw)
+  if (!text.includes('\t')) return false
+
+  const parts = text.split('\t')
+  if (parts.length < 5) return false
+  if (!parts[0].trim()) return false // field 0 non-empty
+  if (!parts[1].trim()) return false // field 1 non-empty
+
+  const isNumeric = (value) => {
+    const trimmed = value.trim()
+    return trimmed !== '' && Number.isFinite(Number(trimmed))
+  }
+
+  return isNumeric(parts[2]) && isNumeric(parts[3]) && isNumeric(parts[4])
+}
+
 export {
   ADINATH_PATTERN,
   VENZORA_PATTERN,
@@ -224,6 +288,8 @@ export {
   YUG_COLOR_PATTERN,
   YUG_KARAT_PATTERN,
   YUG_METAL_PATTERN,
+  isLikelyAayraSlashRaw,
+  isLikelyAayraTabRaw,
   isLikelyAdinathStructuralRaw,
   isLikelyAdinathRaw,
   isLikelyUtsavRaw,

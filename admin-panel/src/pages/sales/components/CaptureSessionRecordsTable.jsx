@@ -6,7 +6,7 @@ import { buttonStyles, formatSessionStatusLabel, getName } from '../salesPage.ut
 
 const formatValue = (value) => {
   if (value === null || value === undefined || value === '') {
-    return '—'
+    return '-'
   }
 
   return String(value)
@@ -14,7 +14,7 @@ const formatValue = (value) => {
 
 const formatWeightValue = (value) => {
   if (value === null || value === undefined || value === '') {
-    return '—'
+    return '-'
   }
 
   return formatWeight(value)
@@ -42,11 +42,41 @@ const StatusBadge = ({ status }) => {
   )
 }
 
+const WarningBadge = ({ session }) => {
+  const warnings = Number(session?.warningsCount) || 0
+  const reviews = Number(session?.reviewCount) || 0
+  const duplicates = Number(session?.duplicateCount) || 0
+  const overrides = Number(session?.manualOverrideCount) || 0
+
+  const titleParts = []
+  if (reviews) titleParts.push(`${reviews} review`)
+  if (duplicates) titleParts.push(`${duplicates} duplicate`)
+  if (overrides) titleParts.push(`${overrides} override`)
+
+  if (!warnings) {
+    return <span className="inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] surface-panel-faint border-[var(--jsm-border)] text-muted">None</span>
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className="inline-flex items-center rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-amber-200"
+        title={titleParts.join(' | ') || 'Warnings recorded'}
+      >
+        {warnings} warning{warnings === 1 ? '' : 's'}
+      </span>
+      {titleParts.length ? (
+        <span className="text-[11px] leading-4 text-muted">{titleParts.join(' | ')}</span>
+      ) : null}
+    </div>
+  )
+}
+
 const LoadingRows = () => (
   <tbody className="divide-y divide-[var(--jsm-border)]">
     {[...Array(6)].map((_, rowIndex) => (
       <tr key={rowIndex}>
-        {[...Array(12)].map((__, cellIndex) => (
+        {[...Array(10)].map((__, cellIndex) => (
           <td key={cellIndex} className="px-5 py-4">
             <div className="skeleton-line h-4" />
           </td>
@@ -81,19 +111,17 @@ export default function CaptureSessionRecordsTable({
   return (
     <SectionCard className="!p-0 overflow-hidden">
       <div className="overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
-        <table className="w-full min-w-[1500px] text-left">
+        <table className="w-full min-w-[1350px] text-left">
           <thead>
             <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
-              <th className="px-5 py-4">Session Ref</th>
               <th className="px-5 py-4">Date</th>
-              <th className="px-5 py-4">Customer / Reference</th>
-              <th className="px-5 py-4">Assigned Salesman</th>
-              <th className="px-5 py-4 text-right">Suppliers</th>
+              <th className="px-5 py-4">Customer</th>
+              <th className="px-5 py-4">Salesman</th>
               <th className="px-5 py-4 text-right">Items</th>
-              <th className="px-5 py-4 text-right">Gross Total</th>
-              <th className="px-5 py-4 text-right">Stone Total</th>
-              <th className="px-5 py-4 text-right">Net Total</th>
-              <th className="px-5 py-4 text-right">Fine Total</th>
+              <th className="px-5 py-4 text-right">Gross</th>
+              <th className="px-5 py-4 text-right">Net</th>
+              <th className="px-5 py-4 text-right">Fine</th>
+              <th className="px-5 py-4">Warnings</th>
               <th className="px-5 py-4">Status</th>
               <th className="px-5 py-4 text-right">Actions</th>
             </tr>
@@ -104,7 +132,7 @@ export default function CaptureSessionRecordsTable({
           ) : sessions.length === 0 ? (
             <tbody>
               <tr>
-                <td colSpan="12" className="px-5 py-6">
+                <td colSpan="10" className="px-5 py-6">
                   <EmptyState
                     title="No capture sessions found"
                     description="Try widening the date range or clearing a filter."
@@ -116,28 +144,23 @@ export default function CaptureSessionRecordsTable({
             <tbody className="divide-y divide-[var(--jsm-border)]">
               {sessions.map((session) => {
                 const actionBusy = actionLoadingSessionId === session._id
-                const customerText = [session?.customerName, session?.referenceNote]
+                const customerLabel = session?.customerName || session?.customerPhone || 'Unknown'
+                const customerMeta = [session?.customerPhone, session?.referenceNote]
                   .filter((value) => value !== null && value !== undefined && value !== '')
-                  .join(' · ')
+                  .join(' | ')
 
                 return (
                   <tr key={session._id} className="hover:bg-[var(--jsm-panel-bg-faint)]">
-                    <td className="px-5 py-4 font-mono text-xs text-muted whitespace-nowrap">
-                      {session.sessionRef || '—'}
-                    </td>
                     <td className="px-5 py-4 whitespace-nowrap text-primary">
                       {formatDateTime(session.createdAt || session.updatedAt)}
+                      <div className="mt-1 font-mono text-[11px] text-muted">{session.sessionRef || '-'}</div>
                     </td>
                     <td className="px-5 py-4 text-primary">
-                      <div className="max-w-[280px] truncate">
-                        {formatValue(customerText)}
-                      </div>
+                      <div className="max-w-[260px] truncate font-semibold">{formatValue(customerLabel)}</div>
+                      {customerMeta ? <div className="mt-1 text-[11px] text-muted">{customerMeta}</div> : null}
                     </td>
                     <td className="px-5 py-4 whitespace-nowrap text-primary">
                       {getName(session?.assignedSalesman)}
-                    </td>
-                    <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
-                      {formatValue(session?.supplierCount)}
                     </td>
                     <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
                       {formatValue(session?.itemCount)}
@@ -146,34 +169,45 @@ export default function CaptureSessionRecordsTable({
                       {formatWeightValue(session?.totals?.grossWeight)}
                     </td>
                     <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
-                      {formatWeightValue(session?.totals?.stoneWeight)}
-                    </td>
-                    <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
                       {formatWeightValue(session?.totals?.netWeight)}
                     </td>
                     <td className="px-5 py-4 text-right whitespace-nowrap text-primary">
                       {formatWeightValue(session?.totals?.fineWeight)}
                     </td>
                     <td className="px-5 py-4">
+                      <WarningBadge session={session} />
+                    </td>
+                    <td className="px-5 py-4">
                       <StatusBadge status={session?.status} />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <button
-                        type="button"
-                        className={buttonStyles.ghost}
-                        onClick={() => onViewSession?.(session._id)}
-                        aria-label={`View session ${session.sessionRef || 'details'}`}
-                        disabled={actionBusy && viewingSessionId === session._id}
-                      >
-                        {actionBusy && viewingSessionId === session._id ? (
-                          <>
-                            <LoadingSpinner />
-                            Opening...
-                          </>
-                        ) : (
-                          'View session'
-                        )}
-                      </button>
+                      <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
+                        <button
+                          type="button"
+                          className={buttonStyles.ghost}
+                          onClick={() => onViewSession?.(session._id)}
+                          aria-label={`View session ${session.sessionRef || 'details'}`}
+                          disabled={actionBusy && viewingSessionId === session._id}
+                        >
+                          {actionBusy && viewingSessionId === session._id ? (
+                            <>
+                              <LoadingSpinner />
+                              Opening...
+                            </>
+                          ) : (
+                            'View'
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          className={buttonStyles.secondary}
+                          disabled
+                          title="Coming soon"
+                          aria-label={`Delete session ${session.sessionRef || 'details'} coming soon`}
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 )

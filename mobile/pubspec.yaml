@@ -39,6 +39,11 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   go_router: ^17.2.2
   mobile_scanner: ^7.2.0
+  pdf: ^3.12.0
+  path_provider: ^2.1.5
+  printing: ^5.14.3
+  share_plus: ^13.1.0
+  font_awesome_flutter: ^11.0.0
 
 dev_dependencies:
   flutter_test:

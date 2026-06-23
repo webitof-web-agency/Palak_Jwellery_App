@@ -8,7 +8,9 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiry: process.env.JWT_EXPIRY || '8h',
   bcryptRounds: parseInt(process.env.BCRYPT_ROUNDS || '12'),
-  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  corsOrigin: process.env.CORS_ORIGIN 
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()) 
+    : ['http://localhost:5173'],
   qrWarningsRequireReview: String(process.env.QR_WARNINGS_REQUIRE_REVIEW || 'false').toLowerCase() === 'true',
   defaultStoneRate: Number.isFinite(Number.parseFloat(process.env.DEFAULT_STONE_RATE))
     ? Number.parseFloat(process.env.DEFAULT_STONE_RATE)

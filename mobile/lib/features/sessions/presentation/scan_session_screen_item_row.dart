@@ -11,13 +11,17 @@ class _ScannedItemCard extends StatelessWidget {
   final int serialNumber;
   final bool showDivider;
 
-  String _formatValue(double value) => value.toStringAsFixed(2);
+  String _formatValue(double value) => value.toStringAsFixed(3);
+
+  String _formatPercent(double value) => value.toStringAsFixed(2);
+
+  String _formatAmountValue(double value) => value.toStringAsFixed(2);
 
   String? _formatAmount(double? value) {
     if (value == null || value == 0) {
       return null;
     }
-    return 'Rs. ${_formatValue(value)}';
+    return 'Rs. ${_formatAmountValue(value)}';
   }
 
   Widget _chip(String label, String value) {
@@ -45,19 +49,52 @@ class _ScannedItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final categoryLabel = (item.category ?? '').trim();
     final jewelTypeLabel = (item.jewelType ?? '').trim();
-    final detailParts = <String>[
-      item.supplier,
+    final lineParts = <String>[
+      if (item.supplier.trim().isNotEmpty) item.supplier.trim(),
       if (categoryLabel.isNotEmpty) categoryLabel,
       if (jewelTypeLabel.isNotEmpty) jewelTypeLabel,
     ];
-    final supplierCategoryLine = detailParts.isEmpty
-        ? 'Category pending'
-        : detailParts.join(' | ');
-    final hasCategoryOrType = categoryLabel.isNotEmpty || jewelTypeLabel.isNotEmpty;
+    final detailLine = lineParts.join(' | ');
+
     final topBadges = <Widget>[
+      if (item.isDuplicate)
+        const AppBadge(
+          label: 'Duplicate',
+          tone: AppBadgeTone.warning,
+          icon: Icons.copy_rounded,
+          compact: true,
+        ),
+      if (item.hasSupplierMismatch)
+        const AppBadge(
+          label: 'Supplier mismatch',
+          tone: AppBadgeTone.warning,
+          icon: Icons.swap_horiz_rounded,
+          compact: true,
+        ),
+      if (item.requiresReview)
+        const AppBadge(
+          label: 'Needs review',
+          tone: AppBadgeTone.warning,
+          icon: Icons.rule_rounded,
+          compact: true,
+        ),
+      if (item.hasKaratMismatch)
+        const AppBadge(
+          label: 'QR Karat Mismatch',
+          tone: AppBadgeTone.warning,
+          icon: Icons.swap_vert_rounded,
+          compact: true,
+        ),
+      if (item.hasWeightMismatch)
+        const AppBadge(
+          label: 'Weight mismatch',
+          tone: AppBadgeTone.warning,
+          icon: Icons.scale_rounded,
+          compact: true,
+        ),
       if (item.warningLabel != null)
         AppBadge(
-          label: item.warningLabel!,
+          label: _scanSessionDisplayWarningLabel(item.warningLabel!),
           tone: AppBadgeTone.warning,
           icon: Icons.warning_amber_rounded,
           compact: true,
@@ -86,73 +123,89 @@ class _ScannedItemCard extends StatelessWidget {
               : BorderSide.none,
         ),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: AppSpacing.md),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '#$serialNumber • ${item.itemCode}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w800,
+      child: Padding(
+        padding: const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '#$serialNumber - ${item.itemCode}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      supplierCategoryLine,
-                      style: TextStyle(
-                        color: hasCategoryOrType
-                            ? AppColors.textSecondary
-                            : AppColors.textMuted,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+                      if (detailLine.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          detailLine,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-              ),
-              if (topBadges.isNotEmpty) AppBadgeRow(children: topBadges),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              _chip('Gross', '${_formatValue(item.grossWeight)} g'),
-              _chip('Stone', '${_formatValue(item.stoneWeight)} g'),
-              _chip('Other', '${_formatValue(item.otherWeight)} g'),
-              _chip('Net', '${_formatValue(item.netWeight)} g'),
-              _chip('Fine', '${_formatValue(item.fineWeight)} g'),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              _chip('Karat', item.karat),
-              _chip('Purity', '${_formatValue(item.purityPercent)}%'),
-              _chip('Wastage', '${_formatValue(item.wastagePercent)}%'),
-              if (_formatAmount(item.totalStoneAmount ?? item.stoneAmount) != null)
-                _chip('Stone Amt', _formatAmount(item.totalStoneAmount ?? item.stoneAmount)!),
-              if (_formatAmount(item.otherAmount) != null)
-                _chip('Other Amt', _formatAmount(item.otherAmount)!),
-              if (_formatAmount(item.msAmount) != null)
-                _chip('MS Amt', _formatAmount(item.msAmount)!),
-              if (_formatAmount(item.ssAmount) != null)
-                _chip('SS Amt', _formatAmount(item.ssAmount)!),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-        ],
+                if (topBadges.isNotEmpty)
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.topRight,
+                      child: AppBadgeRow(children: topBadges),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _chip('Gross', '${_formatValue(item.grossWeight)} g'),
+                _chip('Stone', '${_formatValue(item.stoneWeight)} g'),
+                _chip('Other', '${_formatValue(item.otherWeight)} g'),
+                _chip('Net', '${_formatValue(item.netWeight)} g'),
+                _chip('Fine', '${_formatValue(item.fineWeight)} g'),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Wrap(
+              spacing: AppSpacing.xs,
+              runSpacing: AppSpacing.xs,
+              children: [
+                _chip('Karat', item.karat),
+                _chip('Purity', '${_formatPercent(item.purityPercent)}%'),
+                _chip('Wastage', '${_formatPercent(item.wastagePercent)}%'),
+                if (_formatAmount(item.totalStoneAmount ?? item.stoneAmount) != null)
+                  _chip('Stone Amt', _formatAmount(item.totalStoneAmount ?? item.stoneAmount)!),
+                if (_formatAmount(item.otherAmount) != null)
+                  _chip('Other Amount', _formatAmount(item.otherAmount)!),
+                if (_formatAmount(item.msAmount) != null)
+                  _chip('MS Amt', _formatAmount(item.msAmount)!),
+                if (_formatAmount(item.ssAmount) != null)
+                  _chip('SS Amt', _formatAmount(item.ssAmount)!),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+
+
+
+
+
+
+
+

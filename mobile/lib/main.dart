@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -19,9 +19,14 @@ import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
 import 'features/scanner/presentation/scanner_launch_args.dart';
 import 'features/sessions/presentation/create_session_screen.dart';
+import 'features/sessions/domain/scan_session_draft.dart';
+import 'features/sessions/presentation/finish_scan_confirmation_screen.dart';
 import 'features/sessions/presentation/my_sessions_screen.dart';
 import 'features/sessions/presentation/session_detail_screen.dart';
+import 'features/sessions/presentation/customer_profile_screen.dart';
+import 'features/sessions/presentation/sales_scans_screen.dart';
 import 'features/sessions/presentation/scan_session_screen.dart';
+import 'features/sessions/presentation/scan_session_summary_screen.dart';
 import 'shared/navigation/app_route_observer.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/backend_fallback_screen.dart';
@@ -61,6 +66,49 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        path: '/scan-session/finish',
+        builder: (context, state) {
+          final draft = state.extra is ScanSessionDraft
+              ? state.extra as ScanSessionDraft
+              : const ScanSessionDraft(customer: null);
+          return FinishScanConfirmationScreen(draft: draft);
+        },
+      ),
+      GoRoute(
+        path: '/scan-session/warnings',
+        builder: (context, state) {
+          final draft = state.extra is ScanSessionDraft
+              ? state.extra as ScanSessionDraft
+              : const ScanSessionDraft(customer: null);
+          return WarningItemsScreen(draft: draft);
+        },
+      ),
+      GoRoute(
+        path: '/scan-session/summary',
+        builder: (context, state) {
+          final sessionId = state.uri.queryParameters['sessionId'];
+          return ScanSessionSummaryScreen(sessionId: sessionId);
+        },
+      ),
+      GoRoute(
+        path: '/sales-scans',
+        builder: (context, state) => const SalesScansScreen(),
+      ),
+      GoRoute(
+        path: '/sales-scans/:sessionId',
+        builder: (context, state) {
+          final sessionId = state.pathParameters['sessionId'];
+          return ScanSessionSummaryScreen(sessionId: sessionId);
+        },
+      ),
+      GoRoute(
+        path: '/customers/:customerId',
+        builder: (context, state) {
+          final customerId = state.pathParameters['customerId'] ?? '';
+          return CustomerProfileScreen(customerId: customerId);
+        },
+      ),
+      GoRoute(
         path: '/sessions',
         builder: (context, state) => const MySessionsScreen(),
       ),
@@ -86,6 +134,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return ScannerScreen(
             key: ValueKey('scanner-${args.sessionKey}'),
             batchContext: args.batchContext,
+            launchMode: args.mode,
           );
         },
       ),
@@ -171,10 +220,11 @@ class JewelleryApp extends ConsumerWidget {
     final theme = AppTheme.theme(themePreset);
 
     if (authSession.isLoading || backendStatus.isLoading) {
-      return MaterialApp(
+      return MaterialApp.router(
         debugShowCheckedModeBanner: false,
         theme: theme,
-        home: const _BootScreen(),
+        routerConfig: router,
+        builder: (context, _) => const _BootScreen(),
       );
     }
 
@@ -183,10 +233,11 @@ class JewelleryApp extends ConsumerWidget {
           backendStatus.whenOrNull(error: (error, _) => error.toString()) ??
           'Could not connect to the backend. Check the server and try again.';
 
-      return MaterialApp(
+      return MaterialApp.router(
         debugShowCheckedModeBanner: false,
         theme: theme,
-        home: BackendFallbackScreen(
+        routerConfig: router,
+        builder: (context, _) => BackendFallbackScreen(
           error: errorMessage,
           onRetry: () => ref.invalidate(backendStatusProvider),
         ),
@@ -217,3 +268,8 @@ class _BootScreen extends StatelessWidget {
     );
   }
 }
+
+
+
+
+

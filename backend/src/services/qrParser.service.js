@@ -233,6 +233,17 @@ export const normalizeParsedQR = (parsedResult, supplier) => {
       ]
     }
 
+    if (supplierKey === 'aayra') {
+      // Slash format: itemCode from meta.itemCode (token 0) or designCode
+      // Tab format: itemCode from meta.itemCode (field 1 = category text)
+      return [
+        ['meta', 'itemCode'],
+        ['designCode'],
+        ['meta', 'designCode'],
+        ['category'],
+      ]
+    }
+
     return [
       ['itemCode'],
       ['meta', 'itemCode'],

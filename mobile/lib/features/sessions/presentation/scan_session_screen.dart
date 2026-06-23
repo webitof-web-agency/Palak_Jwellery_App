@@ -6,14 +6,16 @@ import 'package:go_router/go_router.dart';
 import '../../customers/domain/customer_record.dart';
 import '../../sale_entry/data/sale_repository.dart';
 import '../../sale_entry/presentation/sale_entry_provider.dart';
+import '../../scanner/presentation/scanner_launch_args.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/app_action_button.dart';
 import '../../../shared/widgets/app_badge.dart';
 import '../../../shared/widgets/app_banner.dart';
 import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/app_metric_card.dart';
 import '../../../shared/widgets/app_section_header.dart';
+import '../services/scan_session_feedback_service.dart';
+import 'scan_session_manual_entry_sheet.dart';
 import '../domain/scan_session_draft.dart';
 
 part 'scan_session_screen_actions.dart';
@@ -162,6 +164,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   void _setNotes(String value) => _scanSessionSetNotes(this, value);
 
   void _changeCustomer() => _scanSessionChangeCustomer(this);
+  void _manualEntry() => _scanSessionManualEntry(this);
 
   Future<void> _pickSupplier() => _scanSessionPickSupplier(this);
 
@@ -175,7 +178,58 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
 
   void _unlockDetails() => _scanSessionUnlockDetails(this);
 
-  void _simulateScanItem() => _scanSessionSimulateScanItem(this);
+  Future<void> _startScanner() => _scanSessionStartScanner(this);
+
+  Future<void> _playSuccessTone() => playScanSessionSuccessTone();
+
+  Future<void> _confirmDiscardDraft() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Discard Session?'),
+        content: const Text('This will clear all details, settings, and scanned items. Are you sure?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      _scanSessionDiscardDraft(this);
+    }
+  }
+
+  Future<void> _confirmClearItems() async {
+    if (!_draft.hasScannedItems) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Scanned Items?'),
+        content: const Text('This will clear all scanned items but keep the customer and locked settings. Are you sure?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Clear Items'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      _scanSessionClearItems(this);
+    }
+  }
 
   List<ScannedSessionItem> get _visibleScannedItems =>
       _scanSessionVisibleScannedItems(this);
@@ -201,6 +255,14 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
           onPressed: () => context.pop(),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
+        actions: [
+          if (_draft.hasCustomer || _draft.supplier != null || _draft.hasScannedItems)
+            IconButton(
+              onPressed: _confirmDiscardDraft,
+              icon: const Icon(Icons.delete_outline_rounded),
+              tooltip: 'Discard Draft',
+            ),
+        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -236,4 +298,6 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     );
   }
 }
+
+
 

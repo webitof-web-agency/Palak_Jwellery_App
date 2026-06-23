@@ -324,7 +324,8 @@ const buildPdfLines = (records = [], summary = {}, meta = {}) => {
   lines.push(`Report date: ${meta.reportDate || new Date().toISOString().slice(0, 10)}`)
   lines.push(`Total items: ${summary.total_items || 0}`)
   lines.push(``)
-  lines.push(`Design Code | Gross | Stone | Other | Net | Purity | Wastage | Fine | Stone Amt | Other Amt`)
+  // otherAmount is a separate amount bucket, not making charge.
+  lines.push(`Design Code | Gross | Stone | Other | Net | Purity | Wastage | Fine | Stone Amt | Other Amount`)
   lines.push(`--------------------------------------------------------------------------------------------------`)
 
   for (const row of records) {
@@ -437,3 +438,4 @@ export {
   mapReportRow,
   normalizeReportFilters,
 }
+

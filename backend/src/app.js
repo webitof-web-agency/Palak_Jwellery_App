@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit'
 import { config } from './config/env.js'
 import authRoutes from './routes/auth.routes.js'
 import suppliersRoutes from './routes/suppliers.routes.js'
+import customersRoutes from './routes/customers.routes.js'
 import salesRoutes from './routes/sales.routes.js'
 import batchesRoutes from './routes/batches.routes.js'
 import captureSessionsRoutes from './routes/captureSessions.routes.js'
@@ -52,6 +53,7 @@ app.use('/api/v1/auth/login', rateLimit({
 
 // Routes
 app.use('/api/v1/auth', authRoutes)
+app.use('/api/v1/customers', customersRoutes)
 app.use('/api/v1/suppliers', suppliersRoutes)
 app.use('/api/v1/sales', salesRoutes)
 app.use('/api/v1/batches', batchesRoutes)
@@ -73,3 +75,4 @@ app.use((err, req, res, next) => {
 })
 
 export default app
+

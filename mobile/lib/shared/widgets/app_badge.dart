@@ -39,13 +39,19 @@ class AppBadge extends StatelessWidget {
             Icon(icon, size: compact ? 12 : 14, color: foreground),
             const SizedBox(width: 4),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              color: foreground,
-              fontSize: compact ? 11 : 12,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.4,
+          ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: compact ? 112 : 144),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: TextStyle(
+                color: foreground,
+                fontSize: compact ? 11 : 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.4,
+              ),
             ),
           ),
         ],
@@ -105,4 +111,6 @@ class AppBadgeRow extends StatelessWidget {
     );
   }
 }
+
+
 

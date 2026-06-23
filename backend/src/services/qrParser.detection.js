@@ -1,5 +1,6 @@
 import { normalizeRaw, toText } from './qrParser.shared.js'
 import {
+  isLikelyAayraSlashRaw,
   isLikelyAdinathRaw,
   isLikelyUtsavRaw,
   isLikelyVenzoraRaw,
@@ -112,6 +113,17 @@ const detectSupplier = (rawQRString, suppliers = []) => {
     }
   }
 
+  // Aayra: supplier-safe detection — only fires when supplier record is named "aayra".
+  // The pattern checks are structural (positional), not prefix-dependent.
+  const aayraMatch = suppliers.find((supplier) => {
+    const supplierName = toText(supplier?.name)?.toLowerCase()
+    const supplierCode = toText(supplier?.code)?.toLowerCase()
+    return supplierName === 'aayra' || supplierCode === 'aayra'
+  })
+  if (aayraMatch && isLikelyAayraSlashRaw(raw)) {
+    return { supplier: aayraMatch, matchType: 'structural' }
+  }
+
   const regexMatch = suppliers.find((supplier) => matchesRegex(raw, supplier))
   if (regexMatch) return { supplier: regexMatch, matchType: 'regex' }
 
@@ -125,3 +137,5 @@ const detectSupplier = (rawQRString, suppliers = []) => {
 }
 
 export { detectSupplier, getDetectionToken, matchesContains, matchesPrefix, matchesRegex }
+
+

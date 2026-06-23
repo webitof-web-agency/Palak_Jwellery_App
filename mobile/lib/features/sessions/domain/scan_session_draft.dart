@@ -2,6 +2,11 @@ import '../../customers/domain/customer_record.dart';
 
 enum ScanSessionMode { setup, lockedActiveScanning }
 
+double _roundToPrecision(double value, {int digits = 3}) {
+  return double.parse(value.toStringAsFixed(digits));
+}
+
+
 class ScannedSessionItem {
   const ScannedSessionItem({
     required this.id,
@@ -9,6 +14,7 @@ class ScannedSessionItem {
     required this.supplier,
     this.category,
     this.jewelType,
+    this.qrKarat,
     required this.karat,
     required this.purityPercent,
     required this.wastagePercent,
@@ -20,6 +26,12 @@ class ScannedSessionItem {
     this.msAmount,
     this.ssAmount,
     this.totalStoneAmount,
+    this.rawQr,
+    this.requiresReview = false,
+    this.hasKaratMismatch = false,
+    this.isDuplicate = false,
+    this.hasSupplierMismatch = false,
+    this.hasWeightMismatch = false,
     this.hasPurityOverride = false,
     this.hasWastageOverride = false,
     this.warningLabel,
@@ -32,6 +44,8 @@ class ScannedSessionItem {
   // specific jewel type at item level.
   final String? category;
   final String? jewelType;
+  // qrKarat preserves what the QR parsed, while karat stays the applied locked setting.
+  final String? qrKarat;
   final String karat;
   final double purityPercent;
   final double wastagePercent;
@@ -43,17 +57,159 @@ class ScannedSessionItem {
   final double? msAmount;
   final double? ssAmount;
   final double? totalStoneAmount;
+  final String? rawQr;
+  final bool requiresReview;
+  final bool hasKaratMismatch;
+  final bool isDuplicate;
+  final bool hasSupplierMismatch;
+  final bool hasWeightMismatch;
   final bool hasPurityOverride;
   final bool hasWastageOverride;
   final String? warningLabel;
 
   double get netWeight {
     final net = grossWeight - stoneWeight - otherWeight;
-    return net < 0 ? 0 : net;
+    return net < 0 ? 0 : _roundToPrecision(net);
   }
 
   double get fineWeight {
-    return netWeight * (purityPercent + wastagePercent) / 100;
+    return _roundToPrecision(netWeight * (purityPercent + wastagePercent) / 100);
+  }
+
+  bool get hasAnyWarning {
+    return warningLabel != null ||
+        hasKaratMismatch ||
+        isDuplicate ||
+        hasSupplierMismatch ||
+        hasWeightMismatch ||
+        hasPurityOverride ||
+        hasWastageOverride ||
+        requiresReview;
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'itemCode': itemCode,
+      'supplier': supplier,
+      'category': category,
+      'jewelType': jewelType,
+      'qrKarat': qrKarat,
+      'karat': karat,
+      'purityPercent': purityPercent,
+      'wastagePercent': wastagePercent,
+      'grossWeight': grossWeight,
+      'stoneWeight': stoneWeight,
+      'otherWeight': otherWeight,
+      'stoneAmount': stoneAmount,
+      'otherAmount': otherAmount,
+      'msAmount': msAmount,
+      'ssAmount': ssAmount,
+      'totalStoneAmount': totalStoneAmount,
+      'rawQr': rawQr,
+      'requiresReview': requiresReview,
+      'hasKaratMismatch': hasKaratMismatch,
+      'isDuplicate': isDuplicate,
+      'hasSupplierMismatch': hasSupplierMismatch,
+      'hasWeightMismatch': hasWeightMismatch,
+      'hasPurityOverride': hasPurityOverride,
+      'hasWastageOverride': hasWastageOverride,
+      'warningLabel': warningLabel,
+    };
+  }
+
+  factory ScannedSessionItem.fromJson(Map<String, dynamic> json) {
+    double? asDouble(dynamic value) {
+      if (value == null) {
+        return null;
+      }
+      if (value is num) {
+        return value.toDouble();
+      }
+      return double.tryParse(value.toString());
+    }
+
+    return ScannedSessionItem(
+      id: json['id']?.toString() ?? '',
+      itemCode: json['itemCode']?.toString() ?? '',
+      supplier: json['supplier']?.toString() ?? '',
+      category: json['category']?.toString(),
+      jewelType: json['jewelType']?.toString(),
+      qrKarat: json['qrKarat']?.toString(),
+      karat: json['karat']?.toString() ?? '',
+      purityPercent: asDouble(json['purityPercent']) ?? 0,
+      wastagePercent: asDouble(json['wastagePercent']) ?? 0,
+      grossWeight: asDouble(json['grossWeight']) ?? 0,
+      stoneWeight: asDouble(json['stoneWeight']) ?? 0,
+      otherWeight: asDouble(json['otherWeight']) ?? 0,
+      stoneAmount: asDouble(json['stoneAmount']),
+      otherAmount: asDouble(json['otherAmount']),
+      msAmount: asDouble(json['msAmount']),
+      ssAmount: asDouble(json['ssAmount']),
+      totalStoneAmount: asDouble(json['totalStoneAmount']),
+      rawQr: json['rawQr']?.toString(),
+      requiresReview: json['requiresReview'] == true,
+      hasKaratMismatch: json['hasKaratMismatch'] == true,
+      isDuplicate: json['isDuplicate'] == true,
+      hasSupplierMismatch: json['hasSupplierMismatch'] == true,
+      hasWeightMismatch: json['hasWeightMismatch'] == true,
+      hasPurityOverride: json['hasPurityOverride'] == true,
+      hasWastageOverride: json['hasWastageOverride'] == true,
+      warningLabel: json['warningLabel']?.toString(),
+    );
+  }
+}
+
+class ScanSessionWarningCounts {
+  const ScanSessionWarningCounts({
+    required this.duplicates,
+    required this.supplierMismatch,
+    required this.karatMismatch,
+    required this.weightMismatch,
+    required this.customPurityOverrides,
+    required this.customWastageOverrides,
+  });
+
+  final int duplicates;
+  final int supplierMismatch;
+  final int karatMismatch;
+  final int weightMismatch;
+  final int customPurityOverrides;
+  final int customWastageOverrides;
+
+  bool get hasAny =>
+      duplicates > 0 ||
+      supplierMismatch > 0 ||
+      karatMismatch > 0 ||
+      weightMismatch > 0 ||
+      customPurityOverrides > 0 ||
+      customWastageOverrides > 0;
+
+  factory ScanSessionWarningCounts.fromItems(List<ScannedSessionItem> items) {
+    var duplicates = 0;
+    var supplierMismatch = 0;
+    var karatMismatch = 0;
+    var weightMismatch = 0;
+    var customPurityOverrides = 0;
+    var customWastageOverrides = 0;
+
+    for (final item in items) {
+      if (item.isDuplicate) duplicates++;
+      if (item.hasSupplierMismatch) supplierMismatch++;
+      if (item.hasKaratMismatch) karatMismatch++;
+      if (item.hasWeightMismatch) weightMismatch++;
+      if (item.hasPurityOverride) customPurityOverrides++;
+      if (item.hasWastageOverride) customWastageOverrides++;
+    }
+
+    return ScanSessionWarningCounts(
+      duplicates: duplicates,
+      supplierMismatch: supplierMismatch,
+      karatMismatch: karatMismatch,
+      weightMismatch: weightMismatch,
+      customPurityOverrides: customPurityOverrides,
+      customWastageOverrides: customWastageOverrides,
+    );
   }
 }
 
@@ -115,24 +271,25 @@ class ScanSessionDraft {
       supplierDefaultWastage ??
       globalDefaultWastage;
   bool get hasScannedItems => scannedItems.isNotEmpty;
+  bool get hasAnyWarnings => warningCounts.hasAny;
   int get totalItems => scannedItems.length;
   double get totalGrossWeight =>
-      scannedItems.fold(0, (total, item) => total + item.grossWeight);
+      _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.grossWeight));
   double get totalStoneWeight =>
-      scannedItems.fold(0, (total, item) => total + item.stoneWeight);
+      _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.stoneWeight));
   double get totalOtherWeight =>
-      scannedItems.fold(0, (total, item) => total + item.otherWeight);
+      _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.otherWeight));
   double get totalNetWeight =>
-      scannedItems.fold(0, (total, item) => total + item.netWeight);
+      _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.netWeight));
   double get totalFineWeight =>
-      scannedItems.fold(0, (total, item) => total + item.fineWeight);
+      _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.fineWeight));
   double get totalStoneAmount =>
-      scannedItems.fold(
+      _roundToPrecision(scannedItems.fold(
         0,
         (total, item) => total + (item.totalStoneAmount ?? item.stoneAmount ?? 0),
-      );
+      ));
   double get totalOtherAmount =>
-      scannedItems.fold(0, (total, item) => total + (item.otherAmount ?? 0));
+      _roundToPrecision(scannedItems.fold(0, (total, item) => total + (item.otherAmount ?? 0)));
   Map<String, int> get supplierCounts {
     final counts = <String, int>{};
     for (final item in scannedItems) {
@@ -140,6 +297,13 @@ class ScanSessionDraft {
     }
     return counts;
   }
+
+  List<ScannedSessionItem> get warningItems {
+    return scannedItems.where((item) => item.hasAnyWarning).toList(growable: false);
+  }
+
+  ScanSessionWarningCounts get warningCounts =>
+      ScanSessionWarningCounts.fromItems(scannedItems);
 
   ScanSessionDraft copyWith({
     CustomerRecord? customer,
@@ -207,4 +371,68 @@ class ScanSessionDraft {
     }
     return null;
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'customer': customer?.toJson(),
+      'supplier': supplier,
+      'categoryOriginal': categoryOriginal,
+      'categorySelected': categorySelected,
+      'karat': karat,
+      'purityOriginal': purityOriginal,
+      'puritySelected': puritySelected,
+      'wastageOriginal': wastageOriginal,
+      'wastageSelected': wastageSelected,
+      'categoryDefaultWastage': categoryDefaultWastage,
+      'supplierDefaultWastage': supplierDefaultWastage,
+      'globalDefaultWastage': globalDefaultWastage,
+      'scannedItems': scannedItems.map((item) => item.toJson()).toList(growable: false),
+      'notes': notes,
+      'mode': mode.name,
+      'validationMessage': validationMessage,
+    };
+  }
+
+  factory ScanSessionDraft.fromJson(Map<String, dynamic> json) {
+    double? asDouble(dynamic value) {
+      if (value == null) {
+        return null;
+      }
+      if (value is num) {
+        return value.toDouble();
+      }
+      return double.tryParse(value.toString());
+    }
+
+    final items = (json['scannedItems'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(ScannedSessionItem.fromJson)
+        .toList(growable: false);
+
+    return ScanSessionDraft(
+      customer: json['customer'] is Map<String, dynamic>
+          ? CustomerRecord.fromJson(json['customer'] as Map<String, dynamic>)
+          : null,
+      supplier: json['supplier']?.toString(),
+      categoryOriginal: json['categoryOriginal']?.toString(),
+      categorySelected: json['categorySelected']?.toString(),
+      karat: json['karat']?.toString(),
+      purityOriginal: asDouble(json['purityOriginal']),
+      puritySelected: asDouble(json['puritySelected']),
+      wastageOriginal: asDouble(json['wastageOriginal']),
+      wastageSelected: asDouble(json['wastageSelected']),
+      categoryDefaultWastage: asDouble(json['categoryDefaultWastage']),
+      supplierDefaultWastage: asDouble(json['supplierDefaultWastage']),
+      globalDefaultWastage: asDouble(json['globalDefaultWastage']) ?? 10.0,
+      scannedItems: items,
+      notes: json['notes']?.toString() ?? '',
+      mode: json['mode']?.toString() == ScanSessionMode.lockedActiveScanning.name
+          ? ScanSessionMode.lockedActiveScanning
+          : ScanSessionMode.setup,
+      validationMessage: json['validationMessage']?.toString(),
+    );
+  }
 }
+
+
+

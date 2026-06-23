@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
@@ -7,14 +7,20 @@ import '../../batches/domain/batch_capture_context.dart';
 import '../../sale_entry/data/sale_repository.dart';
 import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../../sale_entry/presentation/sale_entry_launch_args.dart';
+import 'scanner_launch_args.dart';
 import '../../../shared/navigation/app_route_observer.dart';
 import '../../../shared/theme/app_theme.dart';
 import 'widgets/scanner_widgets.dart';
 
 class ScannerScreen extends ConsumerStatefulWidget {
-  const ScannerScreen({super.key, this.batchContext});
+  const ScannerScreen({
+    super.key,
+    this.batchContext,
+    this.launchMode = ScannerLaunchMode.saleEntry,
+  });
 
   final BatchCaptureContext? batchContext;
+  final ScannerLaunchMode launchMode;
 
   @override
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
@@ -153,6 +159,13 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     });
     await _controller.stop();
     await Future<void>.delayed(const Duration(milliseconds: 260));
+
+    if (widget.launchMode == ScannerLaunchMode.scanSession) {
+      if (!mounted) return;
+      context.pop(raw);
+      return;
+    }
+
     await _navigateToSaleEntry(rawQr: raw);
   }
 
@@ -263,7 +276,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Batch ${widget.batchContext!.batchRef} • ${widget.batchContext!.noticeText}',
+                              'Batch ${widget.batchContext!.batchRef} â€¢ ${widget.batchContext!.noticeText}',
                               style: TextStyle(
                                 color: AppColors.textSecondary,
                                 height: 1.4,
@@ -394,3 +407,6 @@ class _CameraErrorView extends StatelessWidget {
     );
   }
 }
+
+
+

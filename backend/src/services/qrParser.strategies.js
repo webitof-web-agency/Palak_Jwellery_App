@@ -772,6 +772,231 @@ const parseKeyValueStrategy = (raw) => {
   })
 }
 
+/**
+ * Aayra QR parser — handles both slash-token and tab-separated formats.
+ *
+ * Slash format (positional, 5 tokens):
+ *   <itemCode>/<grossToken>/<stoneToken>/<netToken>/<optionalRef>
+ *   e.g. N66162/G 4.168/L 0.52/N 3.648/LR-M271
+ *
+ * Tab format (positional, ≥5 fields):
+ *   <code>\t<itemText>\t<gross>\t<stone>\t<net>
+ *   e.g. 00002416\tNMLR18 B0019\t2.586\t0.000\t2.586
+ *
+ * Key rules:
+ * - Parser never throws — errors accumulate, partial result always returned.
+ * - Token/field 4 (slash) or field 0 (tab) stored in meta only, not validated.
+ * - computedNetWeight = grossWeight - stoneWeight; mismatch > 0.02g → requiresReview.
+ * - otherAmount is a separate amount bucket, not making charge.
+ */
+const parseAayraStrategy = (raw) => {
+  const strategy = 'aayra'
+  const errors = []
+  const fields = createEmptyFields()
+  const tolerance = 0.02
+
+  if (!raw) {
+    errors.push({ field: 'raw', reason: 'Empty QR' })
+    return createResult({ success: false, strategy, fields, errors, raw })
+  }
+
+  // Helper: strip any leading alpha prefix + optional whitespace, parse as number
+  const parseWeightToken = (token) => {
+    if (!token) return null
+    const numeric = String(token).replace(/^[A-Za-z]+\s*/, '').trim()
+    if (numeric === '') return null
+    const parsed = toNumber(numeric)
+    return parsed
+  }
+
+  const isTabFormat = raw.includes('\t')
+
+  if (isTabFormat) {
+    // ── Tab-separated branch ──────────────────────────────────────────────────
+    const parts = raw.split('\t').map((p) => p.trim())
+
+    // Field 0: serial/code (numeric or alphanumeric — not assumed 8-digit)
+    const serialCode = toText(parts[0] ?? '')
+    if (serialCode) {
+      fields.meta.serialCode = { value: serialCode, parsed: true }
+    } else {
+      errors.push({ field: 'serialCode', reason: 'Field 0 (serial/code) is missing' })
+    }
+
+    // Field 1: item/category text → stored as itemCode and category
+    const itemText = toText(parts[1] ?? '')
+    if (itemText) {
+      fields.meta.itemCode = { value: itemText, parsed: true }
+      fields.category = { value: itemText, parsed: true }
+    } else {
+      errors.push({ field: 'itemCode', reason: 'Field 1 (item/category text) is missing' })
+    }
+
+    // Field 2: gross weight
+    const grossWeight = toNumber(parts[2] ?? '')
+    if (grossWeight === null) {
+      errors.push({ field: 'grossWeight', reason: `Field 2 (gross weight) is missing or invalid: '${parts[2] ?? ''}'` })
+    } else {
+      fields.grossWeight = { value: grossWeight, parsed: true }
+    }
+
+    // Field 3: stone weight
+    const stoneWeightRaw = toNumber(parts[3] ?? '')
+    const stoneWeight = stoneWeightRaw ?? 0
+    fields.stoneWeight = { value: stoneWeight, parsed: stoneWeightRaw !== null }
+
+    // Field 4: QR-provided net weight
+    const qrNetWeight = toNumber(parts[4] ?? '')
+    if (qrNetWeight === null) {
+      errors.push({ field: 'netWeight', reason: `Field 4 (net weight) is missing or invalid: '${parts[4] ?? ''}'` })
+    } else {
+      fields.netWeight = { value: qrNetWeight, parsed: true }
+    }
+
+    fields.otherWeight = { value: 0, parsed: true }
+
+    // Net weight validation
+    const computedNetWeight =
+      grossWeight !== null
+        ? Math.round((grossWeight - stoneWeight) * 1000) / 1000
+        : null
+    const mismatch =
+      computedNetWeight !== null && qrNetWeight !== null
+        ? Math.abs(Number((computedNetWeight - qrNetWeight).toFixed(3)))
+        : null
+    const requiresReview = mismatch !== null && mismatch > tolerance
+    const warnings = []
+    if (requiresReview) {
+      warnings.push('Net weight mismatch beyond tolerance')
+    }
+
+    // Ambiguous tab format → mark for review even if mismatch is within tolerance
+    // (tab format detection is intentionally broad; reviewer can confirm)
+    const isAmbiguous = parts.length === 5 && !requiresReview
+    const confidence = requiresReview ? 58 : isAmbiguous ? 65 : 80
+
+    const data = createResult({
+      success: grossWeight !== null && qrNetWeight !== null && errors.length === 0,
+      strategy,
+      fields,
+      errors,
+      raw,
+      confidence,
+    })
+    data.calculationBreakdown = {
+      rawQr: raw,
+      format: 'tab',
+      grossWeight,
+      stoneWeight,
+      stoneComponents: [{ sourceField: 'field[3]', label: 'Stone Weight', value: stoneWeight }],
+      otherWeight: { sourceField: null, value: 0 },
+      qrNetWeight,
+      computedNetWeight,
+      selectedNetWeight: computedNetWeight ?? qrNetWeight,
+      netFormula: 'computedNetWeight = grossWeight - stoneWeight',
+      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      mismatch,
+      tolerance,
+      warnings,
+      requiresReview,
+    }
+    return data
+  }
+
+  // ── Slash-token branch ────────────────────────────────────────────────────
+  const parts = raw.split('/').map((p) => p.trim())
+
+  if (parts.length !== 5) {
+    errors.push({ field: 'raw', reason: `Expected 5 slash-separated tokens, got ${parts.length}` })
+    return createResult({ success: false, strategy, fields, errors, raw })
+  }
+
+  // Token 0: item/design code
+  const itemCode = toText(parts[0])
+  if (!itemCode) {
+    errors.push({ field: 'itemCode', reason: 'Token 0 (item/design code) is missing' })
+  } else {
+    fields.meta.itemCode = { value: itemCode, parsed: true }
+    fields.designCode = { value: itemCode, parsed: true }
+  }
+
+  // Token 1: gross weight (strips any leading alpha prefix e.g. "G ")
+  const grossWeight = parseWeightToken(parts[1])
+  if (grossWeight === null) {
+    errors.push({ field: 'grossWeight', reason: `Token 1 (gross weight) is missing or invalid: '${parts[1]}'` })
+  } else {
+    fields.grossWeight = { value: grossWeight, parsed: true }
+  }
+
+  // Token 2: stone/less weight (strips any leading alpha prefix e.g. "L ")
+  const stoneWeightRaw = parseWeightToken(parts[2])
+  const stoneWeight = stoneWeightRaw ?? 0
+  fields.stoneWeight = { value: stoneWeight, parsed: stoneWeightRaw !== null }
+
+  // Token 3: QR-provided net weight (strips any leading alpha prefix e.g. "N ")
+  const qrNetWeight = parseWeightToken(parts[3])
+  if (qrNetWeight === null) {
+    errors.push({ field: 'netWeight', reason: `Token 3 (net weight) is missing or invalid: '${parts[3]}'` })
+  } else {
+    fields.netWeight = { value: qrNetWeight, parsed: true }
+  }
+
+  fields.otherWeight = { value: 0, parsed: true }
+
+  // Token 4: optional reference/lot/design text — stored in meta only, never required
+  const referenceText = toText(parts[4])
+  if (referenceText) {
+    fields.meta.referenceText = { value: referenceText, parsed: true }
+  }
+
+  // Net weight validation: computedNetWeight = grossWeight - stoneWeight
+  const computedNetWeight =
+    grossWeight !== null
+      ? Math.round((grossWeight - stoneWeight) * 1000) / 1000
+      : null
+  const mismatch =
+    computedNetWeight !== null && qrNetWeight !== null
+      ? Math.abs(Number((computedNetWeight - qrNetWeight).toFixed(3)))
+      : null
+  const requiresReview = mismatch !== null && mismatch > tolerance
+  const warnings = []
+  if (requiresReview) {
+    warnings.push('Net weight mismatch beyond tolerance')
+  }
+
+  const parsedCount = ['grossWeight', 'stoneWeight', 'netWeight'].reduce(
+    (count, field) => count + (fields[field].parsed ? 1 : 0),
+    0
+  )
+
+  const data = createResult({
+    success: parsedCount >= 2 && errors.length === 0,
+    strategy,
+    fields,
+    errors,
+    raw,
+    confidence: requiresReview ? 65 : 88,
+  })
+  data.calculationBreakdown = {
+    rawQr: raw,
+    format: 'slash',
+    grossWeight,
+    stoneWeight,
+    stoneComponents: [{ sourceField: 'token[2]', label: 'Stone/Less Weight', value: stoneWeight }],
+    otherWeight: { sourceField: null, value: 0 },
+    qrNetWeight,
+    computedNetWeight,
+    selectedNetWeight: computedNetWeight ?? qrNetWeight,
+    netFormula: 'computedNetWeight = grossWeight - stoneWeight',
+    fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+    mismatch,
+    tolerance,
+    warnings,
+    requiresReview,
+  }
+  return data
+}
+
 const runParserByStrategy = (strategy, raw, parserConfig) => {
   if (strategy === 'key_value') {
     return parseKeyValueStrategy(raw)
@@ -781,11 +1006,16 @@ const runParserByStrategy = (strategy, raw, parserConfig) => {
     return parseVenzoraStrategy(raw).data
   }
 
+  if (strategy === 'aayra') {
+    return parseAayraStrategy(raw)
+  }
+
   return parseDelimiterStrategy(raw, parserConfig)
 }
 
 export {
   applyStripPrefix,
+  parseAayraStrategy,
   parseDelimiterStrategy,
   parseKeyValueStrategy,
   parseVenzoraStrategy,

@@ -13,6 +13,8 @@ const SuppliersPage = lazy(() => import('./pages/suppliers/SuppliersPage'))
 const SupplierFormPage = lazy(() => import('./pages/suppliers/SupplierFormPage'))
 const SalesPage = lazy(() => import('./pages/sales/SalesPage'))
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'))
+const CustomersPage = lazy(() => import('./pages/customers/CustomersPage'))
+const CustomerProfilePage = lazy(() => import('./pages/customers/CustomerProfilePage'))
 const UsersPage = lazy(() => import('./pages/users/UsersPage'))
 const ExceptionsPage = lazy(
   () => import('./pages/settlement-workflow/ExceptionsPage'),
@@ -110,6 +112,8 @@ function App() {
           {/* Protected Authenticated Routes with Sidebar */}
           <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/customers" element={<CustomersPage />} />
+            <Route path="/customers/:id" element={<CustomerProfilePage />} />
             <Route path="/suppliers" element={<SuppliersPage />} />
             <Route path="/suppliers/form" element={<SupplierFormPage />} />
             <Route path="/sales" element={<SalesPage />} />
@@ -182,3 +186,5 @@ function App() {
 }
 
 export default App
+
+

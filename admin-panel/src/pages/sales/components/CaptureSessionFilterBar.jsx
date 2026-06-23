@@ -11,11 +11,32 @@ const SelectField = ({ label, id, value, onChange, children }) => (
   </div>
 )
 
+const ToggleField = ({ label, active, onToggle, helper }) => (
+  <div className="field">
+    <span className="field-label">{label}</span>
+    <button
+      type="button"
+      className={`inline-flex min-h-11 items-center justify-between gap-3 rounded-xl border px-4 text-sm font-semibold transition-all duration-200 active:scale-[0.98] ${
+        active
+          ? 'border-gold-500/30 bg-gold-500/10 text-gold-100'
+          : 'border-[var(--jsm-border)] surface-panel-soft text-muted hover:border-gold-500/30 hover:bg-gold-500/10 hover:text-primary'
+      }`}
+      onClick={onToggle}
+      aria-pressed={active}
+    >
+      <span>{active ? 'On' : 'Off'}</span>
+      <span className="text-xs uppercase tracking-[0.18em]">{helper}</span>
+    </button>
+  </div>
+)
+
 export default function CaptureSessionFilterBar({
   filters,
+  suppliers = [],
   salesmen = [],
   onFilterChange,
 }) {
+  const supplierOptions = Array.isArray(suppliers) ? suppliers : []
   const salesmanOptions = Array.isArray(salesmen) ? salesmen : []
 
   return (
@@ -25,21 +46,21 @@ export default function CaptureSessionFilterBar({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-lg font-bold font-display text-heading">
-                Capture session filters
+                Session review filters
               </h3>
             </div>
             <p className="mt-1 text-sm text-muted">
-              Search sessions by reference, customer details, assigned salesman, or review date.
+              Search by customer, phone, session ref, salesman, supplier, or review date.
             </p>
           </div>
 
           <div className="rounded-xl surface-panel-soft panel-border px-3 py-2 text-sm text-muted">
-            Session export is planned for a later phase.
+            Sessions-first review. Item ledger remains a future enhancement.
           </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-5 items-end">
+      <div className="grid grid-cols-1 gap-5 items-end md:grid-cols-2 xl:grid-cols-6">
         <div className="field xl:col-span-2">
           <label className="field-label" htmlFor="session-search">
             Search sessions
@@ -50,10 +71,24 @@ export default function CaptureSessionFilterBar({
             type="text"
             value={filters.q}
             onChange={(event) => onFilterChange('q', event.target.value)}
-            placeholder="Search by session ref, customer, or note"
+            placeholder="Search by customer, phone, session ref, salesman, or note"
             aria-label="Search sessions"
           />
         </div>
+
+        <SelectField
+          label="Supplier"
+          id="session-supplier-filter"
+          value={filters.supplier || ''}
+          onChange={(event) => onFilterChange('supplier', event.target.value)}
+        >
+          <option value="">All suppliers</option>
+          {supplierOptions.map((supplier) => (
+            <option key={supplier._id || supplier.id || supplier.code} value={supplier._id || supplier.id || supplier.code || ''}>
+              {supplier?.name || supplier?.code || getName(supplier)}
+            </option>
+          ))}
+        </SelectField>
 
         <SelectField
           label="Status"
@@ -94,6 +129,13 @@ export default function CaptureSessionFilterBar({
             </option>
           ))}
         </SelectField>
+
+        <ToggleField
+          label="Warnings only"
+          active={Boolean(filters.warningsOnly)}
+          onToggle={() => onFilterChange('warningsOnly', !filters.warningsOnly)}
+          helper={filters.warningsOnly ? 'Filtered' : 'All'}
+        />
 
         <div className="field">
           <label className="field-label" htmlFor="session-start-date-filter">

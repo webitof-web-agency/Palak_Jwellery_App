@@ -270,7 +270,7 @@ class DashboardHomeScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.sm),
                   AppActionButton(
                     label: 'My Sales / Scans',
-                    onPressed: () => context.push('/sales-history'),
+                    onPressed: () => context.push('/sales-scans'),
                     icon: Icons.receipt_long_rounded,
                     variant: AppActionButtonVariant.secondary,
                     expanded: true,
@@ -308,7 +308,7 @@ class DashboardHomeScreen extends ConsumerWidget {
                       final latestSale = page.sales.isNotEmpty ? page.sales.first : null;
                       final latestLabel = latestSale == null
                           ? 'No sales recorded yet'
-                          : '${latestSale.ref}${latestSale.supplierName == null ? '' : ' • ${latestSale.supplierName}'}';
+                          : '${latestSale.ref}${latestSale.supplierName == null ? '' : ' | ${latestSale.supplierName}'}';
 
                       return AppCard(
                         padding: const EdgeInsets.all(AppSpacing.lg),

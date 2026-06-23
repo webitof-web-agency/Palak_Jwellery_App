@@ -296,7 +296,7 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
         purityIsCustom: state._draft.purityIsCustom,
         wastageIsCustom: state._draft.wastageIsCustom,
         onUnlock: state._unlockDetails,
-        onStartScan: state._simulateScanItem,
+        onStartScan: state._startScanner,
       ),
       const SizedBox(height: AppSpacing.lg),
       AppCard(
@@ -304,10 +304,24 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppSectionHeader(
-              title: 'Active scanning',
-              subtitle: 'Live totals update from the scanned item list below.',
-              tight: true,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Expanded(
+                  child: AppSectionHeader(
+                    title: 'Active scanning',
+                    subtitle: 'Live totals update from the scanned item list below.',
+                    tight: true,
+                  ),
+                ),
+                if (state._draft.hasScannedItems)
+                  IconButton(
+                    onPressed: state._confirmClearItems,
+                    icon: const Icon(Icons.playlist_remove_rounded),
+                    color: AppColors.danger,
+                    tooltip: 'Clear Scanned Items',
+                  ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             _ScanTotalsGrid(draft: state._draft),
@@ -336,19 +350,35 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
-            TextField(
-              controller: state._itemSearchController,
-              onChanged: (_) => state._refreshItemFilter(),
-              decoration: InputDecoration(
-                labelText: 'Filter item code',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: state._itemSearchController.text.trim().isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: state._clearItemFilter,
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: state._itemSearchController,
+                    onChanged: (_) => state._refreshItemFilter(),
+                    decoration: InputDecoration(
+                      labelText: 'Filter item code',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: state._itemSearchController.text.trim().isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: state._clearItemFilter,
+                              icon: const Icon(Icons.clear_rounded),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                SizedBox(
+                  height: 56, // matches textfield height approximately
+                  child: AppActionButton(
+                    label: 'Manual',
+                    onPressed: state._manualEntry,
+                    variant: AppActionButtonVariant.secondary,
+                    icon: Icons.edit_note_rounded,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             if (!state._draft.hasScannedItems)
@@ -381,18 +411,21 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
                       ),
                     ),
                     if (state._visibleScannedItems.length > 3)
-                      Positioned(
-                        right: 0,
-                        bottom: 80,
-                        child: state._buildScrollToTopButton(),
-                      ),
+                    Positioned(
+                      right: 0,
+                      bottom: 80,
+                      child: state._buildScrollToTopButton(),
+                    ),
                     Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       child: AppActionButton(
                         label: 'Finish Scan (${state._draft.scannedItems.length} items)',
-                        onPressed: () => state.context.pop(),
+                        onPressed: () => state.context.push(
+                          '/scan-session/finish',
+                          extra: state._draft,
+                        ),
                         expanded: true,
                       ),
                     ),
@@ -435,16 +468,28 @@ Widget _scanSessionBuildScrollToTopButton(_ScanSessionScreenState state) {
             horizontal: AppSpacing.md,
             vertical: AppSpacing.sm,
           ),
-          child: Text(
-            '↑ Top',
-            style: TextStyle(
-              color: AppColors.background,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.arrow_upward_rounded,
+                color: AppColors.background,
+                size: 14,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Top',
+                style: TextStyle(
+                  color: AppColors.background,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     ),
   );
 }
+

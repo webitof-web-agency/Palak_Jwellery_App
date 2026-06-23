@@ -82,18 +82,59 @@ class _ScanTotalsGrid extends StatelessWidget {
 
   final ScanSessionDraft draft;
 
-  String _formatDouble(double value) => value.toStringAsFixed(2);
+  String _formatDouble(double value) => value.toStringAsFixed(3);
 
   bool get _showAmountRow => draft.totalStoneAmount > 0 || draft.totalOtherAmount > 0;
 
-  List<Widget> _row(Widget first, Widget second, Widget third) {
-    return [
-      Expanded(child: first),
-      const SizedBox(width: AppSpacing.sm),
-      Expanded(child: second),
-      const SizedBox(width: AppSpacing.sm),
-      Expanded(child: third),
-    ];
+  Widget _metricTile({
+    required String label,
+    required String value,
+    required String helper,
+  }) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                height: 1.0,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              helper,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 10,
+                height: 1.1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -101,72 +142,80 @@ class _ScanTotalsGrid extends StatelessWidget {
     return Column(
       children: [
         Row(
-          children: _row(
-            AppMetricCard(
-              label: 'Items',
-              value: draft.totalItems.toString(),
-              helper: draft.hasScannedItems ? 'Scanned' : 'Empty',
-              compact: true,
+          children: [
+            Expanded(
+              child: _metricTile(
+                label: 'Items',
+                value: draft.totalItems.toString(),
+                helper: draft.hasScannedItems ? 'Scanned' : 'Empty',
+              ),
             ),
-            AppMetricCard(
-              label: 'Gross',
-              value: '${_formatDouble(draft.totalGrossWeight)} g',
-              helper: 'All items',
-              compact: true,
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: _metricTile(
+                label: 'Gross',
+                value: '${_formatDouble(draft.totalGrossWeight)} g',
+                helper: 'All items',
+              ),
             ),
-            AppMetricCard(
-              label: 'Net',
-              value: '${_formatDouble(draft.totalNetWeight)} g',
-              helper: 'Gross - deductions',
-              compact: true,
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: _metricTile(
+                label: 'Net',
+                value: '${_formatDouble(draft.totalNetWeight)} g',
+                helper: 'Gross - deductions',
+              ),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: AppSpacing.sm),
+        const SizedBox(height: AppSpacing.xs),
         Row(
-          children: _row(
-            AppMetricCard(
-              label: 'Stone',
-              value: '${_formatDouble(draft.totalStoneWeight)} g',
-              helper: 'Stone total',
-              compact: true,
+          children: [
+            Expanded(
+              child: _metricTile(
+                label: 'Stone',
+                value: '${_formatDouble(draft.totalStoneWeight)} g',
+                helper: 'Stone total',
+              ),
             ),
-            AppMetricCard(
-              label: 'Other',
-              value: '${_formatDouble(draft.totalOtherWeight)} g',
-              helper: 'Other total',
-              compact: true,
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: _metricTile(
+                label: 'Other',
+                value: '${_formatDouble(draft.totalOtherWeight)} g',
+                helper: 'Other total',
+              ),
             ),
-            AppMetricCard(
-              label: 'Fine',
-              value: '${_formatDouble(draft.totalFineWeight)} g',
-              helper: 'Net x formula',
-              compact: true,
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: _metricTile(
+                label: 'Fine',
+                value: '${_formatDouble(draft.totalFineWeight)} g',
+                helper: 'Net x formula',
+              ),
             ),
-          ),
+          ],
         ),
         if (_showAmountRow) ...[
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.xs),
           Row(
             children: [
               if (draft.totalStoneAmount > 0)
                 Expanded(
-                  child: AppMetricCard(
+                  child: _metricTile(
                     label: 'Stone Amt',
-                    value: 'Rs. ${_formatDouble(draft.totalStoneAmount)}',
+                    value: 'Rs. ${draft.totalStoneAmount.toStringAsFixed(2)}',
                     helper: 'Available',
-                    compact: true,
                   ),
                 ),
               if (draft.totalStoneAmount > 0 && draft.totalOtherAmount > 0)
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: AppSpacing.xs),
               if (draft.totalOtherAmount > 0)
                 Expanded(
-                  child: AppMetricCard(
-                    label: 'Other Amt',
-                    value: 'Rs. ${_formatDouble(draft.totalOtherAmount)}',
+                  child: _metricTile(
+                    label: 'Other Amount',
+                    value: 'Rs. ${draft.totalOtherAmount.toStringAsFixed(2)}',
                     helper: 'Available',
-                    compact: true,
                   ),
                 ),
             ],
@@ -197,7 +246,7 @@ class _EmptyScanState extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Use Simulate Scan to preview the compact active list.',
+            'Scan your first item to preview the active list.',
             style: TextStyle(color: AppColors.textSecondary),
           ),
         ],
@@ -323,7 +372,7 @@ class _LockedScanSettingsCard extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: AppActionButton(
-                  label: 'Simulate Scan',
+                  label: 'Scan Item',
                   onPressed: onStartScan,
                   expanded: true,
                 ),
@@ -393,3 +442,14 @@ class _PickerStateCard extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+
+
+

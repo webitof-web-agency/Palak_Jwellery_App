@@ -114,6 +114,24 @@ const defaultSuppliers = [
     },
   },
   {
+    name: 'Aayra',
+    code: 'AAYRA',
+    gst: '',
+    address: '',
+    paymentMode: 'credit',
+    categories: [],
+    isActive: true,
+    detectionPattern: {
+      type: 'contains',
+      pattern: 'AAYRA',
+    },
+    qrMapping: {
+      strategy: 'delimiter',
+      delimiter: '/',
+      fieldMap: {},
+    },
+  },
+  {
     name: 'ZAR',
     code: 'ZAR',
     gst: '',
@@ -174,3 +192,4 @@ run().catch((error) => {
   console.error('Supplier seed failed:', error)
   process.exit(1)
 })
+

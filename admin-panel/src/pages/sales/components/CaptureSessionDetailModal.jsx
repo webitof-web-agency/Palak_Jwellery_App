@@ -1,18 +1,37 @@
 import { createPortal } from 'react-dom'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import LoadingSpinner from '../../../components/ui/LoadingSpinner'
+import EmptyState from '../../../components/ui/EmptyState'
+import { batchesApi } from '../../../api/batches.api'
 import { formatDateTime, formatWeight } from '../../../utils/formatters'
-import {
-  buttonStyles,
-  formatBatchStatusLabel,
-  formatSessionStatusLabel,
-  getName,
-} from '../salesPage.utils'
-import CaptureSessionAddBatchModal from './CaptureSessionAddBatchModal'
+import { formatSessionStatusLabel, getName } from '../salesPage.utils'
+
+const getObject = (value) => (value && typeof value === 'object' ? value : {})
+
+const getParsedSnapshot = (parsedSnapshot) => {
+  if (!parsedSnapshot || typeof parsedSnapshot !== 'object') {
+    return null
+  }
+
+  return parsedSnapshot
+}
+
+const getParsedDisplay = (parsedSnapshot) => {
+  const snapshot = getParsedSnapshot(parsedSnapshot)
+  if (!snapshot) {
+    return null
+  }
+
+  if (snapshot.display && typeof snapshot.display === 'object') {
+    return snapshot.display
+  }
+
+  return snapshot
+}
 
 const valueOrDash = (value) => {
   if (value === null || value === undefined || value === '') {
-    return '—'
+    return '-'
   }
 
   return String(value)
@@ -20,14 +39,48 @@ const valueOrDash = (value) => {
 
 const formatWeightValue = (value) => {
   if (value === null || value === undefined || value === '') {
-    return '—'
+    return '-'
   }
 
   return formatWeight(value)
 }
 
-const DetailField = ({ label, value, hint = null, mono = false }) => (
-  <div className="rounded-2xl surface-panel-faint panel-border px-4 py-3">
+const formatMoneyValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+
+  const numericValue = Number(value)
+  if (Number.isNaN(numericValue)) {
+    return String(value)
+  }
+
+  return numericValue.toFixed(2)
+}
+
+const formatPercentValue = (value) => {
+  if (value === null || value === undefined || value === '') {
+    return '-'
+  }
+
+  const numericValue = Number(value)
+  if (Number.isNaN(numericValue)) {
+    return String(value)
+  }
+
+  return `${numericValue.toFixed(2)}%`
+}
+
+const formatFieldLabel = (value) =>
+  String(value || '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (char) => char.toUpperCase())
+
+const DetailField = ({ label, value, hint = null, mono = false, className = '' }) => (
+  <div className={`rounded-2xl surface-panel-faint panel-border px-4 py-3 ${className}`.trim()}>
     <div className="text-[10px] uppercase tracking-[0.18em] text-muted">{label}</div>
     <div className={`mt-1 text-sm font-semibold ${mono ? 'font-mono break-all' : 'text-heading'}`}>
       {value}
@@ -60,109 +113,65 @@ const Badge = ({ children, tone = 'neutral' }) => {
   )
 }
 
-const getStatusTone = (status) => {
-  switch (String(status || '').toLowerCase()) {
-    case 'draft':
-      return 'neutral'
-    case 'open':
-      return 'gold'
-    case 'submitted':
-      return 'amber'
-    case 'finalized':
-      return 'gold'
-    case 'cancelled':
-      return 'neutral'
-    default:
-      return 'neutral'
-  }
-}
+const ItemRow = ({ item, index }) => {
+  const calculation = getObject(item?.calculationSnapshot)
+  const settlementInputs = getObject(item?.settlementInputs)
+  const parsedDisplay = getParsedDisplay(item?.parsedSnapshot)
+  const parsedItem = getObject(parsedDisplay?.item)
+  const parsedWeights = getObject(parsedDisplay?.weights)
+  const parsedAmounts = getObject(parsedDisplay?.amounts)
+  const parsedCalculation = getObject(parsedDisplay?.calculation)
+  const supplier = getObject(item?.supplier)
+  const warnings = [
+    ...(Array.isArray(calculation?.warnings) ? calculation.warnings : []),
+    ...(Array.isArray(parsedDisplay?.warnings) ? parsedDisplay.warnings : []),
+  ].filter(Boolean)
+  const requiresReview = calculation?.requiresReview === true || parsedDisplay?.requiresReview === true
+  const duplicate = item?.isDuplicate === true
+  const overridden = item?.wasManuallyEdited === true || settlementInputs?.purityOverridden === true || settlementInputs?.wastageOverridden === true
 
-const getBatchTone = (status) => {
-  switch (String(status || '').toLowerCase()) {
-    case 'draft':
-      return 'neutral'
-    case 'open':
-      return 'gold'
-    case 'submitted':
-      return 'amber'
-    case 'finalized':
-      return 'gold'
-    case 'reopened':
-      return 'rose'
-    case 'cancelled':
-      return 'neutral'
-    default:
-      return 'neutral'
-  }
-}
+  const itemCode = parsedItem?.itemCode || parsedItem?.designCode || item?.itemCode || item?.ref || '-'
+  const supplierName = supplier?.name || parsedDisplay?.supplier?.name || item?.supplierName || 'Unknown'
+  const category = parsedItem?.category || parsedItem?.colorCategory || item?.category || null
+  const karat = settlementInputs?.karat || parsedItem?.karat || item?.purity || '-'
+  const purity = settlementInputs?.purityPercent ?? calculation?.purityPercent ?? null
+  const wastage = settlementInputs?.wastagePercent ?? calculation?.wastagePercent ?? null
+  const gross = calculation?.grossWeight ?? item?.grossWeight ?? parsedWeights?.grossWeight ?? null
+  const stone = calculation?.stoneWeight ?? item?.stoneWeight ?? parsedWeights?.stoneWeight ?? null
+  const other = calculation?.otherWeight ?? parsedWeights?.otherWeight ?? null
+  const net = calculation?.netWeight ?? item?.netWeight ?? parsedCalculation?.netWeight ?? null
+  const fine = calculation?.fineWeight ?? parsedCalculation?.fineWeight ?? null
+  const stoneAmount = parsedAmounts?.stoneAmount ?? calculation?.stoneAmount ?? null
+  const otherAmount = parsedAmounts?.otherAmount ?? calculation?.otherAmount ?? null
 
-const getNotice = (status) => {
-  switch (String(status || '').toLowerCase()) {
-    case 'submitted':
-      return 'This session is awaiting admin review. Finalize it or return it to the assigned salesman for correction.'
-    case 'finalized':
-      return 'This session is finalized. Reopen the related batch if more capture is needed.'
-    case 'cancelled':
-      return 'This session is cancelled. No new supplier batches can be added.'
-    case 'draft':
-    case 'open':
-    default:
-      return 'This session groups supplier batches. Add batches here if the work needs to be split before review.'
-  }
-}
-
-const formatActionError = (error) => {
-  if (!error) return 'Session action failed.'
-  if (error?.details && typeof error.details === 'object') {
-    return Object.entries(error.details)
-      .map(([field, message]) => `${field}: ${message}`)
-      .join(' · ')
-  }
-
-  return error?.error || error?.message || 'Session action failed.'
-}
-
-const SessionBatchRow = ({ batch, onViewBatch }) => {
-  const supplierName = getName(batch?.supplier)
-  const salesmanName = getName(batch?.assignedSalesman)
-  const status = String(batch?.status || '').toLowerCase()
+  const supplierCategoryLabel = [supplierName, category].filter(Boolean).join(' - ') || 'Unknown'
 
   return (
     <tr className="hover:bg-[var(--jsm-panel-bg-faint)]">
-      <td className="px-4 py-3 font-mono text-xs text-muted whitespace-nowrap">
-        {batch?.batchRef || '—'}
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{index + 1}</td>
+      <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-primary">{itemCode}</td>
+      <td className="px-4 py-3 text-primary">
+        <div className="max-w-[220px] truncate">{supplierCategoryLabel}</div>
+        <div className="mt-1 text-[11px] text-muted">{getName(item?.salesman)}</div>
       </td>
-      <td className="px-4 py-3 whitespace-nowrap text-primary">
-        {supplierName}
-      </td>
-      <td className="px-4 py-3 whitespace-nowrap text-primary">
-        {salesmanName}
-      </td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{valueOrDash(karat)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatPercentValue(purity)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatPercentValue(wastage)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatWeightValue(gross)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatWeightValue(stone)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatWeightValue(other)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatWeightValue(net)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatWeightValue(fine)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatMoneyValue(stoneAmount)}</td>
+      <td className="px-4 py-3 whitespace-nowrap text-primary">{formatMoneyValue(otherAmount)}</td>
       <td className="px-4 py-3">
-        <Badge tone={getBatchTone(status)}>{formatBatchStatusLabel(status)}</Badge>
-      </td>
-      <td className="px-4 py-3 text-right whitespace-nowrap text-primary">{valueOrDash(batch?.itemCount)}</td>
-      <td className="px-4 py-3 text-right whitespace-nowrap text-primary">
-        {formatWeightValue(batch?.totals?.grossWeight)}
-      </td>
-      <td className="px-4 py-3 text-right whitespace-nowrap text-primary">
-        {formatWeightValue(batch?.totals?.netWeight)}
-      </td>
-      <td className="px-4 py-3 text-right whitespace-nowrap text-primary">
-        {formatWeightValue(batch?.totals?.fineWeight)}
-      </td>
-      <td className="px-4 py-3 text-right whitespace-nowrap text-primary">
-        {valueOrDash(batch?.revision)}
-      </td>
-      <td className="px-4 py-3 text-right">
-        <button
-          type="button"
-          className={buttonStyles.ghost}
-          onClick={() => onViewBatch?.(batch?.id || batch?._id || batch?.batchId)}
-          aria-label={`View batch ${batch?.batchRef || 'details'}`}
-        >
-          View batch
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {duplicate ? <Badge tone="amber">Duplicate</Badge> : null}
+          {requiresReview ? <Badge tone="rose">Review</Badge> : null}
+          {overridden ? <Badge tone="gold">Custom</Badge> : null}
+          {warnings.length ? <Badge tone="neutral">{warnings.length} warning{warnings.length === 1 ? '' : 's'}</Badge> : null}
+          {!warnings.length && !duplicate && !requiresReview && !overridden ? <span className="text-[11px] text-muted">None</span> : null}
+        </div>
       </td>
     </tr>
   )
@@ -173,20 +182,11 @@ export default function CaptureSessionDetailModal({
   session,
   loading,
   error,
-  suppliers = [],
-  currentUserRole = '',
   onClose,
-  onViewBatch,
-  onCreateSupplierBatch,
-  onSubmitSession,
-  onFinalizeSession,
-  onCancelSession,
 }) {
-  const [activeAction, setActiveAction] = useState(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [actionBusy, setActionBusy] = useState(false)
-  const [actionError, setActionError] = useState('')
-  const [addBatchOpen, setAddBatchOpen] = useState(false)
+  const [batchDetails, setBatchDetails] = useState([])
+  const [batchLoading, setBatchLoading] = useState(false)
+  const [batchError, setBatchError] = useState('')
 
   useEffect(() => {
     if (!open) {
@@ -212,79 +212,90 @@ export default function CaptureSessionDetailModal({
 
   useEffect(() => {
     if (!open) {
-      setActiveAction(null)
-      setCancelReason('')
-      setActionBusy(false)
-      setActionError('')
-      setAddBatchOpen(false)
-      return
+      return undefined
     }
 
-    setActiveAction(null)
-    setCancelReason('')
-    setActionError('')
-    setActionBusy(false)
-    setAddBatchOpen(false)
-  }, [open, session?._id])
+    const batches = Array.isArray(session?.batches) ? session.batches : []
+    let active = true
 
-  const batches = Array.isArray(session?.batches) ? session.batches : []
-  const status = String(session?.status || '').toLowerCase()
-  const statusTone = getStatusTone(status)
-  const canAddBatch = ['draft', 'open'].includes(status)
-  const canSubmit = ['draft', 'open'].includes(status)
-  const canFinalize = status === 'submitted' && currentUserRole === 'admin'
-  const canCancel = ['draft', 'open'].includes(status) && currentUserRole === 'admin'
-
-  const summaryCards = useMemo(() => ([
-    { label: 'Supplier count', value: valueOrDash(session?.supplierCount) },
-    { label: 'Item count', value: valueOrDash(session?.itemCount) },
-    { label: 'Gross total', value: formatWeightValue(session?.totals?.grossWeight) },
-    { label: 'Stone total', value: formatWeightValue(session?.totals?.stoneWeight) },
-    { label: 'Net total', value: formatWeightValue(session?.totals?.netWeight) },
-    { label: 'Fine total', value: formatWeightValue(session?.totals?.fineWeight) },
-  ]), [session])
-
-  const handleAction = async (action) => {
-    if (actionBusy) return
-
-    setActionBusy(true)
-    setActionError('')
-    setActiveAction(action)
-
-    try {
-      if (action === 'submit') {
-        await onSubmitSession?.(session?._id)
-      } else if (action === 'finalize') {
-        await onFinalizeSession?.(session?._id)
-      } else if (action === 'cancel') {
-        const reason = String(cancelReason || '').trim()
-        if (!reason) {
-          setActionError('A cancel reason is required.')
-          return
-        }
-        await onCancelSession?.(session?._id, reason)
+    const loadBatchDetails = async () => {
+      if (!batches.length) {
+        setBatchDetails([])
+        setBatchLoading(false)
+        setBatchError('')
+        return
       }
-      setActiveAction(null)
-      setCancelReason('')
-    } catch (actionErrorResult) {
-      setActionError(formatActionError(actionErrorResult))
-    } finally {
-      setActionBusy(false)
-      if (action !== 'cancel') {
-        setActiveAction(null)
-      }
+
+      setBatchLoading(true)
+      setBatchError('')
+
+      const results = await Promise.all(
+        batches.map(async (batch) => {
+          const batchId = batch?.id || batch?._id || batch?.batchId
+          if (!batchId) {
+            return { batch, detail: null, error: 'Missing batch id.' }
+          }
+
+          try {
+            const response = await batchesApi.getBatchDetail(batchId)
+            return { batch, detail: response?.data || null, error: '' }
+          } catch (fetchError) {
+            return {
+              batch,
+              detail: null,
+              error: fetchError?.error || fetchError?.message || 'Failed to load batch detail.',
+            }
+          }
+        }),
+      )
+
+      if (!active) return
+
+      setBatchDetails(results)
+      const hasError = results.some((entry) => entry.error)
+      setBatchError(hasError ? 'Some batch item details could not be loaded.' : '')
+      setBatchLoading(false)
     }
-  }
 
-  const handleCreateSupplierBatch = async (payload) => {
-    const created = await onCreateSupplierBatch?.(session?._id, payload)
-    setAddBatchOpen(false)
-    return created
-  }
+    void loadBatchDetails()
+
+    return () => {
+      active = false
+    }
+  }, [open, session])
 
   if (!open || typeof document === 'undefined') {
     return null
   }
+
+  const status = String(session?.status || '').toLowerCase()
+  const statusTone = status === 'finalized' ? 'gold' : status === 'submitted' ? 'amber' : 'neutral'
+  const sessionBatches = Array.isArray(session?.batches) ? session.batches : []
+  const lockedSettings = getObject(session?.lockedSettings || session?.settings || session?.captureSettings || session?.configuration)
+  const lockedSettingEntries = Object.entries(lockedSettings).filter(([, value]) => value !== null && value !== undefined && value !== '')
+  const summaryCards = [
+    { label: 'Total items', value: valueOrDash(session?.itemCount) },
+    { label: 'Gross', value: formatWeightValue(session?.totals?.grossWeight) },
+    { label: 'Net', value: formatWeightValue(session?.totals?.netWeight) },
+    { label: 'Fine', value: formatWeightValue(session?.totals?.fineWeight) },
+    { label: 'Warnings', value: valueOrDash(session?.warningsCount) },
+    { label: 'Reviews', value: valueOrDash(session?.reviewCount) },
+  ]
+
+  const itemRows = batchDetails.flatMap((entry) => {
+    const batch = getObject(entry?.batch)
+    const detail = getObject(entry?.detail)
+    const items = Array.isArray(detail?.items) ? detail.items : []
+
+    return items.map((item, index) => ({
+      ...item,
+      __batchId: batch?.id || batch?._id || batch?.batchId || null,
+      __batchRef: batch?.batchRef || null,
+      __batchSupplier: batch?.supplier,
+      __batchRevision: batch?.revision ?? null,
+      __rowKey: `${batch?.id || batch?._id || batch?.batchRef || 'batch'}-${item?._id || item?.ref || index}`,
+    }))
+  })
 
   const modalContent = (
     <div
@@ -307,10 +318,10 @@ export default function CaptureSessionDetailModal({
             <h2 className="mt-2 text-2xl font-bold font-display text-heading">
               {session?.sessionRef || 'Session detail'}
             </h2>
-            <p className="mt-1 text-sm text-muted">
+            <p className="mt-1 break-words text-sm text-muted">
               {getName(session?.assignedSalesman)}
-              {session?.customerName ? ` · ${session.customerName}` : ''}
-              {session?.referenceNote ? ` · ${session.referenceNote}` : ''}
+              {session?.customerName ? ` | ${session.customerName}` : ''}
+              {session?.referenceNote ? ` | ${session.referenceNote}` : ''}
             </p>
           </div>
 
@@ -336,79 +347,12 @@ export default function CaptureSessionDetailModal({
           ) : session ? (
             <div className="space-y-6">
               <div className="rounded-3xl surface-panel-soft panel-border p-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="max-w-3xl">
-                    <SectionTitle
-                      title="Session notice"
-                      description={getNotice(status)}
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    {canAddBatch ? (
-                      <button
-                        type="button"
-                        className={buttonStyles.primary}
-                        onClick={() => setAddBatchOpen(true)}
-                      >
-                        Add supplier batch
-                      </button>
-                    ) : null}
-                    {canSubmit ? (
-                      <button
-                        type="button"
-                        className={buttonStyles.secondary}
-                        onClick={() => handleAction('submit')}
-                        disabled={actionBusy}
-                      >
-                        {actionBusy && activeAction === 'submit' ? (
-                          <>
-                            <LoadingSpinner />
-                            Submitting...
-                          </>
-                        ) : (
-                          'Submit session'
-                        )}
-                      </button>
-                    ) : null}
-                    {canFinalize ? (
-                      <button
-                        type="button"
-                        className={buttonStyles.primary}
-                        onClick={() => handleAction('finalize')}
-                        disabled={actionBusy}
-                      >
-                        {actionBusy && activeAction === 'finalize' ? (
-                          <>
-                            <LoadingSpinner />
-                            Finalizing...
-                          </>
-                        ) : (
-                          'Finalize session'
-                        )}
-                      </button>
-                    ) : null}
-                    {canCancel ? (
-                      <button
-                        type="button"
-                        className={buttonStyles.secondary}
-                        onClick={() => setActiveAction('cancel')}
-                        disabled={actionBusy}
-                      >
-                        Cancel session
-                      </button>
-                    ) : null}
-                  </div>
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <DetailField label="Customer" value={valueOrDash(session?.customerName)} />
+                  <DetailField label="Phone" value={valueOrDash(session?.customerPhone)} />
+                  <DetailField label="Date/time" value={valueOrDash(formatDateTime(session?.createdAt || session?.updatedAt))} />
+                  <DetailField label="Status" value={formatSessionStatusLabel(status)} />
                 </div>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <DetailField label="Session ref" value={session?.sessionRef || '—'} mono />
-                <DetailField label="Assigned salesman" value={getName(session?.assignedSalesman)} />
-                <DetailField label="Customer name" value={valueOrDash(session?.customerName)} />
-                <DetailField label="Customer phone" value={valueOrDash(session?.customerPhone)} />
-                <DetailField label="Created at" value={formatDateTime(session?.createdAt)} />
-                <DetailField label="Reference note" value={valueOrDash(session?.referenceNote)} />
               </div>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -417,127 +361,158 @@ export default function CaptureSessionDetailModal({
                 ))}
               </div>
 
-              {activeAction === 'cancel' ? (
-                <div className="rounded-3xl surface-panel-soft panel-border p-5">
-                  <SectionTitle
-                    title="Cancel session"
-                    description="Explain why the session is being cancelled."
-                  />
-                  <div className="mt-4 space-y-4">
-                    <textarea
-                      className="input min-h-28 resize-y"
-                      value={cancelReason}
-                      onChange={(event) => setCancelReason(event.target.value)}
-                      placeholder="Cancel reason"
-                      disabled={actionBusy}
-                    />
-                    {actionError ? (
-                      <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-primary">
-                        {actionError}
-                      </div>
-                    ) : null}
-                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                      <button
-                        type="button"
-                        className={buttonStyles.secondary}
-                        onClick={() => {
-                          setActiveAction(null)
-                          setCancelReason('')
-                          setActionError('')
-                        }}
-                        disabled={actionBusy}
-                      >
-                        Back
-                      </button>
-                      <button
-                        type="button"
-                        className={buttonStyles.primary}
-                        onClick={() => handleAction('cancel')}
-                        disabled={actionBusy}
-                      >
-                        {actionBusy ? (
-                          <>
-                            <LoadingSpinner />
-                            Cancelling...
-                          </>
-                        ) : (
-                          'Confirm cancel'
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
               <div className="rounded-3xl surface-panel-soft panel-border p-5">
-                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                  <SectionTitle
-                    title="Child batches"
-                    description="Each child batch belongs to one supplier and keeps its own status and totals."
-                  />
-                  <div className="text-sm text-muted">
-                    {batches.length} batch{batches.length === 1 ? '' : 'es'}
-                  </div>
-                </div>
-
-                {batches.length === 0 ? (
+                <SectionTitle
+                  title="Supplier breakdown"
+                  description="Each supplier batch inside this session is kept separate for review."
+                />
+                {sessionBatches.length === 0 ? (
                   <div className="mt-4 rounded-2xl border border-dashed panel-border surface-panel-faint px-4 py-6 text-sm text-muted">
-                    {canAddBatch
-                      ? 'Add the first supplier batch to start this capture session.'
-                      : 'No supplier batches are attached to this session.'}
+                    No supplier breakdown is available for this session yet.
                   </div>
                 ) : (
-                  <div className="mt-4 overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
-                    <table className="w-full min-w-[1200px] text-left">
-                      <thead>
-                        <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
-                          <th className="px-4 py-3">Batch Ref</th>
-                          <th className="px-4 py-3">Supplier</th>
-                          <th className="px-4 py-3">Assigned Salesman</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3 text-right">Items</th>
-                          <th className="px-4 py-3 text-right">Gross</th>
-                          <th className="px-4 py-3 text-right">Net</th>
-                          <th className="px-4 py-3 text-right">Fine</th>
-                          <th className="px-4 py-3 text-right">Revision</th>
-                          <th className="px-4 py-3 text-right">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--jsm-border)]">
-                        {batches.map((batch) => (
-                          <SessionBatchRow
-                            key={batch._id}
-                            batch={batch}
-                            onViewBatch={onViewBatch}
-                          />
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="mt-4 grid gap-3 xl:grid-cols-2 2xl:grid-cols-3">
+                    {sessionBatches.map((batch) => (
+                      <div key={batch?._id || batch?.id || batch?.batchRef} className="rounded-2xl surface-panel-faint panel-border p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-semibold text-heading">
+                              {getName(batch?.supplier)}
+                            </div>
+                            <div className="mt-1 text-[11px] text-muted">
+                              {batch?.batchRef || '-'}
+                              {batch?.revision ? ` | Rev ${batch.revision}` : ''}
+                            </div>
+                          </div>
+                          <Badge tone={batch?.status === 'finalized' ? 'gold' : batch?.status === 'submitted' ? 'amber' : 'neutral'}>
+                            {formatSessionStatusLabel(batch?.status)}
+                          </Badge>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                          <DetailField label="Items" value={valueOrDash(batch?.itemCount)} className="p-3" />
+                          <DetailField label="Gross" value={formatWeightValue(batch?.totals?.grossWeight)} className="p-3" />
+                          <DetailField label="Net" value={formatWeightValue(batch?.totals?.netWeight)} className="p-3" />
+                          <DetailField label="Fine" value={formatWeightValue(batch?.totals?.fineWeight)} className="p-3" />
+                        </div>
+                        <div className="mt-3 text-[11px] text-muted">
+                          Warnings: {valueOrDash(batch?.warningsCount)} | Review: {valueOrDash(batch?.reviewCount)} | Duplicate: {valueOrDash(batch?.duplicateCount)} | Override: {valueOrDash(batch?.manualOverrideCount)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
 
-              {actionError && activeAction !== 'cancel' ? (
-                <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-primary">
-                  {actionError}
+              <div className="rounded-3xl surface-panel-soft panel-border p-5">
+                <SectionTitle
+                  title="Locked settings"
+                  description="Shown when the session snapshot includes the applied scan settings."
+                />
+                {lockedSettingEntries.length === 0 ? (
+                  <div className="mt-4 rounded-2xl border border-dashed panel-border surface-panel-faint px-4 py-6 text-sm text-muted">
+                    Locked settings are not exposed in this session summary yet.
+                  </div>
+                ) : (
+                  <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                    {lockedSettingEntries.map(([key, value]) => (
+                      <DetailField
+                        key={key}
+                        label={formatFieldLabel(key)}
+                        value={valueOrDash(typeof value === 'object' ? JSON.stringify(value) : value)}
+                        mono={typeof value === 'string' && value.length > 32}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-3xl surface-panel-soft panel-border p-5">
+                <SectionTitle
+                  title="Warning summary"
+                  description="Quick view of items that need attention before approval."
+                />
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <DetailField label="Warnings" value={valueOrDash(session?.warningsCount)} />
+                  <DetailField label="Reviews" value={valueOrDash(session?.reviewCount)} />
+                  <DetailField label="Duplicates" value={valueOrDash(session?.duplicateCount)} />
+                  <DetailField label="Overrides" value={valueOrDash(session?.manualOverrideCount)} />
                 </div>
-              ) : null}
+                {(session?.warningsCount || session?.reviewCount || session?.duplicateCount || session?.manualOverrideCount) ? (
+                  <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                    Some items require review.
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="rounded-3xl surface-panel-soft panel-border p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <SectionTitle
+                    title="Full item list"
+                    description="Read-only item rows flattened from the supplier batches in this session."
+                  />
+                  <div className="text-sm text-muted">
+                    {itemRows.length} item{itemRows.length === 1 ? '' : 's'}
+                  </div>
+                </div>
+
+                {batchLoading ? (
+                  <div className="mt-4 flex items-center gap-3 text-sm text-muted">
+                    <LoadingSpinner /> Loading batch item rows...
+                  </div>
+                ) : (
+                  <>
+                    {batchError ? (
+                      <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                        {batchError}
+                      </div>
+                    ) : null}
+                    {itemRows.length === 0 ? (
+                      <div className="mt-4">
+                        <EmptyState
+                          title="No item rows available"
+                          description="Open a finalized batch to see the flattened item rows here."
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-4 overflow-x-auto overscroll-x-contain [scrollbar-gutter:stable]">
+                        <table className="w-full min-w-[1700px] text-left">
+                          <thead>
+                            <tr className="border-b border-[var(--jsm-border)] text-[10px] uppercase tracking-[0.18em] text-muted">
+                              <th className="px-4 py-3">Sr</th>
+                              <th className="px-4 py-3">Item Code</th>
+                              <th className="px-4 py-3">Supplier / Category</th>
+                              <th className="px-4 py-3">Karat</th>
+                              <th className="px-4 py-3 text-right">Purity</th>
+                              <th className="px-4 py-3 text-right">Wastage</th>
+                              <th className="px-4 py-3 text-right">Gross</th>
+                              <th className="px-4 py-3 text-right">Stone</th>
+                              <th className="px-4 py-3 text-right">Other</th>
+                              <th className="px-4 py-3 text-right">Net</th>
+                              <th className="px-4 py-3 text-right">Fine</th>
+                              <th className="px-4 py-3 text-right">Stone Amt</th>
+                              <th className="px-4 py-3 text-right">Other Amt</th>
+                              <th className="px-4 py-3">Warnings</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--jsm-border)]">
+                            {itemRows.map((item, index) => (
+                              <ItemRow key={item.__rowKey} item={item} index={index} />
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           ) : null}
         </div>
       </div>
-
-      <CaptureSessionAddBatchModal
-        open={addBatchOpen}
-        session={session}
-        suppliers={suppliers}
-        loading={loading}
-        error={error}
-        onClose={() => setAddBatchOpen(false)}
-        onCreate={handleCreateSupplierBatch}
-      />
     </div>
   )
 
   return createPortal(modalContent, document.body)
 }
+
+
