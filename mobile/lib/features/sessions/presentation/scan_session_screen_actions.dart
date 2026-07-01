@@ -580,6 +580,8 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
     msAmount: null,
     ssAmount: null,
     totalStoneAmount: stoneAmount == null ? null : roundToPrecision(stoneAmount, digits: 2),
+    addedAt: DateTime.now(),
+    status: 'active',
     isDuplicate: isDuplicate,
     hasSupplierMismatch: hasSupplierMismatch,
     hasKaratMismatch: hasKaratMismatch,
@@ -653,6 +655,60 @@ void _scanSessionClearItems(_ScanSessionScreenState state) {
   });
 }
 
+void _scanSessionRemoveSelectedItems(
+  _ScanSessionScreenState state,
+  Set<String> selectedIds,
+) {
+  final remaining = state._draft.scannedItems
+      .where((item) => !selectedIds.contains(item.id))
+      .toList(growable: false);
+  final removedItems = state._draft.scannedItems
+      .where((item) => selectedIds.contains(item.id))
+      .map(
+        (item) => ScannedSessionItem(
+          id: item.id,
+          itemCode: item.itemCode,
+          supplier: item.supplier,
+          category: item.category,
+          jewelType: item.jewelType,
+          qrKarat: item.qrKarat,
+          karat: item.karat,
+          purityPercent: item.purityPercent,
+          wastagePercent: item.wastagePercent,
+          grossWeight: item.grossWeight,
+          stoneWeight: item.stoneWeight,
+          otherWeight: item.otherWeight,
+          stoneAmount: item.stoneAmount,
+          otherAmount: item.otherAmount,
+          msAmount: item.msAmount,
+          ssAmount: item.ssAmount,
+          totalStoneAmount: item.totalStoneAmount,
+          rawQr: item.rawQr,
+          addedAt: item.addedAt,
+          status: 'removed',
+          removedAt: DateTime.now(),
+          removedReason: 'Removed from same-day amendment',
+          removedBy: 'salesman',
+          requiresReview: item.requiresReview,
+          hasKaratMismatch: item.hasKaratMismatch,
+          isDuplicate: item.isDuplicate,
+          hasSupplierMismatch: item.hasSupplierMismatch,
+          hasWeightMismatch: item.hasWeightMismatch,
+          hasPurityOverride: item.hasPurityOverride,
+          hasWastageOverride: item.hasWastageOverride,
+          warningLabel: item.warningLabel,
+        ),
+      )
+      .toList(growable: false);
+
+  state._updateDraftState(() {
+    state._draft = state._draft.copyWith(
+      scannedItems: remaining,
+      removedItems: <ScannedSessionItem>[...state._draft.removedItems, ...removedItems],
+      amendmentCount: state._draft.amendmentCount + 1,
+    );
+  });
+}
 Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
   if (!state._draft.isLocked) {
     return;
@@ -681,6 +737,11 @@ Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
     );
   });
 }
+
+
+
+
+
 
 
 

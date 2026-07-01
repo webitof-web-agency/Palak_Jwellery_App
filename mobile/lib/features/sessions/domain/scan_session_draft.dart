@@ -1,11 +1,11 @@
 import '../../customers/domain/customer_record.dart';
+import 'scan_session_summary.dart';
 
 enum ScanSessionMode { setup, lockedActiveScanning }
 
 double _roundToPrecision(double value, {int digits = 3}) {
   return double.parse(value.toStringAsFixed(digits));
 }
-
 
 class ScannedSessionItem {
   const ScannedSessionItem({
@@ -27,6 +27,11 @@ class ScannedSessionItem {
     this.ssAmount,
     this.totalStoneAmount,
     this.rawQr,
+    this.addedAt,
+    this.status,
+    this.removedAt,
+    this.removedReason,
+    this.removedBy,
     this.requiresReview = false,
     this.hasKaratMismatch = false,
     this.isDuplicate = false,
@@ -58,6 +63,11 @@ class ScannedSessionItem {
   final double? ssAmount;
   final double? totalStoneAmount;
   final String? rawQr;
+  final DateTime? addedAt;
+  final String? status;
+  final DateTime? removedAt;
+  final String? removedReason;
+  final String? removedBy;
   final bool requiresReview;
   final bool hasKaratMismatch;
   final bool isDuplicate;
@@ -66,6 +76,9 @@ class ScannedSessionItem {
   final bool hasPurityOverride;
   final bool hasWastageOverride;
   final String? warningLabel;
+
+  bool get isRemoved =>
+      removedAt != null || (status ?? '').trim().toLowerCase() == 'removed';
 
   double get netWeight {
     final net = grossWeight - stoneWeight - otherWeight;
@@ -107,6 +120,11 @@ class ScannedSessionItem {
       'ssAmount': ssAmount,
       'totalStoneAmount': totalStoneAmount,
       'rawQr': rawQr,
+      'addedAt': addedAt?.toIso8601String(),
+      'status': status,
+      'removedAt': removedAt?.toIso8601String(),
+      'removedReason': removedReason,
+      'removedBy': removedBy,
       'requiresReview': requiresReview,
       'hasKaratMismatch': hasKaratMismatch,
       'isDuplicate': isDuplicate,
@@ -148,6 +166,15 @@ class ScannedSessionItem {
       ssAmount: asDouble(json['ssAmount']),
       totalStoneAmount: asDouble(json['totalStoneAmount']),
       rawQr: json['rawQr']?.toString(),
+      addedAt: json['addedAt'] == null
+          ? null
+          : DateTime.tryParse(json['addedAt'].toString()),
+      status: json['status']?.toString(),
+      removedAt: json['removedAt'] == null
+          ? null
+          : DateTime.tryParse(json['removedAt'].toString()),
+      removedReason: json['removedReason']?.toString(),
+      removedBy: json['removedBy']?.toString(),
       requiresReview: json['requiresReview'] == true,
       hasKaratMismatch: json['hasKaratMismatch'] == true,
       isDuplicate: json['isDuplicate'] == true,
@@ -228,9 +255,21 @@ class ScanSessionDraft {
     this.supplierDefaultWastage,
     this.globalDefaultWastage = 10.0,
     this.scannedItems = const <ScannedSessionItem>[],
+    this.removedItems = const <ScannedSessionItem>[],
     this.notes = '',
     this.mode = ScanSessionMode.setup,
     this.validationMessage,
+    this.amendmentSessionId,
+    this.amendmentCreatedAt,
+    this.amendmentCount = 0,
+    this.amendmentOriginalTotalItems = 0,
+    this.amendmentOriginalGrossWeight = 0,
+    this.amendmentOriginalStoneWeight = 0,
+    this.amendmentOriginalOtherWeight = 0,
+    this.amendmentOriginalNetWeight = 0,
+    this.amendmentOriginalFineWeight = 0,
+    this.amendmentOriginalStoneAmount = 0,
+    this.amendmentOriginalOtherAmount = 0,
   });
 
   final CustomerRecord? customer;
@@ -247,9 +286,21 @@ class ScanSessionDraft {
   final double? supplierDefaultWastage;
   final double globalDefaultWastage;
   final List<ScannedSessionItem> scannedItems;
+  final List<ScannedSessionItem> removedItems;
   final String notes;
   final ScanSessionMode mode;
   final String? validationMessage;
+  final String? amendmentSessionId;
+  final DateTime? amendmentCreatedAt;
+  final int amendmentCount;
+  final int amendmentOriginalTotalItems;
+  final double amendmentOriginalGrossWeight;
+  final double amendmentOriginalStoneWeight;
+  final double amendmentOriginalOtherWeight;
+  final double amendmentOriginalNetWeight;
+  final double amendmentOriginalFineWeight;
+  final double amendmentOriginalStoneAmount;
+  final double amendmentOriginalOtherAmount;
 
   bool get hasCustomer => customer != null;
   bool get isLocked => mode == ScanSessionMode.lockedActiveScanning;
@@ -267,29 +318,83 @@ class ScanSessionDraft {
   double? get originalWastage => wastageOriginal;
   double? get selectedWastage => wastageSelected;
   double get resolvedWastageDefault =>
-      categoryDefaultWastage ??
-      supplierDefaultWastage ??
-      globalDefaultWastage;
+      categoryDefaultWastage ?? supplierDefaultWastage ?? globalDefaultWastage;
   bool get hasScannedItems => scannedItems.isNotEmpty;
   bool get hasAnyWarnings => warningCounts.hasAny;
+  bool get isAmendment => amendmentSessionId != null;
+  bool get hasAmendmentBaseline => amendmentSessionId != null;
+  int get addedItemCount =>
+      amendmentSessionId == null
+          ? 0
+          : (totalItems - amendmentOriginalTotalItems).clamp(0, totalItems).toInt();
+  double get addedGrossWeight =>
+      amendmentSessionId == null
+          ? totalGrossWeight
+          : _roundToPrecision((totalGrossWeight - amendmentOriginalGrossWeight).clamp(0, double.infinity));
+  double get addedNetWeight =>
+      amendmentSessionId == null
+          ? totalNetWeight
+          : _roundToPrecision((totalNetWeight - amendmentOriginalNetWeight).clamp(0, double.infinity));
+  double get addedFineWeight =>
+      amendmentSessionId == null
+          ? totalFineWeight
+          : _roundToPrecision((totalFineWeight - amendmentOriginalFineWeight).clamp(0, double.infinity));
+
+  factory ScanSessionDraft.fromSummary(ScanSessionSummary summary) {
+    return ScanSessionDraft(
+      customer: summary.customer,
+      supplier: summary.lockedSettings.supplier,
+      categoryOriginal: summary.lockedSettings.category,
+      categorySelected: summary.lockedSettings.category,
+      karat: summary.lockedSettings.karat,
+      purityOriginal: summary.lockedSettings.selectedPurity ?? summary.lockedSettings.originalPurity,
+      puritySelected: summary.lockedSettings.selectedPurity ?? summary.lockedSettings.originalPurity,
+      wastageOriginal: summary.lockedSettings.selectedWastage ?? summary.lockedSettings.originalWastage,
+      wastageSelected: summary.lockedSettings.selectedWastage ?? summary.lockedSettings.originalWastage,
+      scannedItems: summary.items,
+      removedItems: summary.removedItems,
+      notes: summary.notes,
+      mode: ScanSessionMode.lockedActiveScanning,
+      amendmentSessionId: summary.sessionId,
+      amendmentCreatedAt: summary.createdAt,
+      amendmentCount: summary.amendmentCount,
+      amendmentOriginalTotalItems: summary.totalItems,
+      amendmentOriginalGrossWeight: summary.totalGrossWeight,
+      amendmentOriginalStoneWeight: summary.totalStoneWeight,
+      amendmentOriginalOtherWeight: summary.totalOtherWeight,
+      amendmentOriginalNetWeight: summary.totalNetWeight,
+      amendmentOriginalFineWeight: summary.totalFineWeight,
+      amendmentOriginalStoneAmount: summary.totalStoneAmount,
+      amendmentOriginalOtherAmount: summary.totalOtherAmount,
+    );
+  }
+
   int get totalItems => scannedItems.length;
+
   double get totalGrossWeight =>
       _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.grossWeight));
+
   double get totalStoneWeight =>
       _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.stoneWeight));
+
   double get totalOtherWeight =>
       _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.otherWeight));
+
   double get totalNetWeight =>
       _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.netWeight));
+
   double get totalFineWeight =>
       _roundToPrecision(scannedItems.fold(0, (total, item) => total + item.fineWeight));
+
   double get totalStoneAmount =>
       _roundToPrecision(scannedItems.fold(
         0,
         (total, item) => total + (item.totalStoneAmount ?? item.stoneAmount ?? 0),
       ));
+
   double get totalOtherAmount =>
       _roundToPrecision(scannedItems.fold(0, (total, item) => total + (item.otherAmount ?? 0)));
+
   Map<String, int> get supplierCounts {
     final counts = <String, int>{};
     for (final item in scannedItems) {
@@ -326,10 +431,24 @@ class ScanSessionDraft {
     bool clearSupplierDefaultWastage = false,
     double? globalDefaultWastage,
     List<ScannedSessionItem>? scannedItems,
+    List<ScannedSessionItem>? removedItems,
     String? notes,
     ScanSessionMode? mode,
     String? validationMessage,
     bool clearValidationMessage = false,
+    String? amendmentSessionId,
+    bool clearAmendmentSessionId = false,
+    DateTime? amendmentCreatedAt,
+    bool clearAmendmentCreatedAt = false,
+    int? amendmentCount,
+    int? amendmentOriginalTotalItems,
+    double? amendmentOriginalGrossWeight,
+    double? amendmentOriginalStoneWeight,
+    double? amendmentOriginalOtherWeight,
+    double? amendmentOriginalNetWeight,
+    double? amendmentOriginalFineWeight,
+    double? amendmentOriginalStoneAmount,
+    double? amendmentOriginalOtherAmount,
   }) {
     return ScanSessionDraft(
       customer: customer ?? this.customer,
@@ -341,15 +460,43 @@ class ScanSessionDraft {
       puritySelected: clearPurity ? null : (puritySelected ?? this.puritySelected),
       wastageOriginal: clearWastage ? null : (wastageOriginal ?? this.wastageOriginal),
       wastageSelected: clearWastage ? null : (wastageSelected ?? this.wastageSelected),
-      categoryDefaultWastage: clearCategoryDefaultWastage ? null : (categoryDefaultWastage ?? this.categoryDefaultWastage),
-      supplierDefaultWastage: clearSupplierDefaultWastage ? null : (supplierDefaultWastage ?? this.supplierDefaultWastage),
+      categoryDefaultWastage: clearCategoryDefaultWastage
+          ? null
+          : (categoryDefaultWastage ?? this.categoryDefaultWastage),
+      supplierDefaultWastage: clearSupplierDefaultWastage
+          ? null
+          : (supplierDefaultWastage ?? this.supplierDefaultWastage),
       globalDefaultWastage: globalDefaultWastage ?? this.globalDefaultWastage,
       scannedItems: scannedItems ?? this.scannedItems,
+      removedItems: removedItems ?? this.removedItems,
       notes: notes ?? this.notes,
       mode: mode ?? this.mode,
       validationMessage: clearValidationMessage
           ? null
           : validationMessage ?? this.validationMessage,
+      amendmentSessionId: clearAmendmentSessionId
+          ? null
+          : amendmentSessionId ?? this.amendmentSessionId,
+      amendmentCreatedAt: clearAmendmentCreatedAt
+          ? null
+          : amendmentCreatedAt ?? this.amendmentCreatedAt,
+      amendmentCount: amendmentCount ?? this.amendmentCount,
+      amendmentOriginalTotalItems:
+          amendmentOriginalTotalItems ?? this.amendmentOriginalTotalItems,
+      amendmentOriginalGrossWeight:
+          amendmentOriginalGrossWeight ?? this.amendmentOriginalGrossWeight,
+      amendmentOriginalStoneWeight:
+          amendmentOriginalStoneWeight ?? this.amendmentOriginalStoneWeight,
+      amendmentOriginalOtherWeight:
+          amendmentOriginalOtherWeight ?? this.amendmentOriginalOtherWeight,
+      amendmentOriginalNetWeight:
+          amendmentOriginalNetWeight ?? this.amendmentOriginalNetWeight,
+      amendmentOriginalFineWeight:
+          amendmentOriginalFineWeight ?? this.amendmentOriginalFineWeight,
+      amendmentOriginalStoneAmount:
+          amendmentOriginalStoneAmount ?? this.amendmentOriginalStoneAmount,
+      amendmentOriginalOtherAmount:
+          amendmentOriginalOtherAmount ?? this.amendmentOriginalOtherAmount,
     );
   }
 
@@ -387,9 +534,21 @@ class ScanSessionDraft {
       'supplierDefaultWastage': supplierDefaultWastage,
       'globalDefaultWastage': globalDefaultWastage,
       'scannedItems': scannedItems.map((item) => item.toJson()).toList(growable: false),
+      'removedItems': removedItems.map((item) => item.toJson()).toList(growable: false),
       'notes': notes,
       'mode': mode.name,
       'validationMessage': validationMessage,
+      'amendmentSessionId': amendmentSessionId,
+      'amendmentCreatedAt': amendmentCreatedAt?.toIso8601String(),
+      'amendmentCount': amendmentCount,
+      'amendmentOriginalTotalItems': amendmentOriginalTotalItems,
+      'amendmentOriginalGrossWeight': amendmentOriginalGrossWeight,
+      'amendmentOriginalStoneWeight': amendmentOriginalStoneWeight,
+      'amendmentOriginalOtherWeight': amendmentOriginalOtherWeight,
+      'amendmentOriginalNetWeight': amendmentOriginalNetWeight,
+      'amendmentOriginalFineWeight': amendmentOriginalFineWeight,
+      'amendmentOriginalStoneAmount': amendmentOriginalStoneAmount,
+      'amendmentOriginalOtherAmount': amendmentOriginalOtherAmount,
     };
   }
 
@@ -405,6 +564,11 @@ class ScanSessionDraft {
     }
 
     final items = (json['scannedItems'] as List<dynamic>? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(ScannedSessionItem.fromJson)
+        .toList(growable: false);
+
+    final removedItemsList = (json['removedItems'] as List<dynamic>? ?? const [])
         .whereType<Map<String, dynamic>>()
         .map(ScannedSessionItem.fromJson)
         .toList(growable: false);
@@ -425,14 +589,30 @@ class ScanSessionDraft {
       supplierDefaultWastage: asDouble(json['supplierDefaultWastage']),
       globalDefaultWastage: asDouble(json['globalDefaultWastage']) ?? 10.0,
       scannedItems: items,
+      removedItems: removedItemsList,
       notes: json['notes']?.toString() ?? '',
       mode: json['mode']?.toString() == ScanSessionMode.lockedActiveScanning.name
           ? ScanSessionMode.lockedActiveScanning
           : ScanSessionMode.setup,
       validationMessage: json['validationMessage']?.toString(),
+      amendmentSessionId: json['amendmentSessionId']?.toString(),
+      amendmentCreatedAt: json['amendmentCreatedAt'] == null
+          ? null
+          : DateTime.tryParse(json['amendmentCreatedAt'].toString()),
+      amendmentCount: int.tryParse(json['amendmentCount']?.toString() ?? '') ?? 0,
+      amendmentOriginalTotalItems: int.tryParse(json['amendmentOriginalTotalItems']?.toString() ?? '') ?? 0,
+      amendmentOriginalGrossWeight: asDouble(json['amendmentOriginalGrossWeight']) ?? 0,
+      amendmentOriginalStoneWeight: asDouble(json['amendmentOriginalStoneWeight']) ?? 0,
+      amendmentOriginalOtherWeight: asDouble(json['amendmentOriginalOtherWeight']) ?? 0,
+      amendmentOriginalNetWeight: asDouble(json['amendmentOriginalNetWeight']) ?? 0,
+      amendmentOriginalFineWeight: asDouble(json['amendmentOriginalFineWeight']) ?? 0,
+      amendmentOriginalStoneAmount: asDouble(json['amendmentOriginalStoneAmount']) ?? 0,
+      amendmentOriginalOtherAmount: asDouble(json['amendmentOriginalOtherAmount']) ?? 0,
     );
   }
 }
+
+
 
 
 

@@ -17,6 +17,8 @@ import '../../../shared/widgets/app_section_header.dart';
 import '../services/scan_session_feedback_service.dart';
 import 'scan_session_manual_entry_sheet.dart';
 import '../domain/scan_session_draft.dart';
+import '../domain/scan_session_summary.dart';
+import 'session_item_selection_sheet.dart';
 
 part 'scan_session_screen_actions.dart';
 part 'scan_session_screen_sections.dart';
@@ -28,9 +30,10 @@ part 'scan_session_screen_choice_sheet.dart';
 const String _clearSelectionSentinel = '__clear_selection__';
 
 class ScanSessionScreen extends ConsumerStatefulWidget {
-  const ScanSessionScreen({super.key, this.selectedCustomer});
+  const ScanSessionScreen({super.key, this.selectedCustomer, this.resumeSummary});
 
   final CustomerRecord? selectedCustomer;
+  final ScanSessionSummary? resumeSummary;
 
   @override
   ConsumerState<ScanSessionScreen> createState() => _ScanSessionScreenState();
@@ -125,7 +128,9 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   @override
   void initState() {
     super.initState();
-    _draft = ScanSessionDraft(customer: widget.selectedCustomer);
+    _draft = widget.resumeSummary != null
+        ? ScanSessionDraft.fromSummary(widget.resumeSummary!)
+        : ScanSessionDraft(customer: widget.selectedCustomer);
     _purityController = TextEditingController();
     _wastageController = TextEditingController();
     _notesController = TextEditingController();
@@ -203,16 +208,75 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     );
     if (confirmed == true && mounted) {
       _scanSessionDiscardDraft(this);
+      context.go('/sales-scans/${widget.resumeSummary!.sessionId}');
     }
   }
 
   Future<void> _confirmClearItems() async {
     if (!_draft.hasScannedItems) return;
+    final choice = await showSessionItemManagementSheet(
+      context,
+      title: 'Clear scan items',
+      subtitle: 'Choose whether to clear everything or only selected items.',
+      allowClearSelected: true,
+    );
+    if (!mounted || choice == null) {
+      return;
+    }
+    if (choice == SessionItemManagementChoice.clearAll) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Clear all items?'),
+          content: Text(
+            'This will clear ${_draft.scannedItems.length} items and reset the live totals. Are you sure?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+              child: const Text('Clear All'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true && mounted) {
+        _scanSessionClearItems(this);
+      }
+      return;
+    }
+
+    final selected = await showSessionItemSelectionSheet(
+      context,
+      title: 'Clear selected items',
+      subtitle: 'Pick the items to remove from this draft.',
+      confirmLabel: 'Preview Removal',
+      items: _draft.scannedItems,
+      destructive: true,
+    );
+    if (!mounted || selected == null || selected.isEmpty) {
+      return;
+    }
+    final selectedIds = selected.map((item) => item.id).toSet();
+    final remaining = _draft.scannedItems.where((item) => !selectedIds.contains(item.id)).toList(growable: false);
+    final selectedGross = selected.fold<double>(0, (sum, item) => sum + item.grossWeight);
+    final selectedNet = selected.fold<double>(0, (sum, item) => sum + item.netWeight);
+    final selectedFine = selected.fold<double>(0, (sum, item) => sum + item.fineWeight);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Scanned Items?'),
-        content: const Text('This will clear all scanned items but keep the customer and locked settings. Are you sure?'),
+        title: const Text('Confirm removal'),
+        content: Text(
+          'Remove ${selected.length} items?\n\n'
+          'Removed gross: ${selectedGross.toStringAsFixed(3)} g\n'
+          'Removed net: ${selectedNet.toStringAsFixed(3)} g\n'
+          'Removed fine: ${selectedFine.toStringAsFixed(3)} g\n\n'
+          'Remaining items: ${remaining.length}',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -221,13 +285,13 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
-            child: const Text('Clear Items'),
+            child: const Text('Remove'),
           ),
         ],
       ),
     );
     if (confirmed == true && mounted) {
-      _scanSessionClearItems(this);
+      _scanSessionRemoveSelectedItems(this, selectedIds);
     }
   }
 
@@ -298,6 +362,13 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     );
   }
 }
+
+
+
+
+
+
+
 
 
 
