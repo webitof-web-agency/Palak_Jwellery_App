@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,13 +13,12 @@ import 'features/batches/presentation/create_batch_screen.dart';
 import 'features/batches/presentation/my_batches_screen.dart';
 import 'features/history/presentation/sales_history_screen.dart';
 import 'features/sale_entry/data/sale_repository.dart';
-import 'features/sale_entry/presentation/sale_entry_launch_args.dart';
-import 'features/sale_entry/presentation/sale_entry_screen.dart';
 import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
 import 'features/scanner/presentation/scanner_launch_args.dart';
 import 'features/sessions/presentation/create_session_screen.dart';
 import 'features/sessions/domain/scan_session_draft.dart';
+import 'features/sessions/domain/scan_session_summary.dart';
 import 'features/sessions/presentation/finish_scan_confirmation_screen.dart';
 import 'features/sessions/presentation/my_sessions_screen.dart';
 import 'features/sessions/presentation/session_detail_screen.dart';
@@ -59,10 +58,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/scan-session',
         builder: (context, state) {
-          final selectedCustomer = state.extra is CustomerRecord
-              ? state.extra as CustomerRecord
-              : null;
-          return ScanSessionScreen(selectedCustomer: selectedCustomer);
+          final extra = state.extra;
+          final selectedCustomer = extra is CustomerRecord ? extra : null;
+          final resumeSummary = extra is ScanSessionSummary ? extra : null;
+          return ScanSessionScreen(
+            selectedCustomer: selectedCustomer,
+            resumeSummary: resumeSummary,
+          );
         },
       ),
       GoRoute(
@@ -135,22 +137,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             key: ValueKey('scanner-${args.sessionKey}'),
             batchContext: args.batchContext,
             launchMode: args.mode,
-          );
-        },
-      ),
-      GoRoute(
-        path: '/sale-entry',
-        builder: (context, state) {
-          final args = state.extra is SaleEntryLaunchArgs
-              ? state.extra as SaleEntryLaunchArgs
-              : SaleEntryLaunchArgs(
-                  parseResult: state.extra is ParseQrResult
-                      ? state.extra as ParseQrResult
-                      : ParseQrResult.empty(''),
-                );
-          return SaleEntryScreen(
-            parseResult: args.parseResult,
-            batchContext: args.batchContext,
           );
         },
       ),
@@ -268,6 +254,10 @@ class _BootScreen extends StatelessWidget {
     );
   }
 }
+
+
+
+
 
 
 

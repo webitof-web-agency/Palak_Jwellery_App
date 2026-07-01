@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_notifier.dart';
 import '../../history/presentation/sales_history_provider.dart';
-import '../../sale_entry/presentation/sale_entry_launch_args.dart';
-import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../../../shared/constants/app_brand.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -13,7 +11,7 @@ import '../../../shared/widgets/app_action_button.dart';
 import '../../../shared/widgets/app_badge.dart';
 import '../../../shared/widgets/app_banner.dart';
 import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/app_draft_recovery_banner.dart';
+
 import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/app_metric_card.dart';
 import '../../../shared/widgets/app_section_header.dart';
@@ -110,11 +108,6 @@ class DashboardHomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(themeControllerProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
-    final saleEntryState = ref.watch(saleEntryProvider).maybeWhen(
-          data: (value) => value,
-          orElse: () => null,
-        );
-    final hasDraft = saleEntryState?.parseResult != null;
 
     const todayQuery = SalesHistoryQuery(
       page: 1,
@@ -228,20 +221,6 @@ class DashboardHomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  if (hasDraft) ...[
-                    const SizedBox(height: AppSpacing.lg),
-                    AppDraftRecoveryBanner(
-                      title: 'Continue your draft',
-                      message: 'A parsed scan draft is already open. Resume it instead of starting over.',
-                      onResume: () {
-                        final draft = saleEntryState!.parseResult!;
-                        context.push(
-                          '/sale-entry',
-                          extra: SaleEntryLaunchArgs(parseResult: draft),
-                        );
-                      },
-                    ),
-                  ],
                   const SizedBox(height: AppSpacing.lg),
                   AppActionButton(
                     label: 'Start Scan',
@@ -250,23 +229,6 @@ class DashboardHomeScreen extends ConsumerWidget {
                     expanded: true,
                     height: 54,
                   ),
-                  if (hasDraft) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    AppActionButton(
-                      label: 'Continue Draft',
-                      onPressed: () {
-                        final draft = saleEntryState!.parseResult!;
-                        context.push(
-                          '/sale-entry',
-                          extra: SaleEntryLaunchArgs(parseResult: draft),
-                        );
-                      },
-                      icon: Icons.restore_rounded,
-                      variant: AppActionButtonVariant.secondary,
-                      expanded: true,
-                      height: 54,
-                    ),
-                  ],
                   const SizedBox(height: AppSpacing.sm),
                   AppActionButton(
                     label: 'My Sales / Scans',
@@ -387,3 +349,5 @@ class DashboardHomeScreen extends ConsumerWidget {
     );
   }
 }
+
+

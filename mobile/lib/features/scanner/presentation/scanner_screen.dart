@@ -1,12 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../batches/domain/batch_capture_context.dart';
-import '../../sale_entry/data/sale_repository.dart';
-import '../../sale_entry/presentation/sale_entry_provider.dart';
-import '../../sale_entry/presentation/sale_entry_launch_args.dart';
+
 import 'scanner_launch_args.dart';
 import '../../../shared/navigation/app_route_observer.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -16,7 +14,7 @@ class ScannerScreen extends ConsumerStatefulWidget {
   const ScannerScreen({
     super.key,
     this.batchContext,
-    this.launchMode = ScannerLaunchMode.saleEntry,
+    this.launchMode = ScannerLaunchMode.scanSession,
   });
 
   final BatchCaptureContext? batchContext;
@@ -93,10 +91,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     _restartCameraAfterVisible();
   }
 
-  @override
-  void didPush() {
-    _restartCameraAfterVisible();
-  }
 
   Future<void> _startController() async {
     if (!mounted) return;
@@ -160,42 +154,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     await _controller.stop();
     await Future<void>.delayed(const Duration(milliseconds: 260));
 
-    if (widget.launchMode == ScannerLaunchMode.scanSession) {
-      if (!mounted) return;
-      context.pop(raw);
-      return;
-    }
-
-    await _navigateToSaleEntry(rawQr: raw);
-  }
-
-  Future<void> _navigateToSaleEntry({required String rawQr}) async {
     if (!mounted) return;
-
-    ParseQrResult result;
-    try {
-      final repo = ref.read(saleRepositoryProvider);
-      result = await repo.parseQr(rawQr);
-    } catch (_) {
-      result = ParseQrResult.empty(rawQr);
-    }
-
-    if (!mounted) return;
-
-    final saleEntryNotifier = ref.read(saleEntryProvider.notifier);
-    saleEntryNotifier.reset();
-    saleEntryNotifier.setParseResult(result);
-
-    await context.push(
-      '/sale-entry',
-      extra: SaleEntryLaunchArgs(
-        parseResult: result,
-        batchContext: widget.batchContext,
-      ),
-    );
-
-    if (!mounted) return;
-    await _resetScannerState();
+    context.pop(raw);
   }
 
   Future<void> _toggleTorch() async {
@@ -204,36 +164,12 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     setState(() => _torchOn = !_torchOn);
   }
 
-  Future<void> _enterManually() async {
+  Future<void> _dismissScanner() async {
     await _controller.stop();
     if (!mounted) return;
-
-    final emptyResult = ParseQrResult.empty('');
-    final saleEntryNotifier = ref.read(saleEntryProvider.notifier);
-    saleEntryNotifier.reset();
-    saleEntryNotifier.setParseResult(emptyResult);
-    await context.push(
-      '/sale-entry',
-      extra: SaleEntryLaunchArgs(
-        parseResult: emptyResult,
-        batchContext: widget.batchContext,
-      ),
-    );
-
-    if (!mounted) return;
-    await _resetScannerState();
+    context.pop();
   }
 
-  Future<void> _resetScannerState() async {
-    setState(() {
-      _processing = false;
-      _detected = false;
-      _torchOn = false;
-      _cameraSession += 1;
-    });
-
-    await _restartCameraAfterVisible();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +212,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Batch ${widget.batchContext!.batchRef} â€¢ ${widget.batchContext!.noticeText}',
+                              'Batch ${widget.batchContext!.batchRef} • ${widget.batchContext!.noticeText}',
                               style: TextStyle(
                                 color: AppColors.textSecondary,
                                 height: 1.4,
@@ -333,7 +269,8 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                                       return _CameraErrorView(
                                         error:
                                             'Camera error: ${error.errorDetails?.message ?? error.errorCode.name}',
-                                        onManualEntry: _enterManually,
+                                        manualLabel: 'Close',
+                                        onManualEntry: _dismissScanner,
                                       );
                                     },
                                   ),
@@ -350,7 +287,9 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                 ScannerBottomPanel(
                   processing: _processing,
                   detected: _detected,
-                  onManualEntry: _enterManually,
+                  onManualEntry: _dismissScanner,
+                  manualLabel: 'Close',
+                  showManualEntryButton: false,
                 ),
               ],
             ),
@@ -362,9 +301,14 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
 }
 
 class _CameraErrorView extends StatelessWidget {
-  const _CameraErrorView({required this.error, required this.onManualEntry});
+  const _CameraErrorView({
+    required this.error,
+    required this.manualLabel,
+    required this.onManualEntry,
+  });
 
   final String error;
+  final String manualLabel;
   final Future<void> Function() onManualEntry;
 
   @override
@@ -397,7 +341,7 @@ class _CameraErrorView extends StatelessWidget {
                     await onManualEntry();
                   },
                   icon: const Icon(Icons.edit_rounded),
-                  label: const Text('Enter Sale Manually'),
+                  label: Text(manualLabel),
                 ),
               ),
             ],
@@ -407,6 +351,13 @@ class _CameraErrorView extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+
 
 
 
