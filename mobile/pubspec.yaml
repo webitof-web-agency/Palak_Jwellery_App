@@ -44,8 +44,7 @@ dependencies:
   printing: ^5.14.3
   share_plus: ^13.1.0
   font_awesome_flutter: ^11.0.0
-  flutter_beep: ^1.0.0
-
+  flutter_beep_new: ^1.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

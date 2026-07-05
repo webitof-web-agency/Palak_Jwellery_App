@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:flutter_beep/flutter_beep.dart';
+import 'package:flutter_beep_new/flutter_beep_new.dart';
 
 import '../../batches/domain/batch_capture_context.dart';
 
