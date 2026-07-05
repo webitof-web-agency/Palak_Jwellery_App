@@ -1,6 +1,7 @@
-import { Router } from 'express'
+﻿import { Router } from 'express'
 import { authenticate, requireRole } from '../middleware/auth.middleware.js'
 import {
+  archiveCustomer,
   createCustomer,
   deleteCustomer,
   getCustomerById,
@@ -17,6 +18,7 @@ router.get('/', listCustomers)
 router.get('/:id', getCustomerById)
 router.post('/', createCustomer)
 router.patch('/:id', updateCustomer)
+router.patch('/:id/archive', archiveCustomer)
 router.delete('/:id', deleteCustomer)
 
 export default router

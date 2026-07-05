@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../sale_entry/data/sale_repository.dart';
-import '../../sale_entry/presentation/sale_entry_launch_args.dart';
 import '../../scanner/presentation/scanner_launch_args.dart';
 import '../data/batch_repository.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -563,20 +561,7 @@ class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
                                   label: const Text('Scan item'),
                                 ),
                               ),
-                              SizedBox(
-                                height: 48,
-                                child: OutlinedButton.icon(
-                                  onPressed: () => context.push(
-                                    '/sale-entry',
-                                    extra: SaleEntryLaunchArgs(
-                                      parseResult: ParseQrResult.empty(''),
-                                      batchContext: captureContext,
-                                    ),
-                                  ),
-                                  icon: const Icon(Icons.edit_note_rounded),
-                                  label: const Text('Add manually'),
-                                ),
-                              ),
+
                             ],
                           )
                         else
@@ -838,7 +823,7 @@ class _BatchDetailScreenState extends ConsumerState<BatchDetailScreen> {
                             icon: Icons.inbox_rounded,
                             title: 'No items yet',
                             message:
-                                'Use Scan item or Add manually to start item capture from mobile.',
+                                'Use Scan item to start item capture from mobile.',
                           )
                         : Column(
                             children: [
@@ -921,3 +906,5 @@ class _FlagChip extends StatelessWidget {
     );
   }
 }
+
+

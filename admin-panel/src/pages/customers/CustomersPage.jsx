@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { customersApi } from '../../api/customers.api'
 import EmptyState from '../../components/ui/EmptyState'
 import PageHeader from '../../components/ui/PageHeader'
@@ -8,6 +8,7 @@ import TableSkeleton from '../../components/ui/TableSkeleton'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import CustomerArchiveDialog from './components/CustomerArchiveDialog'
 import CustomerFormModal from './components/CustomerFormModal'
+import ActionToast from '../../components/ui/ActionToast'
 
 const PAGE_SIZE = 10
 const PHONE_REGEX = /^\d{10}$/
@@ -120,6 +121,7 @@ const smallBadgeClasses =
 
 export default function CustomersPage() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -143,12 +145,13 @@ export default function CustomersPage() {
   const [formErrors, setFormErrors] = useState([])
   const [formSaving, setFormSaving] = useState(false)
   const [activeCustomer, setActiveCustomer] = useState(null)
-
-  const [archiveTarget, setArchiveTarget] = useState(null)
+  const [archiveOpen, setArchiveOpen] = useState(false)
   const [archiveStep, setArchiveStep] = useState(1)
   const [archiveReason, setArchiveReason] = useState('')
   const [archiveConfirmText, setArchiveConfirmText] = useState('')
   const [archiveSubmitting, setArchiveSubmitting] = useState(false)
+  const [toastMessage, setToastMessage] = useState(location.state?.flashMessage || '')
+  const [toastTone, setToastTone] = useState('success')
 
   const debouncedSearchTerm = useDebouncedValue(searchTerm.trim(), 300)
 
@@ -156,6 +159,14 @@ export default function CustomersPage() {
     () => filterOptions.find((option) => option.value === statusFilter)?.label || 'All',
     [statusFilter],
   )
+
+
+  useEffect(() => {
+    if (!toastMessage) return undefined
+
+    const timer = window.setTimeout(() => setToastMessage(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [toastMessage])
 
   const fetchCustomers = useCallback(
     async ({ currentPage = page, query = debouncedSearchTerm, filter = statusFilter } = {}) => {
@@ -278,8 +289,7 @@ export default function CustomersPage() {
     }
 
     if (!nextPayload.name) nextErrors.push('Customer name is required')
-    if (!nextPayload.phone) nextErrors.push('Customer phone is required')
-    else if (!PHONE_REGEX.test(nextPayload.phone)) nextErrors.push('Phone must be exactly 10 digits')
+    if (nextPayload.phone && !PHONE_REGEX.test(nextPayload.phone)) nextErrors.push('Phone must be exactly 10 digits')
     if (!nextPayload.area) nextErrors.push('Customer area is required')
     if (nextPayload.email && !EMAIL_REGEX.test(nextPayload.email)) nextErrors.push('Invalid email address')
 
@@ -354,37 +364,46 @@ export default function CustomersPage() {
       setFormSaving(false)
     }
   }
-
   const openArchiveCustomer = (customer) => {
-    setArchiveTarget(customer)
+    if (!customer) return
+    setActiveCustomer(customer)
     setArchiveStep(1)
     setArchiveReason('')
     setArchiveConfirmText('')
+    setArchiveOpen(true)
   }
 
-  const closeArchive = () => {
-    setArchiveTarget(null)
+  const closeArchiveCustomer = () => {
+    setArchiveOpen(false)
     setArchiveStep(1)
     setArchiveReason('')
     setArchiveConfirmText('')
     setArchiveSubmitting(false)
+    setActiveCustomer(null)
   }
 
-  const confirmArchive = async () => {
-    if (!archiveTarget) return
+  const submitArchiveCustomer = async () => {
+    if (!activeCustomer?._id) return
+
+    const customerName = activeCustomer?.name || 'Customer'
+    const archivePayload = {
+      confirm: true,
+      reason: archiveReason.trim(),
+      archiveReason: archiveReason.trim(),
+    }
 
     setArchiveSubmitting(true)
 
     try {
-      await customersApi.archiveCustomer(archiveTarget._id, {
-        confirm: true,
-        reason: archiveReason.trim() || undefined,
-        archiveReason: archiveReason.trim() || undefined,
-      })
-      closeArchive()
+      await customersApi.archiveCustomer(activeCustomer._id, archivePayload)
+      closeArchiveCustomer()
+      setToastTone('success')
+      setToastMessage(`${customerName} archived successfully`)
       await refreshData({ nextPage: page, query: debouncedSearchTerm, filter: statusFilter })
     } catch (archiveError) {
-      window.alert(archiveError?.error || archiveError?.message || 'Failed to archive customer')
+      const message = archiveError?.error || archiveError?.message || 'Failed to archive customer'
+      setToastTone('danger')
+      setToastMessage(message)
     } finally {
       setArchiveSubmitting(false)
     }
@@ -450,10 +469,12 @@ export default function CustomersPage() {
             </button>
             <button
               type="button"
-              className="secondary-luxury-button px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-on-accent"
               onClick={() => openArchiveCustomer(customer)}
+              className="secondary-luxury-button px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-on-accent disabled:opacity-60"
+              disabled={Boolean(customer?.isArchived)}
+              title={customer?.isArchived ? 'Customer is already archived' : 'Archive customer'}
             >
-              Archive
+              {customer?.isArchived ? 'Archived' : 'Archive Customer'}
             </button>
           </div>
         </td>
@@ -466,7 +487,7 @@ export default function CustomersPage() {
       <PageHeader
         eyebrow="Customer Management"
         title="Customers"
-        description="Manage customer records, session history, and archive state from a single admin view."
+        description="Manage customer records, archive status, and session history from a single admin view."
         actions={
           <div className="flex items-center gap-3">
             <button
@@ -627,18 +648,32 @@ export default function CustomersPage() {
       />
 
       <CustomerArchiveDialog
-        open={Boolean(archiveTarget)}
-        customer={archiveTarget}
+        open={archiveOpen}
+        customer={activeCustomer}
         step={archiveStep}
         reason={archiveReason}
         confirmText={archiveConfirmText}
         isSubmitting={archiveSubmitting}
-        onClose={closeArchive}
+        onClose={closeArchiveCustomer}
         onStepChange={() => setArchiveStep(2)}
         onReasonChange={setArchiveReason}
         onConfirmTextChange={setArchiveConfirmText}
-        onConfirm={confirmArchive}
+        onConfirm={submitArchiveCustomer}
       />
+
+      <ActionToast message={toastMessage} tone={toastTone} />
+
+
+
     </div>
   )
 }
+
+
+
+
+
+
+
+
+

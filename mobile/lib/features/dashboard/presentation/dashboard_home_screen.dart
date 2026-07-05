@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_notifier.dart';
 import '../../history/presentation/sales_history_provider.dart';
+import '../../sessions/presentation/saved_scan_sessions_provider.dart';
 import '../../../shared/constants/app_brand.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -104,10 +105,64 @@ class DashboardHomeScreen extends ConsumerWidget {
     }
   }
 
+  void _startSyncWithDelay(BuildContext context, WidgetRef ref) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    
+    bool cancelled = false;
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Starting sync in 5 seconds...'),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: 'Undo',
+          onPressed: () {
+            cancelled = true;
+          },
+        ),
+      ),
+    );
+
+    Future.delayed(const Duration(seconds: 5), () async {
+      if (cancelled) return;
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Syncing pending sessions...')),
+      );
+      
+      final result = await ref.read(savedScanSessionsProvider.notifier).syncAllPending();
+      
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      final success = result['success'] ?? 0;
+      final fail = result['fail'] ?? 0;
+      
+      if (fail > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Synced $success sessions. $fail failed (Network error).'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully synced $success sessions.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(themeControllerProvider);
+    ref.watch(savedScanSessionsProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
+    final pendingCount = ref.read(savedScanSessionsProvider.notifier).pendingSyncCount();
 
     const todayQuery = SalesHistoryQuery(
       page: 1,
@@ -159,6 +214,16 @@ class DashboardHomeScreen extends ConsumerWidget {
                   AppSpacing.xxl,
                 ),
                 children: [
+                  if (pendingCount > 0) ...[
+                    AppBanner(
+                      title: '$pendingCount session(s) pending sync',
+                      message: 'Data is saved locally but not yet sent to the backend.',
+                      tone: AppBannerTone.warning,
+                      actionLabel: 'Sync Now',
+                      onAction: () => _startSyncWithDelay(context, ref),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+                  ],
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
@@ -288,6 +353,15 @@ class DashboardHomeScreen extends ConsumerWidget {
                                     ),
                                   ),
                                 ),
+                                if (pendingCount == 0) ...[
+                                  AppBadge(
+                                    label: 'Synced',
+                                    tone: AppBadgeTone.success,
+                                    icon: Icons.cloud_done_rounded,
+                                    compact: true,
+                                  ),
+                                  const SizedBox(width: AppSpacing.xs),
+                                ],
                                 AppBadge(
                                   label: '${page.total} entries',
                                   tone: AppBadgeTone.success,

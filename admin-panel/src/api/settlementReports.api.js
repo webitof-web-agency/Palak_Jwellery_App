@@ -46,6 +46,13 @@ const buildFallbackFilename = (prefix, id, extension) => {
   return `${prefix}-${safeId}.${extension}`
 }
 
+const buildSalesSessionExportFallbackFilename = (mode = 'session', extension = 'csv', reportDate = new Date()) => {
+  const safeMode = String(mode || 'session').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '') || 'session'
+  const date = new Date(reportDate)
+  const safeDate = Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10)
+  return `sales-session-report-${safeMode}-${safeDate}.${extension}`
+}
+
 const downloadScopedExport = async (path, fallbackFilename) => {
   const token = useAuthStore.getState().token
   const headers = new Headers()
@@ -116,6 +123,27 @@ const toQueryString = (params = {}) => {
   return qs ? `?${qs}` : ''
 }
 
+const toSalesSessionQueryString = (params = {}) => {
+  const query = new URLSearchParams()
+
+  if (params.mode) query.set('mode', params.mode)
+  if (params.page !== undefined && params.page !== null) query.set('page', String(params.page))
+  if (params.limit !== undefined && params.limit !== null) query.set('limit', String(params.limit))
+  if (params.startDate) query.set('startDate', params.startDate)
+  if (params.endDate) query.set('endDate', params.endDate)
+  if (params.salesman) query.set('salesman', params.salesman)
+  if (params.customer) query.set('customer', params.customer)
+  if (params.supplier) query.set('supplier', params.supplier)
+  if (params.category) query.set('category', params.category)
+  if (params.karat) query.set('karat', params.karat)
+  if (params.wastage !== undefined && params.wastage !== null && params.wastage !== '') query.set('wastage', String(params.wastage))
+  if (params.warningsOnly) query.set('warningsOnly', 'true')
+  if (params.status) query.set('status', params.status)
+
+  const qs = query.toString()
+  return qs ? `?${qs}` : ''
+}
+
 export const settlementReportsApi = {
   getSummary: async (params = {}) => {
     return request(`/api/v1/reports/settlement/summary${toQueryString(params)}`)
@@ -123,6 +151,28 @@ export const settlementReportsApi = {
 
   listReports: async (params = {}) => {
     return request(`/api/v1/reports/settlement${toQueryString(params)}`)
+  },
+
+  getSalesSessionReports: async (params = {}) => {
+    return request(`/api/v1/reports/sales-sessions${toSalesSessionQueryString(params)}`)
+  },
+
+  getSalesSessionReportsSummary: async (params = {}) => {
+    return request(`/api/v1/reports/sales-sessions/summary${toSalesSessionQueryString(params)}`)
+  },
+
+  exportSalesSessionReportsCsv: async (params = {}) => {
+    return downloadScopedExport(
+      `/api/v1/reports/sales-sessions/export.csv${toSalesSessionQueryString(params)}`,
+      buildSalesSessionExportFallbackFilename(params.mode, 'csv'),
+    )
+  },
+
+  exportSalesSessionReportsPdf: async (params = {}) => {
+    return downloadScopedExport(
+      `/api/v1/reports/sales-sessions/export.pdf${toSalesSessionQueryString(params)}`,
+      buildSalesSessionExportFallbackFilename(params.mode, 'pdf'),
+    )
   },
 
   exportCsv: async (params = {}) => {

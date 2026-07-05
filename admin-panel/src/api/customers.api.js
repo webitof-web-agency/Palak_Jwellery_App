@@ -1,4 +1,4 @@
-import { request } from './client'
+﻿import { request } from './client'
 
 const toQueryString = (params = {}) => {
   const query = new URLSearchParams()
@@ -6,6 +6,7 @@ const toQueryString = (params = {}) => {
   if (params.q) query.set('q', params.q)
   if (params.hasSessions) query.set('hasSessions', params.hasSessions)
   if (params.archived) query.set('archived', params.archived)
+  if (params.sessionStatus) query.set('sessionStatus', params.sessionStatus)
   if (params.page !== undefined && params.page !== null && params.page !== '') query.set('page', String(params.page))
   if (params.limit !== undefined && params.limit !== null && params.limit !== '') query.set('limit', String(params.limit))
 
@@ -15,7 +16,7 @@ const toQueryString = (params = {}) => {
 
 export const customersApi = {
   listCustomers: (params = {}) => request(`/api/v1/customers${toQueryString(params)}`),
-  getCustomer: (id) => request(`/api/v1/customers/${id}`),
+  getCustomer: (id, params = {}) => request(`/api/v1/customers/${id}${toQueryString(params)}`),
   createCustomer: (data) => request('/api/v1/customers', {
     method: 'POST',
     body: data,
@@ -24,8 +25,8 @@ export const customersApi = {
     method: 'PATCH',
     body: data,
   }),
-  archiveCustomer: (id, data = {}) => request(`/api/v1/customers/${id}`, {
-    method: 'DELETE',
+  archiveCustomer: (id, data = {}) => request(`/api/v1/customers/${id}/archive`, {
+    method: 'PATCH',
     body: data,
   }),
 }

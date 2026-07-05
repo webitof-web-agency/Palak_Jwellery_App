@@ -8,11 +8,15 @@ class ScannerBottomPanel extends StatelessWidget {
     required this.processing,
     required this.detected,
     required this.onManualEntry,
+    this.manualLabel = 'Enter Manually',
+    this.showManualEntryButton = true,
   });
 
   final bool processing;
   final bool detected;
   final Future<void> Function() onManualEntry;
+  final String manualLabel;
+  final bool showManualEntryButton;
 
   @override
   Widget build(BuildContext context) {
@@ -48,27 +52,29 @@ class ScannerBottomPanel extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            height: 52,
-            child: OutlinedButton.icon(
-              onPressed: processing || detected
-                  ? null
-                  : () async {
-                      await onManualEntry();
-                    },
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: const Text('Enter Manually'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.textPrimary,
-                side: BorderSide(color: AppColors.border),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+          if (showManualEntryButton) ...[
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: OutlinedButton.icon(
+                onPressed: processing || detected
+                    ? null
+                    : () async {
+                        await onManualEntry();
+                      },
+                icon: const Icon(Icons.edit_rounded, size: 18),
+                label: Text(manualLabel),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: AppColors.border),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ],
       ),
     );

@@ -1,4 +1,4 @@
-﻿import '../../batches/domain/batch_capture_context.dart';
+import '../../batches/domain/batch_capture_context.dart';
 
 enum ScannerLaunchMode {
   saleEntry,
@@ -9,10 +9,13 @@ class ScannerLaunchArgs {
   const ScannerLaunchArgs({
     required this.sessionKey,
     this.batchContext,
-    this.mode = ScannerLaunchMode.saleEntry,
+    this.mode = ScannerLaunchMode.scanSession,
+    this.onContinuousScan,
   });
 
   final String sessionKey;
   final BatchCaptureContext? batchContext;
   final ScannerLaunchMode mode;
+  final void Function(String qr)? onContinuousScan;
 }
+

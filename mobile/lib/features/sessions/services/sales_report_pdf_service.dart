@@ -134,7 +134,7 @@ class SalesReportPdfService {
         borderRadius: pw.BorderRadius.circular(10),
       ),
       child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.center,
+        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
         children: [
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -145,8 +145,8 @@ class SalesReportPdfService {
                 height: 48,
                 decoration: pw.BoxDecoration(
                   shape: pw.BoxShape.circle,
-                  color: PdfColors.black,
-                  border: pw.Border.all(color: PdfColors.grey300, width: 1.5),
+                  color: PdfColors.white,
+                  border: pw.Border.all(color: PdfColors.grey300, width: 1.2),
                 ),
                 child: pw.ClipOval(
                   child: pw.Image(logo, fit: pw.BoxFit.cover),
@@ -154,20 +154,22 @@ class SalesReportPdfService {
               ),
               pw.SizedBox(width: 14),
               pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
                   pw.Text(
-                    _reportTitle(mode),
+                    'Packing List',
                     style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold),
+                    textAlign: pw.TextAlign.center,
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
-                    'PALAK Jewellers',
+                    mode.label,
                     style: pw.TextStyle(
                       fontSize: 10,
                       fontWeight: pw.FontWeight.bold,
                       color: PdfColors.grey600,
                     ),
+                    textAlign: pw.TextAlign.center,
                   ),
                 ],
               ),
@@ -205,30 +207,25 @@ class SalesReportPdfService {
     List<SalesReportGroup> groups,
     SalesReportMode mode,
   ) {
-    final groupedMode = mode != SalesReportMode.itemWise;
-    final columns = groupedMode ? _groupedHeaders() : _itemWiseHeaders();
-    final columnWidths = groupedMode ? _groupedColumnWidths() : _itemWiseColumnWidths();
+    final columns = _tableHeaders(mode);
+    final columnWidths = _tableColumnWidths(mode);
     final rows = <pw.TableRow>[
       _tableRow(
         columns.map((label) => _tableCell(label, header: true)).toList(growable: false),
       ),
-      if (groupedMode)
-        for (var index = 0; index < groups.length; index++)
-          _tableRow(
-            _groupedRowCells(index + 1, groups[index]),
-          )
-      else
-        for (var index = 0; index < summary.items.length; index++)
-          _tableRow(
-            _itemWiseRowCells(index + 1, summary.items[index]),
-          ),
-      _tableRow(
-        groupedMode
-            ? _groupedTotalsCells(summary)
-            : _itemWiseTotalsCells(summary),
-        isTotals: true,
-      ),
     ];
+
+    if (mode == SalesReportMode.itemWise) {
+      for (var index = 0; index < summary.items.length; index++) {
+        rows.add(_tableRow(_itemWiseRowCells(index + 1, summary.items[index])));
+      }
+      rows.add(_tableRow(_itemWiseTotalsCells(summary), isTotals: true));
+    } else {
+      for (var index = 0; index < groups.length; index++) {
+        rows.add(_tableRow(_groupedRowCells(groups[index], mode: mode)));
+      }
+      rows.add(_tableRow(_groupedTotalsCells(summary, mode), isTotals: true));
+    }
 
     return pw.Table(
       border: pw.TableBorder.all(color: PdfColors.grey400),
@@ -237,65 +234,112 @@ class SalesReportPdfService {
     );
   }
 
-  List<String> _itemWiseHeaders() {
-    // otherAmount is a separate amount bucket, not making charge.
-    return const [
-      'Sr No.',
-      'Item Code',
-      'Supplier / Category',
-      'Gross Weight',
-      'Stone Weight',
-      'Other Weight',
-      'Net Weight',
-      'Stone Amount',
-      // otherAmount is a separate amount bucket, not making charge.
-      'Other Amount',
-      'Fine Weight',
-    ];
+  List<String> _tableHeaders(SalesReportMode mode) {
+    switch (mode) {
+      case SalesReportMode.itemWise:
+        return const [
+          'Sr No.',
+          'Item Code',
+          'Supplier / Company',
+          'Karat',
+          'Purity',
+          'Wastage',
+          'Gross Weight',
+          'Stone Weight',
+          'Other Weight',
+          'Net Weight',
+          'Stone Amount',
+          'Other Amount',
+          'Fine Weight',
+        ];
+      case SalesReportMode.supplierWise:
+      case SalesReportMode.categoryWise:
+        return const [
+          'Supplier / Company',
+          'Items',
+          'Gross',
+          'Stone',
+          'Other',
+          'Net',
+          'Stone Amount',
+          'Other Amount',
+          'Fine',
+        ];
+      case SalesReportMode.karatWise:
+        return const [
+          'Karat',
+          'Items',
+          'Gross',
+          'Stone',
+          'Other',
+          'Net',
+          'Stone Amount',
+          'Other Amount',
+          'Fine',
+          'Supplier / Company',
+        ];
+      case SalesReportMode.wastageWise:
+        return const [
+          'Supplier / Company',
+          'Items',
+          'Gross',
+          'Stone',
+          'Other',
+          'Net',
+          'Stone Amount',
+          'Other Amount',
+          'Fine',
+          'Wastage',
+        ];
+    }
   }
 
-  List<String> _groupedHeaders() {
-    return const [
-      'Group',
-      'Items',
-      'Gross Weight',
-      'Stone Weight',
-      'Other Weight',
-      'Net Weight',
-      'Stone Amount',
-      // otherAmount is a separate amount bucket, not making charge.
-      'Other Amount',
-      'Fine Weight',
-    ];
-  }
-
-  Map<int, pw.TableColumnWidth> _itemWiseColumnWidths() {
-    return const {
-      0: pw.FlexColumnWidth(0.7),
-      1: pw.FlexColumnWidth(1.4),
-      2: pw.FlexColumnWidth(1.8),
-      3: pw.FlexColumnWidth(0.9),
-      4: pw.FlexColumnWidth(0.9),
-      5: pw.FlexColumnWidth(0.9),
-      6: pw.FlexColumnWidth(0.9),
-      7: pw.FlexColumnWidth(0.9),
-      8: pw.FlexColumnWidth(0.9),
-      9: pw.FlexColumnWidth(0.9),
-    };
-  }
-
-  Map<int, pw.TableColumnWidth> _groupedColumnWidths() {
-    return const {
-      0: pw.FlexColumnWidth(1.5),
-      1: pw.FlexColumnWidth(0.7),
-      2: pw.FlexColumnWidth(0.9),
-      3: pw.FlexColumnWidth(0.9),
-      4: pw.FlexColumnWidth(0.9),
-      5: pw.FlexColumnWidth(0.9),
-      6: pw.FlexColumnWidth(0.9),
-      7: pw.FlexColumnWidth(0.9),
-      8: pw.FlexColumnWidth(0.9),
-    };
+  Map<int, pw.TableColumnWidth> _tableColumnWidths(SalesReportMode mode) {
+    switch (mode) {
+      case SalesReportMode.itemWise:
+        return const {
+          0: pw.FlexColumnWidth(0.7),
+          1: pw.FlexColumnWidth(1.4),
+          2: pw.FlexColumnWidth(1.6),
+          3: pw.FlexColumnWidth(0.8),
+          4: pw.FlexColumnWidth(0.8),
+          5: pw.FlexColumnWidth(0.8),
+          6: pw.FlexColumnWidth(0.85),
+          7: pw.FlexColumnWidth(0.85),
+          8: pw.FlexColumnWidth(0.85),
+          9: pw.FlexColumnWidth(0.85),
+          10: pw.FlexColumnWidth(0.9),
+          11: pw.FlexColumnWidth(0.9),
+          12: pw.FlexColumnWidth(0.85),
+        };
+      case SalesReportMode.supplierWise:
+      case SalesReportMode.categoryWise:
+        return const {
+          0: pw.FlexColumnWidth(1.55),
+          1: pw.FlexColumnWidth(0.7),
+          2: pw.FlexColumnWidth(0.9),
+          3: pw.FlexColumnWidth(0.9),
+          4: pw.FlexColumnWidth(0.9),
+          5: pw.FlexColumnWidth(0.9),
+          6: pw.FlexColumnWidth(0.9),
+          7: pw.FlexColumnWidth(0.9),
+          8: pw.FlexColumnWidth(0.9),
+        };
+      case SalesReportMode.karatWise:
+      case SalesReportMode.wastageWise:
+        return const {
+          0: pw.FlexColumnWidth(1.45),
+          1: pw.FlexColumnWidth(0.65),
+          2: pw.FlexColumnWidth(0.85),
+          3: pw.FlexColumnWidth(0.85),
+          4: pw.FlexColumnWidth(0.85),
+          5: pw.FlexColumnWidth(0.85),
+          6: pw.FlexColumnWidth(0.85),
+          7: pw.FlexColumnWidth(0.85),
+          8: pw.FlexColumnWidth(0.85),
+          9: pw.FlexColumnWidth(1.1),
+        };
+    }
   }
 
   List<pw.Widget> _itemWiseRowCells(int serialNumber, ScannedSessionItem item) {
@@ -304,6 +348,9 @@ class SalesReportPdfService {
       _tableCell(serialNumber.toString()),
       _tableCell(item.itemCode),
       _tableCell(supplierCategory),
+      _tableCell(item.karat),
+      _tableCell(_formatPercent(item.purityPercent), alignRight: true),
+      _tableCell(_formatPercent(item.wastagePercent), alignRight: true),
       _tableCell(_formatWeight(item.grossWeight), alignRight: true),
       _tableCell(_formatWeight(item.stoneWeight), alignRight: true),
       _tableCell(_formatWeight(item.otherWeight), alignRight: true),
@@ -314,28 +361,55 @@ class SalesReportPdfService {
     ];
   }
 
-  List<pw.Widget> _groupedRowCells(int serialNumber, SalesReportGroup group) {
-    return <pw.Widget>[
-      _tableCell(
-        group.groupLabel,
-        secondaryText: group.detailLabel.trim().isEmpty || group.detailLabel == group.groupLabel
-            ? null
-            : group.detailLabel,
-      ),
-      _tableCell(group.itemCount.toString(), alignRight: true),
-      _tableCell(_formatWeight(group.grossWeight), alignRight: true),
-      _tableCell(_formatWeight(group.stoneWeight), alignRight: true),
-      _tableCell(_formatWeight(group.otherWeight), alignRight: true),
-      _tableCell(_formatWeight(group.netWeight), alignRight: true),
-      _tableCell(_formatCurrency(group.stoneAmount), alignRight: true),
-      _tableCell(_formatCurrency(group.otherAmount), alignRight: true),
-      _tableCell(_formatWeight(group.fineWeight), alignRight: true),
-    ];
+  List<pw.Widget> _groupedRowCells(SalesReportGroup group, {required SalesReportMode mode}) {
+    final first = group.items.first;
+    final supplierBreakdown = group.detailLabel.trim();
+    final firstColumnSecondary = mode == SalesReportMode.supplierWise || mode == SalesReportMode.categoryWise
+        ? (group.detailLabel.trim().isEmpty || group.detailLabel == group.groupLabel ? null : group.detailLabel)
+        : null;
+
+    switch (mode) {
+      case SalesReportMode.supplierWise:
+      case SalesReportMode.categoryWise:
+        return <pw.Widget>[
+          _tableCell(
+            group.groupLabel,
+            secondaryText: firstColumnSecondary,
+          ),
+          _tableCell(group.itemCount.toString(), alignRight: true),
+          _tableCell(_formatWeight(group.grossWeight), alignRight: true),
+          _tableCell(_formatWeight(group.stoneWeight), alignRight: true),
+          _tableCell(_formatWeight(group.otherWeight), alignRight: true),
+          _tableCell(_formatWeight(group.netWeight), alignRight: true),
+          _tableCell(_formatCurrency(group.stoneAmount), alignRight: true),
+          _tableCell(_formatCurrency(group.otherAmount), alignRight: true),
+          _tableCell(_formatWeight(group.fineWeight), alignRight: true),
+        ];
+      case SalesReportMode.karatWise:
+      case SalesReportMode.wastageWise:
+        return <pw.Widget>[
+          _tableCell(supplierBreakdown.isEmpty ? first.supplier : supplierBreakdown),
+          _tableCell(group.itemCount.toString(), alignRight: true),
+          _tableCell(_formatWeight(group.grossWeight), alignRight: true),
+          _tableCell(_formatWeight(group.stoneWeight), alignRight: true),
+          _tableCell(_formatWeight(group.otherWeight), alignRight: true),
+          _tableCell(_formatWeight(group.netWeight), alignRight: true),
+          _tableCell(_formatCurrency(group.stoneAmount), alignRight: true),
+          _tableCell(_formatCurrency(group.otherAmount), alignRight: true),
+          _tableCell(_formatWeight(group.fineWeight), alignRight: true),
+          _tableCell(group.groupLabel, alignRight: true),
+        ];
+      case SalesReportMode.itemWise:
+        return const [];
+    }
   }
 
   List<pw.Widget> _itemWiseTotalsCells(ScanSessionSummary summary) {
     return <pw.Widget>[
+      _tableCell('Total', bold: true),
       _tableCell('${summary.totalItems} items', bold: true),
+      _tableCell(''),
+      _tableCell(''),
       _tableCell(''),
       _tableCell(''),
       _totalCell(_formatWeight(summary.totalGrossWeight)),
@@ -348,18 +422,38 @@ class SalesReportPdfService {
     ];
   }
 
-  List<pw.Widget> _groupedTotalsCells(ScanSessionSummary summary) {
-    return <pw.Widget>[
-      _tableCell('Total', bold: true),
-      _totalCell(summary.totalItems.toString()),
-      _totalCell(_formatWeight(summary.totalGrossWeight)),
-      _totalCell(_formatWeight(summary.totalStoneWeight)),
-      _totalCell(_formatWeight(summary.totalOtherWeight)),
-      _totalCell(_formatWeight(summary.totalNetWeight)),
-      _totalCell(_formatCurrencyTotal(summary.totalStoneAmount)),
-      _totalCell(_formatCurrencyTotal(summary.totalOtherAmount)),
-      _totalCell(_formatWeight(summary.totalFineWeight)),
-    ];
+  List<pw.Widget> _groupedTotalsCells(ScanSessionSummary summary, SalesReportMode mode) {
+    switch (mode) {
+      case SalesReportMode.supplierWise:
+      case SalesReportMode.categoryWise:
+        return <pw.Widget>[
+          _tableCell('Total', bold: true),
+          _totalCell(summary.totalItems.toString()),
+          _totalCell(_formatWeight(summary.totalGrossWeight)),
+          _totalCell(_formatWeight(summary.totalStoneWeight)),
+          _totalCell(_formatWeight(summary.totalOtherWeight)),
+          _totalCell(_formatWeight(summary.totalNetWeight)),
+          _totalCell(_formatCurrencyTotal(summary.totalStoneAmount)),
+          _totalCell(_formatCurrencyTotal(summary.totalOtherAmount)),
+          _totalCell(_formatWeight(summary.totalFineWeight)),
+        ];
+      case SalesReportMode.karatWise:
+      case SalesReportMode.wastageWise:
+        return <pw.Widget>[
+          _tableCell('Total', bold: true),
+          _totalCell(summary.totalItems.toString()),
+          _totalCell(_formatWeight(summary.totalGrossWeight)),
+          _totalCell(_formatWeight(summary.totalStoneWeight)),
+          _totalCell(_formatWeight(summary.totalOtherWeight)),
+          _totalCell(_formatWeight(summary.totalNetWeight)),
+          _totalCell(_formatCurrencyTotal(summary.totalStoneAmount)),
+          _totalCell(_formatCurrencyTotal(summary.totalOtherAmount)),
+          _totalCell(_formatWeight(summary.totalFineWeight)),
+          _totalCell(''),
+        ];
+      case SalesReportMode.itemWise:
+        return <pw.Widget>[];
+    }
   }
 
   pw.TableRow _tableRow(
@@ -468,15 +562,6 @@ class SalesReportPdfService {
     );
   }
 
-  String _reportTitle(SalesReportMode mode) {
-    return switch (mode) {
-      SalesReportMode.itemWise => 'Item List',
-      SalesReportMode.supplierWise => 'Supplier Summary',
-      SalesReportMode.categoryWise => 'Category Summary',
-      SalesReportMode.karatWise => 'Karat Summary',
-      SalesReportMode.wastageWise => 'Wastage Summary',
-    };
-  }
 
   String? _sanitizeForFileName(String? input) {
     final trimmed = input?.trim() ?? '';
@@ -507,6 +592,8 @@ class SalesReportPdfService {
 
   String _formatWeight(double value) => value.toStringAsFixed(3);
 
+  String _formatPercent(double value) => value.toStringAsFixed(2);
+
   String _formatCurrency(double value) => value <= 0 ? '-' : 'Rs. ${value.toStringAsFixed(2)}';
 
   String _formatCurrencyTotal(double value) => 'Rs. ${value.toStringAsFixed(2)}';
@@ -519,9 +606,6 @@ class SalesReportPdfService {
     return '${local.day}/${local.month}/${local.year} $hour:$minute $period';
   }
 }
-
-
-
 
 
 

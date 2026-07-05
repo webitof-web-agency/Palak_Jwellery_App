@@ -16,6 +16,7 @@ import {
   validateUniqueSupplierBatches,
 } from './captureSessionLifecycle.service.js'
 import { toNumber, toText } from './qrParser.shared.js'
+import { buildMobileSessionDetail } from './captureSessionMobileSync.service.js'
 
 class CaptureSessionServiceError extends Error {
   constructor(message, code = 'CAPTURE_SESSION_SERVICE_ERROR', statusCode = 400, details = null) {
@@ -76,6 +77,7 @@ const buildChildBatchSummary = (batch = {}) => ({
     netWeight: 0,
     fineWeight: 0,
     stoneAmount: 0,
+    otherAmount: 0,
   },
   warningsCount: toNumber(batch.warningsCount) ?? 0,
   reviewCount: toNumber(batch.reviewCount) ?? 0,
@@ -108,6 +110,7 @@ const buildSessionListItem = (session = {}) => ({
     netWeight: 0,
     fineWeight: 0,
     stoneAmount: 0,
+    otherAmount: 0,
   },
   warningsCount: toNumber(session.warningsCount) ?? 0,
   reviewCount: toNumber(session.reviewCount) ?? 0,
@@ -120,6 +123,15 @@ const buildSessionListItem = (session = {}) => ({
 })
 
 const buildSessionDetail = (session = {}, scanBatches = []) => {
+  if (Array.isArray(session.mobileItems) && session.mobileItems.length > 0 && scanBatches.length === 0) {
+    return buildMobileSessionDetail(session, {
+      resolveId: resolveIdValue,
+      normalize: normalizeText,
+      buildUserSummary: buildSessionUserSummary,
+      buildListItem: buildSessionListItem,
+    })
+  }
+
   const summary = buildLifecycleSessionSummary(session, scanBatches)
   return {
     ...summary,
@@ -243,12 +255,19 @@ const resolveSessionFilters = async ({ actor = {}, page = 1, limit = 20, status,
     }
   }
 
-  if (status) {
-    const normalizedStatus = normalizeSessionStatusFilter(status)
-    if (!normalizedStatus) {
-      throw new CaptureSessionServiceError('Invalid session status filter', 'INVALID_FILTER', 400)
-    }
+  const normalizedStatus = normalizeSessionStatusFilter(status)
+  const includeCancelled = normalizedStatus === 'all'
+
+  if (status && !normalizedStatus) {
+    throw new CaptureSessionServiceError('Invalid session status filter', 'INVALID_FILTER', 400)
+  }
+
+  if (normalizedStatus && normalizedStatus !== 'all') {
     andConditions.push({ status: normalizedStatus })
+  }
+
+  if (!includeCancelled) {
+    andConditions.push({ status: { $ne: 'cancelled' } })
   }
 
   if (assignedSalesman) {
@@ -428,6 +447,7 @@ const createSession = async ({ assignedSalesmanId, customerName, customerPhone, 
       netWeight: 0,
       fineWeight: 0,
       stoneAmount: 0,
+      otherAmount: 0,
     },
     createdBy: resolveIdValue(createdBy || actor.id || actor._id) || null,
   }
@@ -683,8 +703,13 @@ const finalizeSession = async ({ sessionId, actor = {} } = {}) => {
   return updated.summary
 }
 
-const cancelSession = async ({ sessionId, actor = {}, reason } = {}) => {
+const cancelSession = async ({ sessionId, actor = {}, reason, confirm = false } = {}) => {
   ensureSessionAdminOnly(actor)
+
+  if (confirm !== true && String(confirm).toLowerCase() !== 'true') {
+    throw new CaptureSessionServiceError('Cancellation confirmation is required', 'CANCEL_CONFIRMATION_REQUIRED', 400)
+  }
+
   const cancelReason = normalizeText(reason)
   if (!cancelReason) {
     throw new CaptureSessionServiceError('Cancel reason is required', 'CANCEL_REASON_REQUIRED', 400)
@@ -692,8 +717,8 @@ const cancelSession = async ({ sessionId, actor = {}, reason } = {}) => {
 
   const session = await resolveSessionById(sessionId)
   const currentStatus = normalizeText(session.status).toLowerCase()
-  if (!['draft', 'open'].includes(currentStatus)) {
-    throw new CaptureSessionServiceError('Session cannot be cancelled in the current state', 'SESSION_LOCKED', 409)
+  if (currentStatus === 'cancelled') {
+    throw new CaptureSessionServiceError('Session is already cancelled', 'SESSION_LOCKED', 409)
   }
 
   assertAllowedSessionTransition(session.status, 'cancelled', { allowAdminCorrection: true })
@@ -735,4 +760,11 @@ export {
   cancelSession,
   refreshSessionAggregates,
 }
+
+
+
+
+
+
+
 

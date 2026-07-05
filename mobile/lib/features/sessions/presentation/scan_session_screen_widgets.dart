@@ -264,6 +264,8 @@ class _LockedScanSettingsCard extends StatelessWidget {
     required this.wastage,
     required this.purityIsCustom,
     required this.wastageIsCustom,
+    required this.continuousScan,
+    required this.onToggleContinuousScan,
     required this.onUnlock,
     required this.onStartScan,
   });
@@ -275,6 +277,8 @@ class _LockedScanSettingsCard extends StatelessWidget {
   final double? wastage;
   final bool purityIsCustom;
   final bool wastageIsCustom;
+  final bool continuousScan;
+  final ValueChanged<bool> onToggleContinuousScan;
   final VoidCallback onUnlock;
   final VoidCallback onStartScan;
 
@@ -359,6 +363,22 @@ class _LockedScanSettingsCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Continuous Scanning',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+              Switch(
+                value: continuousScan,
+                onChanged: onToggleContinuousScan,
+                activeTrackColor: AppColors.accent.withValues(alpha: 0.5),
+                activeThumbColor: AppColors.accent,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(

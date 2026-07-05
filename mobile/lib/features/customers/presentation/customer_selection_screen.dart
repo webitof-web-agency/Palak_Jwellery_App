@@ -28,6 +28,22 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
   String _searchTerm = '';
   String? _selectedCustomerId;
 
+  String _customerContactLine(CustomerRecord customer) {
+    final phone = customer.phone.trim();
+    final area = customer.area.trim();
+
+    if (phone.isNotEmpty && area.isNotEmpty) {
+      return '$phone | $area';
+    }
+    if (phone.isNotEmpty) {
+      return phone;
+    }
+    if (area.isNotEmpty) {
+      return area;
+    }
+    return 'No phone added';
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
@@ -222,7 +238,7 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      '${selected.phone} | ${selected.area}',
+                      _customerContactLine(selected),
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     if ((selected.email ?? '').isNotEmpty) ...[
@@ -295,7 +311,7 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
                                   ),
                                   const SizedBox(height: AppSpacing.xs),
                                   Text(
-                                    customer.phone,
+                                    customer.phone.trim().isNotEmpty ? customer.phone : 'No phone added',
                                     style: TextStyle(
                                       color: AppColors.textSecondary,
                                       fontSize: 13,
@@ -362,6 +378,11 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
     );
   }
 }
+
+
+
+
+
 
 
 

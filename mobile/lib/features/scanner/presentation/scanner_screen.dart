@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_beep/flutter_beep.dart';
 
 import '../../batches/domain/batch_capture_context.dart';
 
@@ -15,10 +16,12 @@ class ScannerScreen extends ConsumerStatefulWidget {
     super.key,
     this.batchContext,
     this.launchMode = ScannerLaunchMode.scanSession,
+    this.onContinuousScan,
   });
 
   final BatchCaptureContext? batchContext;
   final ScannerLaunchMode launchMode;
+  final void Function(String qr)? onContinuousScan;
 
   @override
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
@@ -151,11 +154,29 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
       _processing = true;
       _detected = true;
     });
+    
     await _controller.stop();
-    await Future<void>.delayed(const Duration(milliseconds: 260));
+    FlutterBeep.beep();
 
     if (!mounted) return;
-    context.pop(raw);
+    
+    if (widget.onContinuousScan != null) {
+      // Continuous mode
+      widget.onContinuousScan!(raw);
+      // Brief pause to show success checkmark and prevent double scanning
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      if (!mounted) return;
+      setState(() {
+        _processing = false;
+        _detected = false;
+      });
+      await _controller.start();
+    } else {
+      // Single scan mode
+      await Future<void>.delayed(const Duration(milliseconds: 260));
+      if (!mounted) return;
+      context.pop(raw);
+    }
   }
 
   Future<void> _toggleTorch() async {

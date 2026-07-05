@@ -12,8 +12,6 @@ import 'features/batches/presentation/batch_detail_screen.dart';
 import 'features/batches/presentation/create_batch_screen.dart';
 import 'features/batches/presentation/my_batches_screen.dart';
 import 'features/history/presentation/sales_history_screen.dart';
-import 'features/sale_entry/data/sale_repository.dart';
-import 'features/sale_entry/presentation/sale_success_screen.dart';
 import 'features/scanner/presentation/scanner_screen.dart';
 import 'features/scanner/presentation/scanner_launch_args.dart';
 import 'features/sessions/presentation/create_session_screen.dart';
@@ -137,18 +135,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             key: ValueKey('scanner-${args.sessionKey}'),
             batchContext: args.batchContext,
             launchMode: args.mode,
+            onContinuousScan: args.onContinuousScan,
           );
-        },
-      ),
-      GoRoute(
-        path: '/sale-success',
-        builder: (context, state) {
-          final sale = state.extra is CreatedSale
-              ? state.extra as CreatedSale
-              : null;
-          return sale == null
-              ? const DashboardHomeScreen()
-              : SaleSuccessScreen(sale: sale);
         },
       ),
       GoRoute(
@@ -254,6 +242,8 @@ class _BootScreen extends StatelessWidget {
     );
   }
 }
+
+
 
 
 

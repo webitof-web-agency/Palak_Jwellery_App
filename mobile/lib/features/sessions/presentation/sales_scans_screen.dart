@@ -21,6 +21,7 @@ class SalesScansScreen extends ConsumerStatefulWidget {
 
 class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final Set<String> _syncingSessionIds = <String>{};
   String _searchTerm = '';
 
   @override
@@ -47,6 +48,81 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
     final groups = grouped.values.toList(growable: false);
     groups.sort((a, b) => b.latestSession.createdAt.compareTo(a.latestSession.createdAt));
     return groups;
+  }
+
+  bool _canRetry(ScanSessionSummary session) {
+    return session.syncStatus == ScanSessionSyncStatus.pendingSync ||
+        session.syncStatus == ScanSessionSyncStatus.syncFailed;
+  }
+
+  AppBadge _syncBadge(ScanSessionSummary session) {
+    switch (session.syncStatus) {
+      case ScanSessionSyncStatus.synced:
+        return const AppBadge(
+          label: 'Synced',
+          tone: AppBadgeTone.success,
+          icon: Icons.cloud_done_rounded,
+          compact: true,
+        );
+      case ScanSessionSyncStatus.pendingSync:
+        return const AppBadge(
+          label: 'Pending Sync',
+          tone: AppBadgeTone.warning,
+          icon: Icons.cloud_upload_rounded,
+          compact: true,
+        );
+      case ScanSessionSyncStatus.syncFailed:
+        return const AppBadge(
+          label: 'Sync Failed',
+          tone: AppBadgeTone.warning,
+          icon: Icons.cloud_off_rounded,
+          compact: true,
+        );
+      default:
+        return const AppBadge(
+          label: 'Local Only',
+          tone: AppBadgeTone.neutral,
+          icon: Icons.phone_android_rounded,
+          compact: true,
+        );
+    }
+  }
+
+  Future<void> _retrySync(ScanSessionSummary session) async {
+    if (_syncingSessionIds.contains(session.sessionId)) {
+      return;
+    }
+
+    setState(() => _syncingSessionIds.add(session.sessionId));
+    try {
+      final updated = await ref
+          .read(savedScanSessionsProvider.notifier)
+          .syncSingleSession(session);
+      if (!mounted) {
+        return;
+      }
+
+      final messenger = ScaffoldMessenger.of(context);
+      if (updated.syncStatus == ScanSessionSyncStatus.synced) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Session synced successfully.')),
+        );
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(
+              updated.syncError?.trim().isNotEmpty == true
+                  ? updated.syncError!
+                  : 'Session is still waiting for backend sync.',
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _syncingSessionIds.remove(session.sessionId));
+      }
+    }
   }
 
   void _openGroup(BuildContext context, _CustomerSessionsGroup group) {
@@ -76,6 +152,7 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
     final groups = _groups(filteredSessions);
     final loading = sessionsAsync.isLoading && sessions.isEmpty;
     final hasSearchQuery = query.isNotEmpty;
+    final pendingCount = sessions.where((session) => _canRetry(session)).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -105,6 +182,14 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
               subtitle: 'Search by customer name or phone, then open a saved session.',
             ),
             const SizedBox(height: AppSpacing.md),
+            if (pendingCount > 0) ...[
+              AppBanner(
+                title: '$pendingCount sessions pending sync',
+                message: 'These sessions are saved locally. Retry sync when the internet connection is available.',
+                tone: AppBannerTone.warning,
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
             TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _searchTerm = value),
@@ -227,17 +312,25 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          'Saved ${_formatDateTime(session.createdAt)}',
-                                          style: TextStyle(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Saved ${_formatDateTime(session.createdAt)}',
+                                                style: TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                            _syncBadge(session),
+                                          ],
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
@@ -247,9 +340,32 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                                             fontSize: 11,
                                           ),
                                         ),
+                                        if (session.syncError?.trim().isNotEmpty == true) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            session.syncError!,
+                                            style: TextStyle(
+                                              color: AppColors.warning,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     ),
                                   ),
+                                  if (_canRetry(session)) ...[
+                                    const SizedBox(width: AppSpacing.sm),
+                                    TextButton(
+                                      onPressed: _syncingSessionIds.contains(session.sessionId)
+                                          ? null
+                                          : () => _retrySync(session),
+                                      child: Text(
+                                        _syncingSessionIds.contains(session.sessionId)
+                                            ? 'Syncing...'
+                                            : 'Retry Sync',
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

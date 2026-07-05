@@ -67,13 +67,20 @@ export const captureSessionsApi = {
     })
   },
 
-  cancelSession: async (id, reason) => {
+  cancelSession: async (id, reasonOrPayload = {}) => {
+    const payload =
+      reasonOrPayload && typeof reasonOrPayload === 'object' && !Array.isArray(reasonOrPayload)
+        ? reasonOrPayload
+        : { reason: reasonOrPayload }
+
     return request(`/api/v1/capture-sessions/${id}/cancel`, {
-      method: 'POST',
-      body: { reason },
+      method: 'PATCH',
+      body: {
+        ...payload,
+        confirm: payload.confirm ?? true,
+      },
     })
   },
 }
 
 export default captureSessionsApi
-

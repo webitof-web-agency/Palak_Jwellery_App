@@ -138,7 +138,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
                     ),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      customer.phone,
+                      customer.phone.trim().isNotEmpty ? customer.phone : 'No phone added',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -285,4 +285,5 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
     return sessions.fold(0, (sum, session) => sum + session.totalFineWeight);
   }
 }
+
 

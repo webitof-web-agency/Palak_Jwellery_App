@@ -203,9 +203,9 @@ export default function CaptureSessionRecordsTable({
                           className={buttonStyles.secondary}
                           disabled
                           title="Coming soon"
-                          aria-label={`Delete session ${session.sessionRef || 'details'} coming soon`}
+                          aria-label={`Cancel session ${session.sessionRef || 'details'} coming soon`}
                         >
-                          Delete
+                          Cancel Session
                         </button>
                       </div>
                     </td>
@@ -246,3 +246,4 @@ export default function CaptureSessionRecordsTable({
     </SectionCard>
   )
 }
+

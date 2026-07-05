@@ -12,6 +12,10 @@ import {
   finalizeSession as finalizeSessionService,
   submitSession as submitSessionService,
 } from '../services/captureSession.service.js'
+import {
+  MobileCaptureSessionSyncError,
+  mobileSyncSession as mobileSyncSessionService,
+} from '../services/captureSessionMobileSync.service.js'
 
 const sendSuccess = (res, data, message, status = 200) => {
   const payload = { success: true, data }
@@ -48,7 +52,7 @@ const handleSessionError = (res, operation, error) => {
     return sendError(res, 409, 'Duplicate record', 'DUPLICATE_KEY')
   }
 
-  if (error instanceof CaptureSessionServiceError || error instanceof CaptureSessionLifecycleError || error instanceof BatchServiceError || error?.statusCode) {
+  if (error instanceof CaptureSessionServiceError || error instanceof CaptureSessionLifecycleError || error instanceof BatchServiceError || error instanceof MobileCaptureSessionSyncError || error?.statusCode) {
     const status = error.statusCode || 400
     const extra = error.details ? { details: error.details } : {}
     return sendError(res, status, error.message || 'Capture session operation failed', error.code || 'CAPTURE_SESSION_ERROR', extra)
@@ -119,6 +123,18 @@ export const createSession = async (req, res) => {
   }
 }
 
+export const mobileSyncSession = async (req, res) => {
+  try {
+    const data = await mobileSyncSessionService({
+      payload: req.body,
+      actor: req.user,
+    })
+    return sendSuccess(res, data, 'Mobile capture session synced', 201)
+  } catch (error) {
+    return handleSessionError(res, 'mobileSyncSession', error)
+  }
+}
+
 export const createSupplierBatchInSession = async (req, res) => {
   try {
     const data = await createSupplierBatchInSessionService({
@@ -180,6 +196,7 @@ export const cancelSession = async (req, res) => {
     const data = await cancelSessionService({
       sessionId: req.params.id,
       reason: req.body.reason || req.body.cancelReason,
+      confirm: req.body.confirm,
       actor: req.user,
     })
     return sendSuccess(res, data, 'Capture session cancelled')
@@ -187,5 +204,3 @@ export const cancelSession = async (req, res) => {
     return handleSessionError(res, 'cancelSession', error)
   }
 }
-
-

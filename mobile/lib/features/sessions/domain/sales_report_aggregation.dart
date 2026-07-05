@@ -134,7 +134,13 @@ String buildSalesReportGroupDetail(
       return codes.isEmpty ? group.groupLabel : codes.join(', ');
     case SalesReportMode.karatWise:
     case SalesReportMode.wastageWise:
-      return group.itemCount == 1 ? first.itemCode : '${group.itemCount} items';
+      final counts = <String, int>{};
+      for (final item in group.items) {
+        final supplier = item.supplier.trim().isEmpty ? 'Unknown supplier' : item.supplier.trim();
+        counts[supplier] = (counts[supplier] ?? 0) + 1;
+      }
+      final breakdown = counts.entries.map((entry) => '${entry.key} - ${entry.value}').join(', ');
+      return breakdown.isEmpty ? first.supplier : breakdown;
   }
 }
 
@@ -214,3 +220,6 @@ List<SalesReportGroup> buildSalesReportGroups(
     );
   }).toList(growable: false);
 }
+
+
+

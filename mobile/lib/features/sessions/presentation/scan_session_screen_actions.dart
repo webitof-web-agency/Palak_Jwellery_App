@@ -376,21 +376,31 @@ Future<void> _scanSessionStartScanner(_ScanSessionScreenState state) async {
     return;
   }
 
-  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
   final rawQr = await state.context.push<String>(
     '/scanner',
     extra: ScannerLaunchArgs(
       sessionKey: 'scan-session-${DateTime.now().microsecondsSinceEpoch}',
       mode: ScannerLaunchMode.scanSession,
+      onContinuousScan: state._draft.continuousScan ? (qr) {
+        _processScannedQr(state, qr);
+      } : null,
     ),
   );
   if (rawQr == null || rawQr.trim().isEmpty) {
     return;
   }
+  
+  if (!state._draft.continuousScan) {
+    await _processScannedQr(state, rawQr);
+  }
+}
+
+Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) async {
   if (!state.mounted) {
     return;
   }
 
+  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
   ParseQrResult parsed;
   try {
     parsed = await state.ref.read(saleRepositoryProvider).parseQr(
@@ -527,7 +537,7 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
           : 'Selected supplier';
   final itemCode = pickText(parseResult.itemCode) ?? rawQr.trim();
   final category = pickText(parseResult.category) ?? state._draft.selectedCategory;
-  final purity = state._draft.selectedPurity ?? state._draft.originalPurity ?? 0;
+  final purity = state._draft.selectedPurity ?? state._draft.originalPurity ?? 75.0;
   final wastage = state._draft.selectedWastage ?? state._draft.resolvedWastageDefault;
   final displaySnapshot = parseResult.displaySnapshot;
   final stoneAmount = readNestedDouble(displaySnapshot, ['amounts', 'stoneAmount']);

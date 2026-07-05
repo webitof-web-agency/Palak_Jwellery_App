@@ -13,11 +13,11 @@ const customerSchema = new Schema(
     },
     phone: {
       type: String,
-      required: [true, 'Customer phone is required'],
+      default: null,
       trim: true,
       index: true,
       validate: {
-        validator: (value) => /^\d{10}$/.test(String(value || '')),
+        validator: (value) => value === null || value === undefined || value === '' || /^\d{10}$/.test(String(value || '')),
         message: 'Phone must be exactly 10 digits',
       },
     },
@@ -72,3 +72,4 @@ customerSchema.methods.toSafeObject = function () {
 }
 
 export const Customer = mongoose.model('Customer', customerSchema)
+

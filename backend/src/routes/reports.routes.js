@@ -20,6 +20,12 @@ import {
   getSettlementSummary,
   listSettlementReports,
 } from '../controllers/settlementReports.controller.js'
+import {
+  exportSalesSessionReportsCsv,
+  exportSalesSessionReportsPdf,
+  getSalesSessionReports,
+  getSalesSessionReportsSummary,
+} from '../controllers/salesSessionReports.controller.js'
 import { authenticate, requireRole } from '../middleware/auth.middleware.js'
 
 const router = express.Router()
@@ -49,4 +55,10 @@ router.get('/settlement/supplier-sections/:batchId/export.pdf', authenticate, re
 router.get('/settlement/supplier-sections/:batchId/export.html', authenticate, requireRole('admin'), exportSupplierSectionHtml)
 router.get('/settlement', authenticate, requireRole('admin'), listSettlementReports)
 
+router.get('/sales-sessions/summary', authenticate, requireRole('admin'), getSalesSessionReportsSummary)
+router.get('/sales-sessions/export.csv', authenticate, requireRole('admin'), exportSalesSessionReportsCsv)
+router.get('/sales-sessions/export.pdf', authenticate, requireRole('admin'), exportSalesSessionReportsPdf)
+router.get('/sales-sessions', authenticate, requireRole('admin'), getSalesSessionReports)
+
 export default router
+

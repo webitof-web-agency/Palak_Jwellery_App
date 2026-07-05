@@ -53,14 +53,13 @@ export default function CustomerFormModal({
               />
             </div>
             <div className="field">
-              <label className="field-label">Phone</label>
+              <label className="field-label">Phone (optional)</label>
               <input
-                required
                 type="tel"
                 inputMode="numeric"
                 maxLength={10}
                 className="input"
-                placeholder="10 digit phone number"
+                placeholder="Optional 10 digit phone number"
                 value={formData.phone}
                 onChange={(event) => setFormData({ ...formData, phone: sanitizeDigits(event.target.value) })}
               />
@@ -120,4 +119,6 @@ export default function CustomerFormModal({
     document.body,
   )
 }
+
+
 

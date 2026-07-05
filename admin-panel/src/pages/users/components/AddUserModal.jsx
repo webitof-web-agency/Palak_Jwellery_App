@@ -1,6 +1,7 @@
+import LogoBadge from '../../../components/ui/LogoBadge'
 import LoadingSpinner from '../../../components/ui/LoadingSpinner'
-import { createPortal } from "react-dom";
-import PasswordField from "../../../components/ui/PasswordField"
+import PasswordField from '../../../components/ui/PasswordField'
+import { createPortal } from 'react-dom'
 
 export default function AddUserModal({
   open,
@@ -9,21 +10,36 @@ export default function AddUserModal({
   formData,
   setFormData,
   isSaving,
+  mode = 'create',
 }) {
   if (!open) return null
 
-  return createPortal(
-    <div className="fixed inset-0 z-[220] flex items-start sm:items-center justify-center overflow-y-auto p-4 sm:p-6 bg-[var(--jsm-overlay-strong)] backdrop-blur-2xl saturate-150">
-      <div className="w-full max-w-2xl my-4 max-h-[calc(100vh-2rem)] overflow-y-auto p-8 md:p-10 rounded-[28px] border border-[var(--jsm-border-strong)] bg-[color-mix(in_srgb,var(--jsm-surface)_84%,transparent)] backdrop-blur-3xl shadow-[0_24px_80px_rgba(0,0,0,0.18)] animate-zoom-in duration-300 text-primary">
-        <h2 className="text-2xl font-bold font-display text-heading uppercase tracking-tight mb-2">
-          Create Account
-        </h2>
-        <p className="text-muted text-sm mb-8">
-          Establish a new credential for administrative or sales operations.
-        </p>
+  const isEdit = mode === 'edit'
+  const title = isEdit ? 'Edit User' : 'Create Account'
+  const subtitle = isEdit
+    ? 'Update access details for this admin or salesman account.'
+    : 'Establish a new credential for administrative or sales operations.'
+  const submitLabel = isEdit ? 'Save Changes' : 'Generate User'
+  const busyLabel = isEdit ? 'Saving Changes...' : 'Establishing Account...'
 
-        <form onSubmit={onSubmit} className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+  return createPortal(
+    <div className="fixed inset-0 z-[220] flex items-start justify-center overflow-y-auto bg-[var(--jsm-overlay-strong)] p-4 sm:items-center sm:p-6">
+      <div className="my-4 w-full max-w-2xl max-h-[calc(100vh-2rem)] overflow-y-auto rounded-[28px] border border-[var(--jsm-border-strong)] bg-[var(--jsm-surface)] p-6 text-primary shadow-[0_18px_40px_rgba(0,0,0,0.12)] md:p-8">
+        <div className="flex flex-col items-center gap-4 border-b border-[var(--jsm-border)] pb-6 text-center">
+          <LogoBadge
+            src="/logo-dark.png"
+            wrapperClassName="mx-auto h-16 w-16 bg-[var(--jsm-panel-bg)] shadow-[0_0_0_1px_rgba(229,180,99,0.08)]"
+          />
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold font-display uppercase tracking-tight text-heading">
+              {title}
+            </h2>
+            <p className="text-sm text-muted">{subtitle}</p>
+          </div>
+        </div>
+
+        <form onSubmit={onSubmit} className="space-y-6 pt-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <div className="field">
               <label className="field-label">Full Name</label>
               <input
@@ -72,20 +88,20 @@ export default function AddUserModal({
           </div>
 
           <PasswordField
-            label="Initial Password"
+            label={isEdit ? 'New Password (optional)' : 'Initial Password'}
             value={formData.password}
             onChange={(event) => setFormData({ ...formData, password: event.target.value })}
-            placeholder="Create a secure password"
-            autoComplete="new-password"
-            required
+            placeholder={isEdit ? 'Leave blank to keep current password' : 'Create a secure password'}
+            autoComplete={isEdit ? 'new-password' : 'new-password'}
+            required={!isEdit}
           />
 
-          <div className="flex gap-4 pt-4 border-t panel-border">
+          <div className="flex gap-4 border-t border-[var(--jsm-border)] pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-heading transition-all surface-panel-faint hover:bg-[var(--jsm-surface-strong)] rounded-2xl"
-              aria-label="Cancel creating user"
+              className="flex-1 rounded-2xl surface-panel-faint py-4 text-[10px] font-bold uppercase tracking-widest text-muted transition-all hover:bg-[var(--jsm-surface-strong)] hover:text-heading"
+              aria-label="Cancel user form"
             >
               Cancel
             </button>
@@ -93,22 +109,21 @@ export default function AddUserModal({
               disabled={isSaving}
               type="submit"
               className="flex-[2] primary-luxury-button text-on-accent"
-              aria-label="Create user"
+              aria-label={title}
             >
               {isSaving ? (
                 <>
                   <LoadingSpinner />
-                  Establishing Account...
+                  {busyLabel}
                 </>
               ) : (
-                'Generate user'
+                submitLabel
               )}
             </button>
           </div>
         </form>
       </div>
-    </div>
-    ,
+    </div>,
     document.body,
   )
 }

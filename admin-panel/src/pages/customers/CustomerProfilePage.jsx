@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+﻿import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { customersApi } from '../../api/customers.api'
 import EmptyState from '../../components/ui/EmptyState'
@@ -226,11 +226,11 @@ export default function CustomerProfilePage() {
     try {
       await customersApi.archiveCustomer(id, {
         confirm: true,
-        reason: archiveReason.trim() || undefined,
-        archiveReason: archiveReason.trim() || undefined,
+        reason: archiveReason.trim(),
+        archiveReason: archiveReason.trim(),
       })
       closeArchive()
-      await loadProfile()
+      navigate('/customers', { replace: true, state: { flashMessage: `${customer?.name || 'Customer'} archived successfully` } })
     } catch (archiveError) {
       window.alert(archiveError?.error || archiveError?.message || 'Failed to archive customer')
     } finally {
@@ -266,7 +266,7 @@ export default function CustomerProfilePage() {
               className="secondary-luxury-button text-on-accent"
               disabled={loading || isArchived}
             >
-              Archive / Delete
+              {isArchived ? 'Archived' : 'Archive Customer'}
             </button>
           </div>
         </div>
@@ -489,6 +489,11 @@ export default function CustomerProfilePage() {
     </div>
   )
 }
+
+
+
+
+
 
 
 

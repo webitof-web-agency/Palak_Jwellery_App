@@ -17,6 +17,7 @@ import '../../../shared/widgets/app_badge.dart';
 import '../../../shared/widgets/app_banner.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_section_header.dart';
+import 'session_item_selection_sheet.dart';
 
 part 'scan_session_summary_screen_parts.dart';
 
@@ -41,6 +42,35 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
   String _formatWeight(double value) => value.toStringAsFixed(3);
 
   String _formatCurrency(double value) => 'Rs. ${value.toStringAsFixed(2)}';
+
+  AppBadge _buildSyncBadge(ScanSessionSummary summary) {
+    switch (summary.syncStatus) {
+      case ScanSessionSyncStatus.synced:
+        return const AppBadge(
+          label: 'Synced',
+          tone: AppBadgeTone.success,
+          compact: true,
+        );
+      case ScanSessionSyncStatus.syncFailed:
+        return const AppBadge(
+          label: 'Sync Failed',
+          tone: AppBadgeTone.warning,
+          compact: true,
+        );
+      case ScanSessionSyncStatus.pendingSync:
+        return const AppBadge(
+          label: 'Pending Sync',
+          tone: AppBadgeTone.warning,
+          compact: true,
+        );
+      default:
+        return const AppBadge(
+          label: 'Local Only',
+          tone: AppBadgeTone.neutral,
+          compact: true,
+        );
+    }
+  }
 
   String _formatDateTime(DateTime value) {
     final local = value.toLocal();
@@ -142,10 +172,18 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppSectionHeader(
-            title: 'Customer',
-            subtitle: 'Saved with the scan session.',
-            tight: true,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Expanded(
+                child: AppSectionHeader(
+                  title: 'Customer',
+                  subtitle: 'Saved with the scan session.',
+                  tight: true,
+                ),
+              ),
+              _buildSyncBadge(summary),
+            ],
           ),
           const SizedBox(height: AppSpacing.md),
           Text(
@@ -195,7 +233,7 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
         children: [
           const AppSectionHeader(
             title: 'Session totals',
-            subtitle: 'Copied from the saved local summary.',
+            subtitle: 'Captured totals from this session.',
             tight: true,
           ),
           const SizedBox(height: AppSpacing.md),
@@ -223,6 +261,161 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  bool _canAmendToday(ScanSessionSummary summary) {
+    return summary.isSameDayEditable;
+  }
+
+  Future<void> _openAddItems(ScanSessionSummary summary) async {
+    if (!_canAmendToday(summary)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only same-day sessions can be edited by salesman. Contact admin for changes.'),
+        ),
+      );
+      return;
+    }
+
+    context.push('/scan-session', extra: summary);
+  }
+
+  Future<void> _removeItemsFromSummary(ScanSessionSummary summary) async {
+    if (!_canAmendToday(summary)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Only same-day sessions can be edited by salesman. Contact admin for changes.'),
+        ),
+      );
+      return;
+    }
+
+    final selected = await showSessionItemSelectionSheet(
+      context,
+      title: 'Remove items',
+      subtitle: 'Select the items to remove from this saved session.',
+      confirmLabel: 'Preview Removal',
+      items: summary.items,
+      destructive: true,
+    );
+    if (!mounted || selected == null || selected.isEmpty) {
+      return;
+    }
+
+    final selectedIds = selected.map((item) => item.id).toSet();
+    final remaining = summary.items
+        .where((item) => !selectedIds.contains(item.id))
+        .toList(growable: false);
+    final removedGross = selected.fold<double>(0, (sum, item) => sum + item.grossWeight);
+    final removedNet = selected.fold<double>(0, (sum, item) => sum + item.netWeight);
+    final removedFine = selected.fold<double>(0, (sum, item) => sum + item.fineWeight);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm removal'),
+        content: Text(
+          'Remove ${selected.length} items?\n\n'
+          'Removed gross: ${removedGross.toStringAsFixed(3)} g\n'
+          'Removed net: ${removedNet.toStringAsFixed(3)} g\n'
+          'Removed fine: ${removedFine.toStringAsFixed(3)} g\n\n'
+          'Remaining items: ${remaining.length}',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final updatedSummary = summary.copyWith(
+      items: remaining,
+      removedItems: <ScannedSessionItem>[...summary.removedItems, ...selected],
+      amendmentCount: summary.amendmentCount + 1,
+      updatedAt: now,
+      lastEditedAt: now,
+    );
+
+    await ref.read(savedScanSessionsProvider.notifier).saveSession(updatedSummary);
+    ref.read(scanSessionSummaryProvider.notifier).setSummary(updatedSummary);
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('${selected.length} items removed.')),
+    );
+  }
+
+  Widget _buildAmendmentActions(ScanSessionSummary summary) {
+    final canEdit = _canAmendToday(summary) && !summary.isCancelled;
+    final canRemove = canEdit && summary.items.isNotEmpty;
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: AppSectionHeader(
+                  title: 'Same-day edits',
+                  subtitle: 'Add or remove items only on the day the session was created.',
+                  tight: true,
+                ),
+              ),
+              if (summary.hasAmendmentHistory)
+                AppBadge(
+                  label: summary.amendmentCount > 0 ? 'Edited ${summary.amendmentCount}x' : 'Edited today',
+                  tone: AppBadgeTone.neutral,
+                  icon: Icons.edit_rounded,
+                  compact: true,
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          if (!canEdit)
+            const AppBanner(
+              title: 'Editing locked',
+              message: 'Only same-day sessions can be edited by salesman. Contact admin for changes.',
+              tone: AppBannerTone.info,
+            )
+          else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: AppActionButton(
+                    label: 'Add Items',
+                    onPressed: () => _openAddItems(summary),
+                    expanded: true,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: AppActionButton(
+                    label: 'Remove Items',
+                    onPressed: canRemove ? () => _removeItemsFromSummary(summary) : null,
+                    variant: AppActionButtonVariant.secondary,
+                    expanded: true,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -668,8 +861,8 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               ),
               sliver: SliverToBoxAdapter(
                 child: AppSectionHeader(
-                  title: 'Saved locally',
-                  subtitle: 'Ready for later backend wiring.',
+                  title: 'Session summary',
+                  subtitle: 'Review saved session details and sync status.',
                   trailing: Text(
                     '$totalItems items',
                     style: TextStyle(color: AppColors.textMuted, fontSize: 12),
@@ -688,6 +881,14 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
               sliver: SliverToBoxAdapter(child: _buildTotalsCard(summary)),
+            ),
+            const SliverPadding(
+              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              sliver: SliverToBoxAdapter(child: _buildAmendmentActions(summary)),
             ),
             const SliverPadding(
               padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
@@ -812,6 +1013,13 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     );
   }
 }
+
+
+
+
+
+
+
 
 
 

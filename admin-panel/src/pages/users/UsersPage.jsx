@@ -57,6 +57,8 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0)
   const [pages, setPages] = useState(1)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [formMode, setFormMode] = useState('create')
+  const [editingUser, setEditingUser] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -131,6 +133,36 @@ export default function UsersPage() {
     }
   }
 
+  const openAddUser = () => {
+    setFormMode('create')
+    setEditingUser(null)
+    setFormData(initialFormData)
+    setShowAddModal(true)
+  }
+
+  const openEditUser = (user) => {
+    if (!user?._id) return
+
+    setFormMode('edit')
+    setEditingUser(user)
+    setFormData({
+      ...initialFormData,
+      name: user.name || '',
+      email: user.email || '',
+      phone: user.phone || '',
+      role: user.role || 'salesman',
+      password: '',
+    })
+    setShowAddModal(true)
+  }
+
+  const closeUserModal = () => {
+    setShowAddModal(false)
+    setFormMode('create')
+    setEditingUser(null)
+    setFormData(initialFormData)
+  }
+
   const handleDeleteUser = (id, name) => {
     setPendingDelete({ id, name })
   }
@@ -155,19 +187,33 @@ export default function UsersPage() {
     }
   }
 
-  const handleAddUser = async (event) => {
+  const handleUserSubmit = async (event) => {
     event.preventDefault()
     setIsSaving(true)
 
+    const payload = {
+      name: formData.name?.trim() || '',
+      email: formData.email?.trim() || '',
+      phone: formData.phone?.trim() || '',
+      role: formData.role || 'salesman',
+    }
+
     try {
-      const res = await usersApi.createUser(formData)
+      const res =
+        formMode === 'edit' && editingUser?._id
+          ? await usersApi.updateUser(editingUser._id, payload)
+          : await usersApi.createUser({ ...payload, password: formData.password || '' })
+
       if (res.success) {
-        setUsers((current) => [res.data, ...current])
-        setShowAddModal(false)
-        setFormData(initialFormData)
+        if (formMode === 'edit' && editingUser?._id) {
+          setUsers((current) => current.map((user) => (user._id === editingUser._id ? res.data : user)))
+        } else {
+          setUsers((current) => [res.data, ...current])
+        }
+        closeUserModal()
       }
     } catch (err) {
-      alert(err.error || err.message || 'Failed to create user')
+      alert(err.error || err.message || 'Failed to save user')
     } finally {
       setIsSaving(false)
     }
@@ -181,7 +227,7 @@ export default function UsersPage() {
         description="Manage administrative access and salesman accounts for the mobile application."
         actions={
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={openAddUser}
             className="primary-luxury-button text-on-accent"
             aria-label="Add new user"
           >
@@ -286,6 +332,7 @@ export default function UsersPage() {
                       key={user._id}
                       user={user}
                       onToggleStatus={handleToggleStatus}
+                      onEdit={openEditUser}
                       onDelete={handleDeleteUser}
                     />
                   ))}
@@ -330,8 +377,9 @@ export default function UsersPage() {
 
       <AddUserModal
         open={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        onSubmit={handleAddUser}
+        onClose={closeUserModal}
+        mode={formMode}
+        onSubmit={handleUserSubmit}
         formData={formData}
         setFormData={setFormData}
         isSaving={isSaving}
@@ -347,4 +395,6 @@ export default function UsersPage() {
     </div>
   )
 }
+
+
 

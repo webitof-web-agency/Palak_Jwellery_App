@@ -91,11 +91,24 @@ class _FinishScanConfirmationScreenState
 
     try {
       await ref.read(savedScanSessionsProvider.notifier).saveSession(summary);
-      ref.read(scanSessionSummaryProvider.notifier).setSummary(summary);
+      final persistedSummary =
+          await ref.read(savedScanSessionsProvider.notifier).syncSingleSession(summary);
+      ref.read(scanSessionSummaryProvider.notifier).setSummary(persistedSummary);
       if (!mounted) {
         return;
       }
-      context.go('/sales-scans/${summary.sessionId}');
+      if (persistedSummary.syncStatus != ScanSessionSyncStatus.synced) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              persistedSummary.syncError?.trim().isNotEmpty == true
+                  ? persistedSummary.syncError!
+                  : 'Session saved locally. Backend sync is pending.',
+            ),
+          ),
+        );
+      }
+      context.go('/sales-scans/${persistedSummary.sessionId}');
     } catch (error) {
       if (!mounted) {
         return;
@@ -146,6 +159,54 @@ class _FinishScanConfirmationScreenState
               style: TextStyle(color: AppColors.textMuted),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAmendmentPreview(ScanSessionDraft draft) {
+    if (!draft.isAmendment) {
+      return const SizedBox.shrink();
+    }
+
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      backgroundColor: AppColors.surfaceAlt,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: AppSectionHeader(
+                  title: 'Same-day amendment',
+                  subtitle: 'This save updates an existing session.',
+                  tight: true,
+                ),
+              ),
+              AppBadge(
+                label: '${draft.addedItemCount} new items',
+                tone: AppBadgeTone.warning,
+                icon: Icons.playlist_add_rounded,
+                compact: true,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Added gross ${_formatWeight(draft.addedGrossWeight)} g | '
+            'Added net ${_formatWeight(draft.addedNetWeight)} g | '
+            'Added fine ${_formatWeight(draft.addedFineWeight)} g',
+            style: TextStyle(color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            'Updated totals: ${draft.totalItems} items | '
+            '${_formatWeight(draft.totalGrossWeight)} g gross | '
+            '${_formatWeight(draft.totalNetWeight)} g net | '
+            '${_formatWeight(draft.totalFineWeight)} g fine',
+            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
+          ),
         ],
       ),
     );
@@ -459,6 +520,8 @@ class _FinishScanConfirmationScreenState
             const SizedBox(height: AppSpacing.lg),
             _buildCustomerCard(summary.customer),
             const SizedBox(height: AppSpacing.lg),
+            _buildAmendmentPreview(_draft),
+            if (_draft.isAmendment) const SizedBox(height: AppSpacing.lg),
             AppCard(
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
@@ -484,15 +547,3 @@ class _FinishScanConfirmationScreenState
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-

@@ -76,7 +76,7 @@ const buildSessionRef = ({ createdAt = new Date(), sequence = null, prefix = 'SE
   return `${prefixPart}-${yyyy}${mm}${dd}-${suffix}`
 }
 
-const assertAllowedSessionTransition = (currentStatus, nextStatus) => {
+const assertAllowedSessionTransition = (currentStatus, nextStatus, { allowAdminCorrection = false } = {}) => {
   const current = normalizeStatus(currentStatus)
   const next = normalizeStatus(nextStatus)
 
@@ -89,6 +89,10 @@ const assertAllowedSessionTransition = (currentStatus, nextStatus) => {
   }
 
   if (current === next) {
+    return true
+  }
+
+  if (allowAdminCorrection && next === 'cancelled' && current !== 'cancelled') {
     return true
   }
 
@@ -340,3 +344,4 @@ export {
   deriveSessionStatus,
   validateUniqueSupplierBatches,
 }
+

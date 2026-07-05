@@ -295,6 +295,12 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
         wastage: state._draft.selectedWastage,
         purityIsCustom: state._draft.purityIsCustom,
         wastageIsCustom: state._draft.wastageIsCustom,
+        continuousScan: state._draft.continuousScan,
+        onToggleContinuousScan: (val) {
+          state._updateDraftState(() {
+            state._draft = state._draft.copyWith(continuousScan: val);
+          });
+        },
         onUnlock: state._unlockDetails,
         onStartScan: state._startScanner,
       ),

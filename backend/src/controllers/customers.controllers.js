@@ -1,3 +1,4 @@
+import mongoose from 'mongoose'
 import { Customer } from '../models/Customer.js'
 import { CaptureSession } from '../models/CaptureSession.js'
 import { ScanBatch } from '../models/ScanBatch.js'
@@ -69,6 +70,26 @@ const normalizeEmail = (value) => {
   const email = normalizeText(value).toLowerCase()
   return email || null
 }
+const normalizeSessionStatusFilter = (value) => {
+  const status = normalizeText(value).toLowerCase()
+  if (status === 'all' || status === 'cancelled') {
+    return status
+  }
+  return 'active'
+}
+
+const buildSessionStatusQuery = (sessionStatus) => {
+  const filter = normalizeSessionStatusFilter(sessionStatus)
+  if (filter === 'all') {
+    return null
+  }
+
+  if (filter === 'cancelled') {
+    return { status: 'cancelled' }
+  }
+
+  return { status: { $ne: 'cancelled' } }
+}
 
 const validateCustomerPayload = ({ name, phone, area, email }) => {
   const errors = []
@@ -81,9 +102,7 @@ const validateCustomerPayload = ({ name, phone, area, email }) => {
     errors.push('Customer name is required')
   }
 
-  if (!normalizedPhone) {
-    errors.push('Customer phone is required')
-  } else if (normalizedPhone.length !== 10) {
+  if (normalizedPhone && normalizedPhone.length !== 10) {
     errors.push('Phone must be exactly 10 digits')
   }
 
@@ -99,7 +118,7 @@ const validateCustomerPayload = ({ name, phone, area, email }) => {
     errors,
     value: {
       name: normalizedName,
-      phone: normalizedPhone,
+      phone: normalizedPhone || null,
       area: normalizedArea,
       email: normalizedEmail,
     },
@@ -137,6 +156,7 @@ const formatHistoryRow = (row, sourceType) => {
     netWeight: Number(totals.netWeight ?? 0) || 0,
     fineWeight: Number(totals.fineWeight ?? 0) || 0,
     stoneAmount: Number(totals.stoneAmount ?? 0) || 0,
+    warningsCount: Number(row?.warningsCount ?? row?.warningCount ?? 0) || 0,
     salesmanId: salesman?._id || salesman || null,
     salesmanName: salesman?.name || null,
     date: resolvedDate,
@@ -201,11 +221,30 @@ const summarizeBySalesman = (rows = []) => {
   return Array.from(map.values()).sort((a, b) => (b.sessionCount - a.sessionCount) || new Date(b.lastSessionAt || 0) - new Date(a.lastSessionAt || 0))
 }
 
-const loadCustomerRelations = async (customer, { includeHistory = false } = {}) => {
+const loadCustomerRelations = async (customer, { includeHistory = false, sessionStatus = 'active' } = {}) => {
   const phoneDigits = normalizePhone(customer?.phone)
   const phoneConditions = buildPhoneMatchConditions(phoneDigits)
+  const statusQuery = buildSessionStatusQuery(sessionStatus)
+  const customerId = customer?._id && mongoose.isValidObjectId(customer._id) ? customer._id : null
 
-  if (phoneConditions.length === 0) {
+  const sessionOrConditions = []
+  const batchOrConditions = []
+
+  if (customerId) {
+    sessionOrConditions.push({ customerId })
+  }
+
+  if (phoneDigits) {
+    sessionOrConditions.push({ customerPhone: phoneDigits })
+    batchOrConditions.push({ customerPhone: phoneDigits })
+  }
+
+  if (phoneConditions.length > 0) {
+    sessionOrConditions.push(...phoneConditions)
+    batchOrConditions.push(...phoneConditions)
+  }
+
+  if (sessionOrConditions.length === 0 && batchOrConditions.length === 0) {
     return {
       relationSource: 'none',
       totalSessions: 0,
@@ -223,17 +262,13 @@ const loadCustomerRelations = async (customer, { includeHistory = false } = {}) 
   }
 
   const baseSessionQuery = {
-    $or: [
-      { customerPhone: phoneDigits },
-      ...phoneConditions,
-    ],
+    ...(sessionOrConditions.length > 0 ? { $or: sessionOrConditions } : { _id: { $in: [] } }),
+    ...(statusQuery || {}),
   }
 
   const baseBatchQuery = {
-    $or: [
-      { customerPhone: phoneDigits },
-      ...phoneConditions,
-    ],
+    ...(batchOrConditions.length > 0 ? { $or: batchOrConditions } : { _id: { $in: [] } }),
+    ...(statusQuery || {}),
   }
 
   const [captureSessions, scanBatches] = await Promise.all([
@@ -284,7 +319,7 @@ export const listCustomers = async (req, res) => {
 
     const enrichedCustomers = (await Promise.all(
       customers.map(async (customer) => {
-        const relation = await loadCustomerRelations(customer, { includeHistory: false })
+        const relation = await loadCustomerRelations(customer, { includeHistory: false, sessionStatus: 'active' })
         if (hasSessions === 'yes' && !relation.hasSessions) {
           return null
         }
@@ -342,7 +377,7 @@ export const getCustomerById = async (req, res) => {
       return res.status(404).json({ success: false, error: 'Customer not found', code: 'NOT_FOUND' })
     }
 
-    const relation = await loadCustomerRelations(customer, { includeHistory: true })
+    const relation = await loadCustomerRelations(customer, { includeHistory: true, sessionStatus: req.query.sessionStatus })
 
     return res.status(200).json({
       success: true,
@@ -360,7 +395,7 @@ export const getCustomerById = async (req, res) => {
         relationSource: relation.relationSource,
         hasSessions: relation.hasSessions,
         note: relation.hasSessions
-          ? 'Aggregates are derived from legacy phone-matched records until direct customer relations are wired.'
+          ? 'Aggregates are derived from linked sessions when available, with legacy phone matching as fallback.'
           : 'No linked sessions were found yet.',
       },
     })
@@ -384,7 +419,9 @@ export const createCustomer = async (req, res) => {
       })
     }
 
-    const existingCustomer = await Customer.findOne({ phone: value.phone }).lean()
+    const existingCustomer = value.phone
+      ? await Customer.findOne({ phone: value.phone }).lean()
+      : null
     if (existingCustomer) {
       return res.status(409).json({
         success: false,
@@ -432,10 +469,12 @@ export const updateCustomer = async (req, res) => {
       })
     }
 
-    const duplicateCustomer = await Customer.findOne({
-      _id: { $ne: customer._id },
-      phone: value.phone,
-    }).lean()
+    const duplicateCustomer = value.phone
+      ? await Customer.findOne({
+        _id: { $ne: customer._id },
+        phone: value.phone,
+      }).lean()
+      : null
     if (duplicateCustomer) {
       return res.status(409).json({
         success: false,
@@ -463,34 +502,42 @@ export const updateCustomer = async (req, res) => {
 /**
  * Soft archive customer.
  */
-export const deleteCustomer = async (req, res) => {
+const archiveCustomerById = async (req, res) => {
   try {
     const customer = await Customer.findById(req.params.id)
     if (!customer) {
       return res.status(404).json({ success: false, error: 'Customer not found', code: 'NOT_FOUND' })
     }
 
-    const relation = await loadCustomerRelations(customer, { includeHistory: false })
-    const hasLinkedSessions = relation.hasSessions
     const confirmFlag = req.body?.confirm === true || String(req.body?.confirm || '').toLowerCase() === 'true'
     const archiveReason = normalizeText(req.body?.reason || req.body?.archiveReason)
 
-    if (hasLinkedSessions && !confirmFlag) {
+    if (customer.isArchived) {
       return res.status(409).json({
         success: false,
-        error: 'Customer has linked sessions. Explicit confirmation is required to archive.',
+        error: 'Customer is already archived.',
+        code: 'CUSTOMER_ALREADY_ARCHIVED',
+      })
+    }
+
+    if (!confirmFlag) {
+      return res.status(409).json({
+        success: false,
+        error: 'Explicit confirmation is required to archive the customer.',
         code: 'CUSTOMER_ARCHIVE_CONFIRMATION_REQUIRED',
       })
     }
 
-    if (hasLinkedSessions && !archiveReason) {
+    if (!archiveReason) {
       return res.status(422).json({
         success: false,
-        error: 'Archive reason is required for customers with sessions.',
+        error: 'Archive reason is required.',
         code: 'VALIDATION_ERROR',
-        details: ['Archive reason is required for customers with sessions'],
+        details: ['Archive reason is required'],
       })
     }
+
+    const relation = await loadCustomerRelations(customer, { includeHistory: false, sessionStatus: 'all' })
 
     customer.isArchived = true
     customer.archivedAt = new Date()
@@ -498,16 +545,20 @@ export const deleteCustomer = async (req, res) => {
     customer.archiveReason = archiveReason || null
     await customer.save()
 
-    // TODO: persist an audit-log record once the audit model is available.
     return res.status(200).json({
       success: true,
       message: 'Customer archived successfully',
       data: customer.toSafeObject(),
-      archivedWithSessions: hasLinkedSessions,
+      archivedWithSessions: relation.hasSessions,
     })
   } catch (err) {
     return res.status(500).json({ success: false, error: 'Failed to archive customer', code: 'SERVER_ERROR' })
   }
 }
+
+export const archiveCustomer = archiveCustomerById
+export const deleteCustomer = archiveCustomerById
+
+
 
 

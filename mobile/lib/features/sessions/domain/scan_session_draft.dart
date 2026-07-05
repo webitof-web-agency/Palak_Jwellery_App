@@ -258,6 +258,7 @@ class ScanSessionDraft {
     this.removedItems = const <ScannedSessionItem>[],
     this.notes = '',
     this.mode = ScanSessionMode.setup,
+    this.continuousScan = false,
     this.validationMessage,
     this.amendmentSessionId,
     this.amendmentCreatedAt,
@@ -289,6 +290,7 @@ class ScanSessionDraft {
   final List<ScannedSessionItem> removedItems;
   final String notes;
   final ScanSessionMode mode;
+  final bool continuousScan;
   final String? validationMessage;
   final String? amendmentSessionId;
   final DateTime? amendmentCreatedAt;
@@ -434,6 +436,7 @@ class ScanSessionDraft {
     List<ScannedSessionItem>? removedItems,
     String? notes,
     ScanSessionMode? mode,
+    bool? continuousScan,
     String? validationMessage,
     bool clearValidationMessage = false,
     String? amendmentSessionId,
@@ -471,6 +474,7 @@ class ScanSessionDraft {
       removedItems: removedItems ?? this.removedItems,
       notes: notes ?? this.notes,
       mode: mode ?? this.mode,
+      continuousScan: continuousScan ?? this.continuousScan,
       validationMessage: clearValidationMessage
           ? null
           : validationMessage ?? this.validationMessage,

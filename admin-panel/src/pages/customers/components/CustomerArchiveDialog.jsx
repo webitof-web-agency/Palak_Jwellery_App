@@ -1,4 +1,4 @@
-import { createPortal } from 'react-dom'
+﻿import { createPortal } from 'react-dom'
 import LoadingSpinner from '../../../components/ui/LoadingSpinner'
 
 export default function CustomerArchiveDialog({
@@ -17,8 +17,8 @@ export default function CustomerArchiveDialog({
   if (!open) return null
 
   const hasSales = Number(customer?.sessionCount || 0) > 0
-  const isSecondStep = hasSales && step === 2
-  const needsTypedConfirm = hasSales
+  const isSecondStep = step === 2
+  const needsTypedConfirm = true
 
   return createPortal(
     <div className="fixed inset-0 z-[220] flex items-start sm:items-center justify-center overflow-y-auto p-4 sm:p-6 bg-[var(--jsm-overlay-strong)] backdrop-blur-2xl saturate-150">
@@ -27,9 +27,7 @@ export default function CustomerArchiveDialog({
           {hasSales ? 'Archive Customer with Sessions' : 'Archive Customer'}
         </h2>
         <p className="text-muted text-sm mb-6">
-          {hasSales
-            ? 'This customer has linked sessions. Archive will keep history intact and hide the customer from normal workflow.'
-            : 'This customer has no linked sessions. Archive will hide them from normal workflow.'}
+          Archive will keep customer history intact and hide the customer from the normal workflow.
         </p>
 
         <div className="rounded-2xl border border-[var(--jsm-border)] surface-panel-soft p-4 mb-6 space-y-1">
@@ -39,9 +37,11 @@ export default function CustomerArchiveDialog({
           <div className="text-sm text-muted">Sessions: {customer?.sessionCount ?? 0}</div>
         </div>
 
-        {hasSales && step === 1 ? (
+        {step === 1 ? (
           <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100 mb-6">
-            Double confirmation is required because this customer already has sales history.
+            {hasSales
+              ? 'Double confirmation is required because this customer already has sales history.'
+              : 'Review the customer details before continuing to archive.'}
           </div>
         ) : null}
 
@@ -57,11 +57,11 @@ export default function CustomerArchiveDialog({
               />
             </div>
             <div className="field">
-              <label className="field-label">Type customer name to confirm</label>
+              <label className="field-label">Type ARCHIVE to confirm</label>
               <input
                 className="input"
                 type="text"
-                placeholder={customer?.name || 'Customer name'}
+                placeholder="ARCHIVE"
                 value={confirmText}
                 onChange={(event) => onConfirmTextChange(event.target.value)}
               />
@@ -77,7 +77,7 @@ export default function CustomerArchiveDialog({
           >
             Cancel
           </button>
-          {hasSales && step === 1 ? (
+          {step === 1 ? (
             <button
               type="button"
               onClick={onStepChange}
@@ -89,7 +89,7 @@ export default function CustomerArchiveDialog({
             <button
               type="button"
               onClick={onConfirm}
-              disabled={isSubmitting || (needsTypedConfirm && confirmText.trim() !== (customer?.name || '').trim()) || (hasSales && !reason.trim())}
+              disabled={isSubmitting || (needsTypedConfirm && confirmText.trim().toUpperCase() !== 'ARCHIVE') || !reason.trim()}
               className="flex-[2] primary-luxury-button text-on-accent disabled:opacity-60"
             >
               {isSubmitting ? (
@@ -97,7 +97,7 @@ export default function CustomerArchiveDialog({
                   <LoadingSpinner />
                   Archiving...
                 </>
-              ) : hasSales ? 'Archive Customer' : 'Archive Customer'}
+              ) : 'Confirm Archive'}
             </button>
           )}
         </div>

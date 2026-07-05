@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { captureSessionsApi } from '../../api/captureSessions.api'
 import { getSuppliers } from '../../api/suppliers.api'
 import { usersApi } from '../../api/users.api'
@@ -8,7 +8,6 @@ import PageHeader from '../../components/ui/PageHeader'
 import SectionCard from '../../components/ui/SectionCard'
 import useDebouncedValue from '../../hooks/useDebouncedValue'
 import { formatNumber } from '../../utils/formatters'
-import CaptureSessionDetailModal from './components/CaptureSessionDetailModal'
 import CaptureSessionFilterBar from './components/CaptureSessionFilterBar'
 import CaptureSessionRecordsTable from './components/CaptureSessionRecordsTable'
 import SalesHeaderStats from './components/SalesHeaderStats'
@@ -23,6 +22,7 @@ const countActiveValues = (values = []) =>
   values.filter((value) => value !== null && value !== undefined && value !== '' && value !== false).length
 
 export default function SalesPage() {
+  const navigate = useNavigate()
   const location = useLocation()
   const [refreshToken, setRefreshToken] = useState(0)
 
@@ -48,12 +48,7 @@ export default function SalesPage() {
   const [sessionLoading, setSessionLoading] = useState(true)
   const [sessionHasLoadedOnce, setSessionHasLoadedOnce] = useState(false)
   const [sessionError, setSessionError] = useState('')
-
-  const [selectedSessionId, setSelectedSessionId] = useState(null)
-  const [selectedSessionDetail, setSelectedSessionDetail] = useState(null)
-  const [sessionDetailOpen, setSessionDetailOpen] = useState(false)
-  const [sessionDetailLoading, setSessionDetailLoading] = useState(false)
-  const [sessionDetailError, setSessionDetailError] = useState('')
+  const [notice, setNotice] = useState('')
 
   const debouncedSessionFilters = useDebouncedValue(sessionFilters, 250)
   const [sessionSortBy, sessionSortOrder] = splitSort(debouncedSessionFilters.sort, 'updatedAt:desc')
@@ -62,9 +57,23 @@ export default function SalesPage() {
     const sessionId = new URLSearchParams(location.search).get('sessionId')
     if (!sessionId) return
 
-    setSelectedSessionId(sessionId)
-    setSessionDetailOpen(true)
-  }, [location.search])
+    navigate(`/sales/${encodeURIComponent(sessionId)}`, { replace: true })
+  }, [location.search, navigate])
+
+  useEffect(() => {
+    const toastMessage = location.state?.toastMessage
+    if (!toastMessage) return
+
+    setNotice(String(toastMessage))
+    navigate(location.pathname + location.search, { replace: true, state: null })
+  }, [location.pathname, location.search, location.state?.toastMessage, navigate])
+
+  useEffect(() => {
+    if (!notice) return undefined
+
+    const timer = window.setTimeout(() => setNotice(''), 3000)
+    return () => window.clearTimeout(timer)
+  }, [notice])
 
   useEffect(() => {
     let active = true
@@ -177,39 +186,6 @@ export default function SalesPage() {
     }
   }, [debouncedSessionFilters, refreshToken, sessionPage, sessionSortBy, sessionSortOrder])
 
-  useEffect(() => {
-    if (!sessionDetailOpen || !selectedSessionId) {
-      return undefined
-    }
-
-    let active = true
-
-    const loadSessionDetail = async () => {
-      setSessionDetailLoading(true)
-      setSessionDetailError('')
-
-      try {
-        const response = await captureSessionsApi.getSessionDetail(selectedSessionId)
-        if (!active) return
-        setSelectedSessionDetail(response?.data || null)
-      } catch (err) {
-        if (!active) return
-        setSelectedSessionDetail(null)
-        setSessionDetailError(err?.error || err?.message || 'Failed to load capture session detail.')
-      } finally {
-        if (active) {
-          setSessionDetailLoading(false)
-        }
-      }
-    }
-
-    void loadSessionDetail()
-
-    return () => {
-      active = false
-    }
-  }, [refreshToken, selectedSessionId, sessionDetailOpen])
-
   const activeFilterCount = useMemo(() => {
     return countActiveValues([
       debouncedSessionFilters.q,
@@ -234,20 +210,13 @@ export default function SalesPage() {
     setSessionFilters((current) => ({ ...current, [name]: value }))
   }
 
-  const openSessionDetail = useCallback((sessionId) => {
-    if (!sessionId) return
-
-    setSelectedSessionId(sessionId)
-    setSessionDetailOpen(true)
-  }, [])
-
-  const closeSessionDetail = useCallback(() => {
-    setSessionDetailOpen(false)
-    setSelectedSessionId(null)
-    setSelectedSessionDetail(null)
-    setSessionDetailError('')
-    setSessionDetailLoading(false)
-  }, [])
+  const openSessionDetail = useCallback(
+    (sessionId) => {
+      if (!sessionId) return
+      navigate(`/sales/${encodeURIComponent(String(sessionId))}`)
+    },
+    [navigate],
+  )
 
   return (
     <div className="page-shell space-y-8 animate-fade-in">
@@ -269,6 +238,13 @@ export default function SalesPage() {
           />
         }
       />
+
+      {notice ? (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-semibold text-emerald-100">
+          {notice}
+        </div>
+      ) : null}
+
 
       {suppliersLoading ? (
         <div className="rounded-2xl border border-dashed panel-border surface-panel-faint px-4 py-4 text-sm text-muted">
@@ -322,23 +298,16 @@ export default function SalesPage() {
         limit={10}
         onPageChange={setSessionPage}
         onViewSession={openSessionDetail}
-        viewingSessionId={selectedSessionId}
-        actionLoadingSessionId={sessionDetailLoading ? selectedSessionId : null}
+        viewingSessionId={null}
+        actionLoadingSessionId={null}
       />
 
       <div className="rounded-2xl surface-panel-soft panel-border px-4 py-4 text-sm text-muted">
-        Delete is intentionally disabled for now. Session archive and reopen flows can be added later.
+        Cancelled sessions stay hidden from the default list. Cancel a session from the read-only session detail page when needed.
       </div>
-
-      <CaptureSessionDetailModal
-        open={sessionDetailOpen}
-        session={selectedSessionDetail}
-        loading={sessionDetailLoading}
-        error={sessionDetailError}
-        onClose={closeSessionDetail}
-      />
     </div>
   )
 }
+
 
 

@@ -36,7 +36,7 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
   String? _validatePhone(String? value) {
     final digits = _normalizedPhoneDigits(value ?? '');
     if (digits.isEmpty) {
-      return 'Phone is required';
+      return null;
     }
     if (digits.length != 10) {
       return 'Enter a 10-digit phone number';
@@ -112,12 +112,12 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
                   const SizedBox(height: AppSpacing.md),
                   const AppSectionHeader(
                     title: 'Add New Customer',
-                    subtitle: 'Enter the required customer details, then save and select.',
+                    subtitle: 'Enter customer details, then save and select.',
                   ),
                   const SizedBox(height: AppSpacing.md),
                   AppBanner(
                     title: 'Required fields',
-                    message: 'Name, phone, and area/location are required. Email is optional.',
+                    message: 'Name and area/location are required. Phone and email are optional.',
                     tone: AppBannerTone.info,
                   ),
                   const SizedBox(height: AppSpacing.md),
@@ -208,6 +208,8 @@ class _AddCustomerSheetState extends State<_AddCustomerSheet> {
     );
   }
 }
+
+
 
 
 
