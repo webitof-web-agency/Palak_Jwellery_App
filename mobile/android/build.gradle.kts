@@ -16,6 +16,23 @@ subprojects {
     project.layout.buildDirectory.value(newSubprojectBuildDir)
 }
 subprojects {
+    afterEvaluate {
+        project.extensions.findByName("android")?.let { android ->
+            try {
+                val namespaceMethod = android.javaClass.getMethod("getNamespace")
+                val namespace = namespaceMethod.invoke(android)
+                if (namespace == null) {
+                    val setNamespaceMethod = android.javaClass.getMethod("setNamespace", String::class.java)
+                    setNamespaceMethod.invoke(android, project.group.toString())
+                }
+            } catch (e: Exception) {
+                // Ignore
+            }
+        }
+    }
+}
+
+subprojects {
     project.evaluationDependsOn(":app")
 }
 
