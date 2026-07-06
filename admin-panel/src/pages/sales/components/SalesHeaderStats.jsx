@@ -1,10 +1,12 @@
 const StatCard = ({ label, value, hint }) => (
-  <div className="surface-panel-soft rounded-2xl !p-4 mb-0 min-w-[160px] border border-[rgba(92,70,56,0.22)] hover:border-gold-600/30 transition-colors duration-200">
-    <div className="text-[10px] uppercase tracking-[0.18em] text-muted">
-      {label}
+  <div className="flex h-full flex-col justify-between surface-panel-soft rounded-2xl !p-4 mb-0 min-w-[160px] border border-[rgba(92,70,56,0.22)] hover:border-gold-600/30 transition-colors duration-200">
+    <div>
+      <div className="min-h-[28px] line-clamp-2 text-[10px] uppercase tracking-[0.18em] text-muted">
+        {label}
+      </div>
+      <div className="mt-2 text-2xl font-bold text-heading">{value}</div>
     </div>
-    <div className="mt-2 text-2xl font-bold text-heading">{value}</div>
-    <div className="mt-1 text-sm text-muted">{hint}</div>
+    <div className="mt-3 text-sm text-muted">{hint}</div>
   </div>
 )
 

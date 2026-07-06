@@ -555,29 +555,7 @@ export default function SalesSessionDetailPage() {
                 </div>
               </SectionCard>
 
-              <SectionCard>
-                <div className="space-y-3">
-                  <div className="text-[10px] font-bold uppercase tracking-widest text-heading">Session Settings</div>
-                  {Object.entries(getObject(session?.lockedSettings || session?.settings || session?.captureSettings || session?.configuration)).filter(([, value]) => value !== null && value !== undefined && value !== '').length === 0 ? (
-                    <div className="rounded-2xl border border-dashed panel-border surface-panel-faint px-4 py-6 text-sm text-muted">
-                      Locked settings are not exposed in this session summary yet.
-                    </div>
-                  ) : (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {Object.entries(getObject(session?.lockedSettings || session?.settings || session?.captureSettings || session?.configuration))
-                        .filter(([, value]) => value !== null && value !== undefined && value !== '')
-                        .map(([key, value]) => (
-                          <DetailField
-                            key={key}
-                            label={formatFieldLabel(key)}
-                            value={valueOrDash(typeof value === 'object' ? JSON.stringify(value) : value)}
-                            mono={typeof value === 'string' && value.length > 32}
-                          />
-                        ))}
-                    </div>
-                  )}
-                </div>
-              </SectionCard>
+
             </div>
             <div className="grid gap-4 xl:grid-cols-2">
               <SectionCard>

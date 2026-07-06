@@ -299,6 +299,8 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
     searchHint: 'Search category',
     options: options,
     selectedValue: state._draft.selectedCategory,
+    allowCustomValue: true,
+    customValueHint: 'Enter custom category',
     allowClearSelection: true,
   );
   if (!state.mounted || chosen == null) {
@@ -339,6 +341,7 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
     options: _ScanSessionScreenState._wastageOptions,
     selectedValue: state._draft.wastageSelected?.toStringAsFixed(2),
     allowCustomValue: true,
+    customValueIsNumeric: true,
     customValueHint: 'Enter custom wastage',
   );
   if (!state.mounted || chosen == null) {
@@ -684,6 +687,7 @@ Future<String?> _scanSessionShowSelectionSheet(
   required List<String> options,
   required String? selectedValue,
   bool allowCustomValue = false,
+  bool customValueIsNumeric = false,
   bool allowClearSelection = false,
   String? customValueHint,
 }) {
@@ -699,6 +703,7 @@ Future<String?> _scanSessionShowSelectionSheet(
         options: options,
         selectedValue: selectedValue,
         allowCustomValue: allowCustomValue,
+        customValueIsNumeric: customValueIsNumeric,
         allowClearSelection: allowClearSelection,
         customValueHint: customValueHint,
       );

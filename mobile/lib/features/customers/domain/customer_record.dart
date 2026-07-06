@@ -31,12 +31,12 @@ class CustomerRecord {
 
   factory CustomerRecord.fromJson(Map<String, dynamic> json) {
     return CustomerRecord(
-      id: json['id']?.toString() ?? '',
+      id: (json['_id'] ?? json['id'])?.toString() ?? '',
       name: json['name']?.toString() ?? '',
       phone: json['phone']?.toString() ?? '',
       area: json['area']?.toString() ?? '',
       email: json['email']?.toString(),
-      isRecent: json['isRecent'] == true,
+      isRecent: json['isRecent'] == true || (json['sessionCount'] != null && json['sessionCount'] > 0),
       lastSeenLabel: json['lastSeenLabel']?.toString(),
     );
   }

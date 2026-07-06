@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../data/customer_repository.dart';
 import '../domain/customer_record.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
@@ -13,17 +15,17 @@ import '../../../shared/widgets/app_section_header.dart';
 
 part 'customer_selection_screen_parts.dart';
 
-class CustomerSelectionScreen extends StatefulWidget {
+class CustomerSelectionScreen extends ConsumerStatefulWidget {
   const CustomerSelectionScreen({super.key});
 
   @override
-  State<CustomerSelectionScreen> createState() => _CustomerSelectionScreenState();
+  ConsumerState<CustomerSelectionScreen> createState() => _CustomerSelectionScreenState();
 }
 
-class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
+class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  final List<CustomerRecord> _customers = <CustomerRecord>[];
+  final List<CustomerRecord> _localCustomers = <CustomerRecord>[];
 
   String _searchTerm = '';
   String? _selectedCustomerId;
@@ -52,7 +54,18 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
 
   List<CustomerRecord> get _filteredCustomers {
     final query = _searchTerm.trim().toLowerCase();
-    final customers = List<CustomerRecord>.from(_customers);
+    
+    final apiCustomers = ref.watch(customersListProvider).value ?? <CustomerRecord>[];
+    
+    final Map<String, CustomerRecord> combined = {};
+    for (final c in apiCustomers) {
+      combined[c.id] = c;
+    }
+    for (final c in _localCustomers) {
+      combined[c.id] = c;
+    }
+    
+    final customers = combined.values.toList();
 
     customers.sort((a, b) {
       if (a.isRecent != b.isRecent) {
@@ -75,7 +88,11 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
     if (_selectedCustomerId == null) {
       return null;
     }
-    for (final customer in _customers) {
+    
+    final apiCustomers = ref.watch(customersListProvider).value ?? <CustomerRecord>[];
+    final allCustomers = [..._localCustomers, ...apiCustomers];
+    
+    for (final customer in allCustomers) {
       if (customer.id == _selectedCustomerId) {
         return customer;
       }
@@ -112,16 +129,27 @@ class _CustomerSelectionScreenState extends State<CustomerSelectionScreen> {
       return;
     }
 
+    final saved = await ref.read(customerRepositoryProvider).createCustomer(created);
+    final finalCustomer = saved ?? created;
+
+    if (!mounted) {
+      return;
+    }
+
     setState(() {
-      _customers.insert(0, created);
-      _selectedCustomerId = created.id;
+      _localCustomers.insert(0, finalCustomer);
+      _selectedCustomerId = finalCustomer.id;
       _searchTerm = '';
       _searchController.clear();
     });
+    
+    if (saved != null) {
+      ref.invalidate(customersListProvider);
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${created.name} added and selected.'),
+        content: Text('${finalCustomer.name} added and selected.'),
       ),
     );
   }

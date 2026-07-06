@@ -7,6 +7,7 @@ class _SearchChoiceSheet extends StatefulWidget {
     required this.options,
     required this.selectedValue,
     this.allowCustomValue = false,
+    this.customValueIsNumeric = false,
     this.allowClearSelection = false,
     this.customValueHint,
   });
@@ -16,6 +17,7 @@ class _SearchChoiceSheet extends StatefulWidget {
   final List<String> options;
   final String? selectedValue;
   final bool allowCustomValue;
+  final bool customValueIsNumeric;
   final bool allowClearSelection;
   final String? customValueHint;
 
@@ -124,8 +126,15 @@ class _SearchChoiceSheetState extends State<_SearchChoiceSheet> {
                   const SizedBox(height: AppSpacing.md),
                   TextField(
                     controller: _customController,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+                    keyboardType: widget.customValueIsNumeric 
+                        ? const TextInputType.numberWithOptions(decimal: true) 
+                        : TextInputType.text,
+                    inputFormatters: widget.customValueIsNumeric 
+                        ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))] 
+                        : null,
+                    textCapitalization: widget.customValueIsNumeric 
+                        ? TextCapitalization.none 
+                        : TextCapitalization.words,
                     decoration: InputDecoration(
                       labelText: 'Custom value',
                       hintText: widget.customValueHint ?? 'Enter custom value',

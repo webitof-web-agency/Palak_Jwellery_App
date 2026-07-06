@@ -16,9 +16,10 @@ const router = Router()
 router.use(authenticate)
 
 router.get('/karats', getKaratOptions)
+router.get('/overview', getBusinessOverview)
+
 router.use(requireRole('admin'))
 
-router.get('/overview', getBusinessOverview)
 router.get('/options', listBusinessOptions)
 router.post('/options', createBusinessOption)
 router.put('/options/:id', updateBusinessOption)

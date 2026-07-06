@@ -813,6 +813,39 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
           onPressed: () => context.go('/sales-scans'),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
+        actions: [
+          if (summary.syncStatus != ScanSessionSyncStatus.synced)
+            IconButton(
+              icon: Icon(Icons.delete_outline_rounded, color: AppColors.danger),
+              tooltip: 'Delete Session',
+              onPressed: () async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Delete Session?'),
+                    content: const Text('This will permanently delete this local session. Are you sure?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true && context.mounted) {
+                  await ref.read(savedScanSessionsProvider.notifier).deleteSession(summary.sessionId);
+                  if (context.mounted) {
+                    context.go('/sales-scans');
+                  }
+                }
+              },
+            ),
+        ],
       ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,

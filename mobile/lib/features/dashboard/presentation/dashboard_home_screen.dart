@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_notifier.dart';
-import '../../history/presentation/sales_history_provider.dart';
 import '../../sessions/presentation/saved_scan_sessions_provider.dart';
 import '../../../shared/constants/app_brand.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -183,20 +182,27 @@ class DashboardHomeScreen extends ConsumerWidget {
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
     final pendingCount = ref.read(savedScanSessionsProvider.notifier).pendingSyncCount();
 
-    const todayQuery = SalesHistoryQuery(
-      page: 1,
-      searchTerm: '',
-      searchScope: 'all',
-      sortBy: 'saleDate',
-      sortOrder: 'desc',
-      duplicatesOnly: false,
-    );
-    final recentSalesAsync = ref.watch(recentSalesPageProvider(todayQuery));
+    final allSessions = ref.watch(savedScanSessionsProvider).value ?? [];
+    final now = DateTime.now();
+    final todaySessions = allSessions.where((s) {
+      final created = s.createdAt.toLocal();
+      return created.year == now.year && created.month == now.month && created.day == now.day;
+    }).toList();
+    
+    final totalSessionsToday = todaySessions.length;
+    final latestSession = todaySessions.isNotEmpty 
+        ? todaySessions.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b) 
+        : null;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
+          IconButton(
+            onPressed: () => _startSyncWithDelay(context, ref),
+            icon: const Icon(Icons.sync_rounded),
+            tooltip: 'Sync now',
+          ),
           const Padding(
             padding: EdgeInsets.only(right: 8),
             child: ThemeToggleButton(size: 40),
@@ -221,8 +227,7 @@ class DashboardHomeScreen extends ConsumerWidget {
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {
-                ref.invalidate(recentSalesPageProvider(todayQuery));
-                await ref.read(recentSalesPageProvider(todayQuery).future);
+                await ref.read(savedScanSessionsProvider.notifier).syncAllPending();
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -325,36 +330,14 @@ class DashboardHomeScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.xl),
                   const AppSectionHeader(
                     title: 'Today\'s Summary',
-                    subtitle: 'A quick snapshot of scan sessions recorded today.',
+                    subtitle: 'A quick snapshot of your scan sessions today.',
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  recentSalesAsync.when(
-                    loading: () => const AppCard(
-                      padding: EdgeInsets.all(AppSpacing.lg),
-                      child: Row(
-                        children: [
-                          SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
-                          SizedBox(width: AppSpacing.sm),
-                          Text('Loading today summary...'),
-                        ],
-                      ),
-                    ),
-                    error: (error, stackTrace) => AppBanner(
-                      title: 'Today summary unavailable',
-                      message: 'Could not load the current sales snapshot right now.',
-                      tone: AppBannerTone.warning,
-                      actionLabel: 'Retry',
-                      onAction: () => ref.invalidate(recentSalesPageProvider(todayQuery)),
-                    ),
-                    data: (page) {
-                      final latestSale = page.sales.isNotEmpty ? page.sales.first : null;
-                      final latestLabel = latestSale == null
-                          ? 'No sales recorded yet'
-                          : '${latestSale.ref}${latestSale.supplierName == null ? '' : ' | ${latestSale.supplierName}'}';
+                  Builder(
+                    builder: (context) {
+                      final latestLabel = latestSession == null
+                          ? 'No sessions today'
+                          : '${latestSession.customer?.name ?? 'Unknown'}${latestSession.totalItems > 0 ? ' | ${latestSession.totalItems} items' : ''}';
 
                       return AppCard(
                         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -363,16 +346,8 @@ class DashboardHomeScreen extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                const Expanded(
-                                  child: Text(
-                                    'Today\'s Activity',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                if (pendingCount == 0) ...[
+                                const Expanded(child: SizedBox()),
+                                if (pendingCount == 0 && totalSessionsToday > 0) ...[
                                   AppBadge(
                                     label: 'Synced',
                                     tone: AppBadgeTone.success,
@@ -382,7 +357,7 @@ class DashboardHomeScreen extends ConsumerWidget {
                                   const SizedBox(width: AppSpacing.xs),
                                 ],
                                 AppBadge(
-                                  label: '${page.total} entries',
+                                  label: '$totalSessionsToday entries',
                                   tone: AppBadgeTone.success,
                                   icon: Icons.insights_rounded,
                                   compact: true,
@@ -394,16 +369,16 @@ class DashboardHomeScreen extends ConsumerWidget {
                               builder: (context, constraints) {
                                 final narrow = constraints.maxWidth < 380;
                                 final countCard = AppMetricCard(
-                                  label: 'Sessions recorded',
-                                  value: '${page.total}',
-                                  helper: 'Finalized scans today',
+                                  label: 'Sessions today',
+                                  value: '$totalSessionsToday',
+                                  helper: 'Total local sessions',
                                   compact: true,
                                 );
                                 final latestCard = AppMetricCard(
-                                  label: 'Latest entry',
-                                  value: latestSale == null
+                                  label: 'Latest session',
+                                  value: latestSession == null
                                       ? '-'
-                                      : _formatDateTime(latestSale.saleDate),
+                                      : _formatDateTime(latestSession.createdAt),
                                   helper: latestLabel,
                                   compact: true,
                                 );

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { customersApi } from '../../api/customers.api'
 import EmptyState from '../../components/ui/EmptyState'
@@ -111,9 +111,9 @@ const buildStatusMeta = (customer) => {
 }
 
 const statusToneClasses = {
-  success: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100',
-  danger: 'border-red-500/25 bg-red-500/10 text-red-100',
-  muted: 'border-white/10 bg-white/5 text-muted',
+  success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+  danger: 'border-red-200 bg-red-50 text-red-700',
+  muted: 'border-gray-200 bg-gray-50 text-gray-500',
 }
 
 const smallBadgeClasses =
@@ -432,14 +432,6 @@ export default function CustomersPage() {
       <tr key={customer._id} className="border-t border-[var(--jsm-border)] align-top">
         <td className="px-6 py-5">
           <div className="font-bold text-primary">{customer.name || '-'}</div>
-          <div className="mt-1 flex flex-wrap gap-2 text-[10px] font-bold uppercase tracking-widest">
-            <span className={`${smallBadgeClasses} ${statusToneClasses[status.tone] || statusToneClasses.muted}`}>
-              {status.label}
-            </span>
-            <span className={`${smallBadgeClasses} ${statusToneClasses[customer?.sessionCount > 0 ? 'success' : 'muted'] || statusToneClasses.muted}`}>
-              {customer?.sessionCount > 0 ? 'With Sales' : 'No Sales'}
-            </span>
-          </div>
           <div className="mt-2 break-words text-xs text-muted">{customer.email || 'Email not provided'}</div>
         </td>
         <td className="px-6 py-5 text-sm text-primary whitespace-nowrap">{customer.phone || '-'}</td>
@@ -452,29 +444,32 @@ export default function CustomersPage() {
         <td className="px-6 py-5 text-sm text-primary whitespace-nowrap">{formatDate(customer.createdAt)}</td>
         <td className="px-6 py-5 text-sm text-primary">{renderStatusCell(customer)}</td>
         <td className="px-6 py-5 text-right">
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-3">
             <button
               type="button"
-              className="secondary-luxury-button px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-on-accent"
+              className="group flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-gold-600 transition-colors"
               onClick={() => navigate(`/customers/${customer._id}`)}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               View
             </button>
             <button
               type="button"
-              className="secondary-luxury-button px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-on-accent"
+              className="group flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-gold-600 transition-colors"
               onClick={() => openEditCustomer(customer)}
             >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
               Edit
             </button>
             <button
               type="button"
               onClick={() => openArchiveCustomer(customer)}
-              className="secondary-luxury-button px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-on-accent disabled:opacity-60"
+              className="group flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted hover:text-red-500 transition-colors disabled:opacity-40"
               disabled={Boolean(customer?.isArchived)}
               title={customer?.isArchived ? 'Customer is already archived' : 'Archive customer'}
             >
-              {customer?.isArchived ? 'Archived' : 'Archive Customer'}
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>
+              {customer?.isArchived ? 'Archived' : 'Archive'}
             </button>
           </div>
         </td>
@@ -493,7 +488,7 @@ export default function CustomersPage() {
             <button
               type="button"
               onClick={() => void refreshData({ nextPage: page, query: debouncedSearchTerm, filter: statusFilter })}
-              className="secondary-luxury-button text-on-accent"
+              className="secondary-luxury-button text-heading border border-gray-300 hover:bg-gray-50"
               disabled={loading || statsLoading}
             >
               Refresh
@@ -518,10 +513,14 @@ export default function CustomersPage() {
             { label: 'Without Sales', value: stats.withoutSales, helper: 'Active customers without sessions' },
             { label: 'Archived', value: stats.archived, helper: 'Hidden from normal workflow' },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-[22px] border border-[var(--jsm-border)] surface-panel-soft p-5">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-heading">{stat.label}</div>
-              <div className="mt-2 text-3xl font-bold text-primary">{statsLoading ? '-' : formatMetric(stat.value)}</div>
-              <div className="mt-2 text-xs text-muted">{stat.helper}</div>
+            <div key={stat.label} className="flex h-full flex-col justify-between rounded-[22px] border border-[var(--jsm-border)] surface-panel-soft p-5">
+              <div>
+                <div className="min-h-[28px] text-[10px] font-bold uppercase tracking-widest text-heading line-clamp-2">
+                  {stat.label}
+                </div>
+                <div className="mt-2 text-3xl font-bold text-primary">{statsLoading ? '-' : formatMetric(stat.value)}</div>
+              </div>
+              <div className="mt-3 text-xs text-muted">{stat.helper}</div>
             </div>
           ))}
         </div>
