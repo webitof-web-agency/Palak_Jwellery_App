@@ -16,9 +16,16 @@ class SalesReportPdfService {
 
   String buildFileName(ScanSessionSummary summary, SalesReportMode mode) {
     final customerName = _sanitizeForFileName(summary.customer?.name ?? '') ?? 'Customer';
-    final phone = _sanitizePhone(summary.customer?.phone) ?? 'Phone';
+    final phone = _sanitizePhone(summary.customer?.phone);
     final modeName = _sanitizeForFileName(mode.shortLabel) ?? 'Report';
-    return '${customerName}_${phone}_$modeName.pdf';
+    
+    final parts = <String>[customerName];
+    if (phone != null && phone.isNotEmpty) {
+      parts.add(phone);
+    }
+    parts.add(modeName);
+    
+    return '${parts.join('_')}.pdf';
   }
 
   String buildShareText(ScanSessionSummary summary, SalesReportMode mode) {
@@ -300,25 +307,38 @@ class SalesReportPdfService {
     switch (mode) {
       case SalesReportMode.itemWise:
         return const {
-          0: pw.FlexColumnWidth(0.7),
-          1: pw.FlexColumnWidth(1.4),
-          2: pw.FlexColumnWidth(1.6),
-          3: pw.FlexColumnWidth(0.8),
+          0: pw.FlexColumnWidth(0.6),
+          1: pw.FlexColumnWidth(1.2),
+          2: pw.FlexColumnWidth(1.2),
+          3: pw.FlexColumnWidth(0.7),
           4: pw.FlexColumnWidth(0.8),
           5: pw.FlexColumnWidth(0.8),
-          6: pw.FlexColumnWidth(0.85),
-          7: pw.FlexColumnWidth(0.85),
-          8: pw.FlexColumnWidth(0.85),
-          9: pw.FlexColumnWidth(0.85),
-          10: pw.FlexColumnWidth(0.9),
-          11: pw.FlexColumnWidth(0.9),
-          12: pw.FlexColumnWidth(0.85),
+          6: pw.FlexColumnWidth(0.95),
+          7: pw.FlexColumnWidth(0.95),
+          8: pw.FlexColumnWidth(0.95),
+          9: pw.FlexColumnWidth(0.95),
+          10: pw.FlexColumnWidth(0.95),
+          11: pw.FlexColumnWidth(0.95),
+          12: pw.FlexColumnWidth(0.95),
         };
       case SalesReportMode.supplierWise:
       case SalesReportMode.categoryWise:
         return const {
-          0: pw.FlexColumnWidth(1.55),
+          0: pw.FlexColumnWidth(1.3),
           1: pw.FlexColumnWidth(0.7),
+          2: pw.FlexColumnWidth(1.0),
+          3: pw.FlexColumnWidth(1.0),
+          4: pw.FlexColumnWidth(1.0),
+          5: pw.FlexColumnWidth(1.0),
+          6: pw.FlexColumnWidth(1.0),
+          7: pw.FlexColumnWidth(1.0),
+          8: pw.FlexColumnWidth(1.0),
+        };
+      case SalesReportMode.karatWise:
+      case SalesReportMode.wastageWise:
+        return const {
+          0: pw.FlexColumnWidth(1.15),
+          1: pw.FlexColumnWidth(0.65),
           2: pw.FlexColumnWidth(0.9),
           3: pw.FlexColumnWidth(0.9),
           4: pw.FlexColumnWidth(0.9),
@@ -326,19 +346,6 @@ class SalesReportPdfService {
           6: pw.FlexColumnWidth(0.9),
           7: pw.FlexColumnWidth(0.9),
           8: pw.FlexColumnWidth(0.9),
-        };
-      case SalesReportMode.karatWise:
-      case SalesReportMode.wastageWise:
-        return const {
-          0: pw.FlexColumnWidth(1.45),
-          1: pw.FlexColumnWidth(0.65),
-          2: pw.FlexColumnWidth(0.85),
-          3: pw.FlexColumnWidth(0.85),
-          4: pw.FlexColumnWidth(0.85),
-          5: pw.FlexColumnWidth(0.85),
-          6: pw.FlexColumnWidth(0.85),
-          7: pw.FlexColumnWidth(0.85),
-          8: pw.FlexColumnWidth(0.85),
           9: pw.FlexColumnWidth(1.1),
         };
     }
@@ -388,6 +395,18 @@ class SalesReportPdfService {
           _tableCell(_formatWeight(group.fineWeight), alignRight: true),
         ];
       case SalesReportMode.karatWise:
+        return <pw.Widget>[
+          _tableCell(group.groupLabel),
+          _tableCell(group.itemCount.toString(), alignRight: true),
+          _tableCell(_formatWeight(group.grossWeight), alignRight: true),
+          _tableCell(_formatWeight(group.stoneWeight), alignRight: true),
+          _tableCell(_formatWeight(group.otherWeight), alignRight: true),
+          _tableCell(_formatWeight(group.netWeight), alignRight: true),
+          _tableCell(_formatCurrency(group.stoneAmount), alignRight: true),
+          _tableCell(_formatCurrency(group.otherAmount), alignRight: true),
+          _tableCell(_formatWeight(group.fineWeight), alignRight: true),
+          _tableCell(supplierBreakdown.isEmpty ? first.supplier : supplierBreakdown, alignRight: true),
+        ];
       case SalesReportMode.wastageWise:
         return <pw.Widget>[
           _tableCell(supplierBreakdown.isEmpty ? first.supplier : supplierBreakdown),

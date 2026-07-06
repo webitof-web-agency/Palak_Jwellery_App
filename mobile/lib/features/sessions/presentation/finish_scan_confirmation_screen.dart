@@ -145,17 +145,26 @@ class _FinishScanConfirmationScreenState
               fontWeight: AppTypography.titleWeight,
             ),
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            customer == null
-                ? 'Customer details are missing.'
-                : '${customer.phone} | ${customer.area}',
-            style: TextStyle(color: AppColors.textSecondary),
-          ),
-          if ((customer?.email ?? '').isNotEmpty) ...[
+          if (customer == null) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(
-              customer!.email!,
+              'Customer details are missing.',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ] else if (customer.phone.trim().isNotEmpty || customer.area.trim().isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              [
+                if (customer.phone.trim().isNotEmpty) customer.phone.trim(),
+                if (customer.area.trim().isNotEmpty) customer.area.trim(),
+              ].join(' | '),
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+          ],
+          if ((customer?.email ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              customer!.email!.trim(),
               style: TextStyle(color: AppColors.textMuted),
             ),
           ],
@@ -488,16 +497,18 @@ class _FinishScanConfirmationScreenState
         ),
       ),
       bottomNavigationBar: SafeArea(
-        minimum: const EdgeInsets.fromLTRB(
-          AppSpacing.screenPadding,
-          0,
-          AppSpacing.screenPadding,
-          AppSpacing.screenPadding,
-        ),
-        child: AppActionButton(
-          label: _isSaving ? 'Saving...' : 'Save Session',
-          onPressed: _isSaving || summary.totalItems == 0 ? null : () => _saveSession(),
-          expanded: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.screenPadding,
+            AppSpacing.sm,
+            AppSpacing.screenPadding,
+            AppSpacing.screenPadding + AppSpacing.sm,
+          ),
+          child: AppActionButton(
+            label: _isSaving ? 'Saving...' : 'Save Session',
+            onPressed: _isSaving || summary.totalItems == 0 ? null : () => _saveSession(),
+            expanded: true,
+          ),
         ),
       ),
       body: SafeArea(
