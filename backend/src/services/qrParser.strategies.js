@@ -242,6 +242,13 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       } else {
         fields.netWeight = { value: parsed, parsed: true }
       }
+    } else if (grossRaw !== null) {
+      const parsedGross = toNumber(grossRaw)
+      if (parsedGross !== null) {
+        const stone1 = stoneComponent1 ?? 0
+        const stone2 = stoneComponent2 ?? 0
+        fields.netWeight = { value: Math.round((parsedGross - stone1 - stone2) * 1000) / 1000, parsed: true }
+      }
     }
 
     if (categoryRaw) {
@@ -257,7 +264,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const grossWeightValue = grossRaw === null ? null : toNumber(grossRaw)
     const qrNetValue = netRaw === null ? null : toNumber(netRaw)
     const computedNetWeight =
-      grossWeightValue !== null && (stoneComponent1 !== null || stoneComponent2 !== null)
+      grossWeightValue !== null
         ? Math.round((grossWeightValue - (stoneComponent1 ?? 0) - (stoneComponent2 ?? 0)) * 1000) / 1000
         : null
     const mismatch =
