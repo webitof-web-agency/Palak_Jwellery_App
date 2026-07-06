@@ -2,6 +2,7 @@ import { asErrorList, cloneValue, createEmptyFields, createResult, normalizeRaw,
 import { buildParserCandidates, scoreConfidence } from './qrParser.config.js'
 import { detectSupplier } from './qrParser.detection.js'
 import { runParserByStrategy } from './qrParser.strategies.js'
+import { applyNumericFallback } from './qrParser.fallback.js'
 import {
   isLikelyYugDelimiterRaw,
   isLikelyYugRaw,
@@ -138,7 +139,28 @@ export const parseQR = (rawQRString, supplierOrMapping) => {
   const strategy = normalizeStrategy(candidate?.strategy || parserConfig?.strategy)
 
   try {
-    const result = runParserByStrategy(strategy, normalizedRaw, parserConfig)
+    let result = runParserByStrategy(strategy, normalizedRaw, parserConfig)
+    
+    const hasGross = result?.fields?.grossWeight?.parsed && result.fields.grossWeight.value !== null
+    const hasNet = result?.fields?.netWeight?.parsed && result.fields.netWeight.value !== null
+    if (!hasGross || !hasNet) {
+      const fallback = applyNumericFallback(normalizedRaw)
+      if (fallback) {
+        result.fields.grossWeight = { value: fallback.grossWeight, parsed: true }
+        result.fields.netWeight = { value: fallback.netWeight, parsed: fallback.netWeight !== null }
+        result.fields.stoneWeight = { value: fallback.stoneWeight, parsed: true }
+        result.fields.otherWeight = { value: fallback.otherWeight, parsed: true }
+        if (!result.errors) result.errors = []
+        result.errors.push(...fallback.warnings.map(w => ({ field: 'fallback', reason: w })))
+        if (!result.calculationBreakdown) {
+           result.calculationBreakdown = {
+             warnings: fallback.warnings,
+             requiresReview: true
+           }
+        }
+        result.success = true
+      }
+    }
 
     if (
       candidate?.name === 'default_slash_format' &&

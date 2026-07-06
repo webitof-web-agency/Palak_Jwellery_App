@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -21,7 +22,7 @@ class ScannerScreen extends ConsumerStatefulWidget {
 
   final BatchCaptureContext? batchContext;
   final ScannerLaunchMode launchMode;
-  final void Function(String qr)? onContinuousScan;
+  final FutureOr<void> Function(String qr)? onContinuousScan;
 
   @override
   ConsumerState<ScannerScreen> createState() => _ScannerScreenState();
@@ -37,6 +38,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
   bool _processing = false;
   bool _detected = false;
   int _cameraSession = 0;
+  double _zoomScale = 0.0;
 
   @override
   void initState() {
@@ -162,7 +164,7 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
     
     if (widget.onContinuousScan != null) {
       // Continuous mode
-      widget.onContinuousScan!(raw);
+      await widget.onContinuousScan!(raw);
       // Brief pause to show success checkmark and prevent double scanning
       await Future<void>.delayed(const Duration(milliseconds: 1200));
       if (!mounted) return;
@@ -250,57 +252,92 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 18),
                     child: Center(
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 380),
-                        child: AspectRatio(
-                          aspectRatio: 0.78,
-                          child: AnimatedBuilder(
-                            animation: Listenable.merge([
-                              _scanLineController,
-                              _pulseController,
-                            ]),
-                            builder: (context, child) {
-                              return ClipRRect(
-                                borderRadius: BorderRadius.circular(30),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Hold steady and fill the box with QR',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.zoom_out_rounded, color: AppColors.textSecondary, size: 20),
+                              Slider(
+                                value: _zoomScale,
+                                min: 0.0,
+                                max: 1.0,
+                                activeColor: AppColors.accent,
+                                inactiveColor: AppColors.border,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _zoomScale = value;
+                                  });
+                                  _controller.setZoomScale(value);
+                                },
+                              ),
+                              Icon(Icons.zoom_in_rounded, color: AppColors.textSecondary, size: 20),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 380),
+                            child: AspectRatio(
+                              aspectRatio: 1.0,
+                              child: AnimatedBuilder(
+                                animation: Listenable.merge([
+                                  _scanLineController,
+                                  _pulseController,
+                                ]),
+                                builder: (context, child) {
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(30),
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        if (child != null) ...[child],
+                                        Center(
+                                          child: ScannerFrame(
+                                            progress: _scanLineController.value,
+                                            pulseScale: _pulseController.value,
+                                            active: !_processing,
+                                            detected: _detected,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                                 child: Stack(
                                   fit: StackFit.expand,
                                   children: [
-                                    if (child != null) ...[child],
-                                    Center(
-                                      child: ScannerFrame(
-                                        progress: _scanLineController.value,
-                                        pulseScale: _pulseController.value,
-                                        active: !_processing,
-                                        detected: _detected,
+                                    KeyedSubtree(
+                                      key: ValueKey(_cameraSession),
+                                      child: MobileScanner(
+                                        controller: _controller,
+                                        onDetect: _onDetect,
+                                        tapToFocus: true,
+                                        errorBuilder: (context, error) {
+                                          return _CameraErrorView(
+                                            error:
+                                                'Camera error: ${error.errorDetails?.message ?? error.errorCode.name}',
+                                            manualLabel: 'Close',
+                                            onManualEntry: _dismissScanner,
+                                          );
+                                        },
                                       ),
                                     ),
+                                    ScannerDetectedOverlay(visible: _detected),
                                   ],
                                 ),
-                              );
-                            },
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                KeyedSubtree(
-                                  key: ValueKey(_cameraSession),
-                                  child: MobileScanner(
-                                    controller: _controller,
-                                    onDetect: _onDetect,
-                                    errorBuilder: (context, error) {
-                                      return _CameraErrorView(
-                                        error:
-                                            'Camera error: ${error.errorDetails?.message ?? error.errorCode.name}',
-                                        manualLabel: 'Close',
-                                        onManualEntry: _dismissScanner,
-                                      );
-                                    },
-                                  ),
-                                ),
-                                ScannerDetectedOverlay(visible: _detected),
-                              ],
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
                     ),
                   ),

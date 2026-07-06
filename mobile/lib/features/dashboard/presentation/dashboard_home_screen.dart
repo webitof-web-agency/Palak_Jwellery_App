@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -112,7 +113,25 @@ class DashboardHomeScreen extends ConsumerWidget {
     
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text('Starting sync in 5 seconds...'),
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            int secondsLeft = 5;
+            Timer.periodic(const Duration(seconds: 1), (timer) {
+              if (cancelled || !context.mounted) {
+                timer.cancel();
+                return;
+              }
+              if (secondsLeft > 1) {
+                setState(() {
+                  secondsLeft--;
+                });
+              } else {
+                timer.cancel();
+              }
+            });
+            return Text('Starting sync in $secondsLeft seconds...');
+          },
+        ),
         duration: const Duration(seconds: 5),
         action: SnackBarAction(
           label: 'Undo',

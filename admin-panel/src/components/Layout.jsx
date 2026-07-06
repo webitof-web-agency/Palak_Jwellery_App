@@ -127,7 +127,7 @@ export const Layout = () => {
           })}
         </div>
 
-        <div className="p-6 border-t border-white/5 bg-dark-900/40">
+        <div className="p-6 pb-20 lg:pb-6 border-t border-white/5 bg-dark-900/40">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-dark-800 to-dark-950 border border-white/10 flex items-center justify-center font-bold text-heading uppercase">
               {user?.name?.[0] || "A"}

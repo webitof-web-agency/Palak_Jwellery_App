@@ -32,7 +32,19 @@ const roundTo = (value, decimals) => {
   return Math.round((numeric + Number.EPSILON) * factor) / factor
 }
 
-const roundWeight = (value) => roundTo(value, PRECISION.weight)
+const truncateTo = (value, decimals) => {
+  const numeric = toNumeric(value)
+  if (numeric === null) {
+    return null
+  }
+
+  const factor = 10 ** decimals
+  // Use Math.trunc to strictly drop digits beyond the decimal precision,
+  // preventing floating point issues (like 1.52199999) from jumping up.
+  return Math.trunc((numeric + Number.EPSILON) * factor) / factor
+}
+
+const roundWeight = (value) => truncateTo(value, PRECISION.weight)
 
 const roundPercentage = (value) => roundTo(value, PRECISION.percentage)
 
@@ -72,7 +84,13 @@ const formatPrecision = (value, decimals) => {
   return roundTo(numeric, decimals)?.toFixed(decimals) || '-'
 }
 
-const formatWeight = (value) => formatPrecision(value, PRECISION.weight)
+const formatWeight = (value) => {
+  const numeric = toNumeric(value)
+  if (numeric === null) {
+    return '-'
+  }
+  return truncateTo(numeric, PRECISION.weight)?.toFixed(PRECISION.weight) || '-'
+}
 
 const formatCurrency = (value) => formatPrecision(value, PRECISION.currency)
 
@@ -101,6 +119,7 @@ export {
   roundCurrency,
   roundPercentage,
   roundTo,
+  truncateTo,
   roundWeight,
   toNumeric,
 }

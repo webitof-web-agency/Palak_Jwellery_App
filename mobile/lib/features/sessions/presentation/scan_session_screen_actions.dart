@@ -381,9 +381,7 @@ Future<void> _scanSessionStartScanner(_ScanSessionScreenState state) async {
     extra: ScannerLaunchArgs(
       sessionKey: 'scan-session-${DateTime.now().microsecondsSinceEpoch}',
       mode: ScannerLaunchMode.scanSession,
-      onContinuousScan: state._draft.continuousScan ? (qr) {
-        _processScannedQr(state, qr);
-      } : null,
+      onContinuousScan: state._draft.continuousScan ? (qr) => _processScannedQr(state, qr) : null,
     ),
   );
   if (rawQr == null || rawQr.trim().isEmpty) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import '../../batches/domain/batch_capture_context.dart';
 
 enum ScannerLaunchMode {
@@ -16,6 +17,6 @@ class ScannerLaunchArgs {
   final String sessionKey;
   final BatchCaptureContext? batchContext;
   final ScannerLaunchMode mode;
-  final void Function(String qr)? onContinuousScan;
+  final FutureOr<void> Function(String qr)? onContinuousScan;
 }
 

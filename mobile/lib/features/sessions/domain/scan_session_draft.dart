@@ -1,10 +1,12 @@
+import 'dart:math' as math;
 import '../../customers/domain/customer_record.dart';
 import 'scan_session_summary.dart';
 
 enum ScanSessionMode { setup, lockedActiveScanning }
 
 double _roundToPrecision(double value, {int digits = 3}) {
-  return double.parse(value.toStringAsFixed(digits));
+  final factor = math.pow(10, digits);
+  return (value * factor).truncateToDouble() / factor;
 }
 
 class ScannedSessionItem {

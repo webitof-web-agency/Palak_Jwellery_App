@@ -194,9 +194,71 @@ class _ScannedItemCard extends StatelessWidget {
                   _chip('SS Amt', _formatAmount(item.ssAmount)!),
               ],
             ),
+            if (item.rawQr?.isNotEmpty == true) ...[
+              const SizedBox(height: AppSpacing.xs),
+              _RawQrExpandable(rawQr: item.rawQr!),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _RawQrExpandable extends StatefulWidget {
+  const _RawQrExpandable({required this.rawQr});
+  final String rawQr;
+
+  @override
+  State<_RawQrExpandable> createState() => _RawQrExpandableState();
+}
+
+class _RawQrExpandableState extends State<_RawQrExpandable> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _expanded = !_expanded),
+          borderRadius: BorderRadius.circular(4),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'View Raw QR',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Icon(
+                  _expanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                  size: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_expanded)
+          Padding(
+            padding: const EdgeInsets.only(top: 4, bottom: 4),
+            child: Text(
+              widget.rawQr,
+              style: TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 10,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
