@@ -53,7 +53,7 @@ const createYugCalculationBreakdown = (raw, breakdown) => ({
     },
   ],
   otherWeight: {
-    sourceField: '[11]',
+    sourceField: '[12]',
     value: breakdown.otWeight,
   },
   qrNetWeight: breakdown.qrNetWeight,
@@ -85,7 +85,7 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   const size = toText(parts[8])
   const metalType = toText(parts[9])
   const lotCode = toText(parts[10])
-  const otherWeight = toNumeric(parts[11])
+  const otherWeight = toNumeric(parts[12])
   const category = toText(parts[13])
   const stoneComponent2 = toNumeric(parts[14])
   const karat = toText(parts[2])
