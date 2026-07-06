@@ -21,7 +21,7 @@ export const Layout = () => {
   const navLinks = [
     { name: "Dashboard", path: "/dashboard" },
     { name: "Customers", path: "/customers" },
-    { name: "Sales", path: "/sales" },
+    { name: "Sessions", path: "/sales" },
     { name: "Settlement Reports", path: "/settlement-reports" },
     { name: "Suppliers", path: "/suppliers" },
     ...(user?.role === "admin" ? [{ name: "Users", path: "/users" }] : []),

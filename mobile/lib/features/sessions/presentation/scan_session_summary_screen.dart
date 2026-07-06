@@ -198,7 +198,7 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
           Text(
             customer == null
                 ? 'No customer snapshot available.'
-                : '${customer.phone} | ${customer.area}',
+                : [customer.phone, customer.area].where((e) => e.trim().isNotEmpty).join(' | '),
             style: TextStyle(color: AppColors.textSecondary),
           ),
           if ((customer?.email ?? '').isNotEmpty) ...[

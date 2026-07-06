@@ -57,10 +57,12 @@ Widget _scanSessionBuildCustomerCard(
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
-              Text(
-                '${customer.phone} | ${customer.area}',
-                style: TextStyle(color: AppColors.textSecondary),
-              ),
+              if (customer.phone.trim().isNotEmpty || customer.area.trim().isNotEmpty) ...[
+                Text(
+                  [customer.phone, customer.area].where((e) => e.trim().isNotEmpty).join(' | '),
+                  style: TextStyle(color: AppColors.textSecondary),
+                ),
+              ],
               if ((customer.email ?? '').isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.xs),
                 Text(

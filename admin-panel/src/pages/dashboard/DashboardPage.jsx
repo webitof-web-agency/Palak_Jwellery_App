@@ -110,7 +110,7 @@ export default function DashboardPage() {
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <MetricCard
-          title="Total Sales"
+          title="Total Sessions"
           value={showInitialLoading ? '' : formatNumber(totalSales)}
           loading={showInitialLoading}
         />
@@ -135,7 +135,7 @@ export default function DashboardPage() {
           ) : supplierRows.length === 0 ? (
             <EmptyState
               title="No supplier summary yet"
-              description="Once sales are recorded, supplier performance will appear here."
+              description="Once sessions are recorded, supplier performance will appear here."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -143,7 +143,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="text-[10px] uppercase tracking-[0.18em] text-muted border-b border-white/10">
                     <th className="py-4 pr-4">Name</th>
-                    <th className="py-4 pr-4">Sales Count</th>
+                    <th className="py-4 pr-4">Session Count</th>
                     <th className="py-4 pr-4">Net Weight (g)</th>
                     <th className="py-4 text-right">Gross Weight (g)</th>
                   </tr>
@@ -180,7 +180,7 @@ export default function DashboardPage() {
           ) : salesmanRows.length === 0 ? (
             <EmptyState
               title="No salesman summary yet"
-              description="Salesman performance will populate after sales are saved."
+              description="Salesman performance will populate after sessions are recorded."
             />
           ) : (
             <div className="overflow-x-auto">
@@ -188,7 +188,7 @@ export default function DashboardPage() {
                 <thead>
                   <tr className="text-[10px] uppercase tracking-[0.18em] text-muted border-b border-white/10">
                     <th className="py-4 pr-4">Name</th>
-                    <th className="py-4 pr-4">Sales Count</th>
+                    <th className="py-4 pr-4">Session Count</th>
                     <th className="py-4 text-right">Net Weight (g)</th>
                   </tr>
                 </thead>

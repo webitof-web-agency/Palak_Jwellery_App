@@ -315,7 +315,7 @@ class DashboardHomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   AppActionButton(
-                    label: 'My Sales / Scans',
+                    label: 'My Sessions / Scans',
                     onPressed: () => context.push('/sales-scans'),
                     icon: Icons.receipt_long_rounded,
                     variant: AppActionButtonVariant.secondary,
@@ -324,8 +324,8 @@ class DashboardHomeScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   const AppSectionHeader(
-                    title: 'Today summary',
-                    subtitle: 'A quick snapshot of what has already been recorded today.',
+                    title: 'Today\'s Summary',
+                    subtitle: 'A quick snapshot of scan sessions recorded today.',
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   recentSalesAsync.when(
@@ -365,7 +365,7 @@ class DashboardHomeScreen extends ConsumerWidget {
                               children: [
                                 const Expanded(
                                   child: Text(
-                                    'Today\'s activity',
+                                    'Today\'s Activity',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
@@ -394,9 +394,9 @@ class DashboardHomeScreen extends ConsumerWidget {
                               builder: (context, constraints) {
                                 final narrow = constraints.maxWidth < 380;
                                 final countCard = AppMetricCard(
-                                  label: 'Sales recorded',
+                                  label: 'Sessions recorded',
                                   value: '${page.total}',
-                                  helper: 'Finalized entries today',
+                                  helper: 'Finalized scans today',
                                   compact: true,
                                 );
                                 final latestCard = AppMetricCard(

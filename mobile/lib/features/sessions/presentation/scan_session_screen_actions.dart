@@ -281,11 +281,23 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
 }
 
 Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
+  List<String> options = _ScanSessionScreenState._categoryOptions;
+  try {
+    final overview = await state.ref.read(businessOverviewProvider.future);
+    if (overview.categories.isNotEmpty) {
+      options = overview.categories;
+    }
+  } catch (_) {
+    // Ignore error and use default fallback
+  }
+
+  if (!state.mounted) return;
+
   final chosen = await _scanSessionShowSelectionSheet(
     state,
     title: 'Choose category',
     searchHint: 'Search category',
-    options: _ScanSessionScreenState._categoryOptions,
+    options: options,
     selectedValue: state._draft.selectedCategory,
     allowClearSelection: true,
   );

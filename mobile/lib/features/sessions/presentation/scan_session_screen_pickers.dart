@@ -31,13 +31,15 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.screenPadding,
-            AppSpacing.lg,
-            AppSpacing.screenPadding,
-            AppSpacing.screenPadding + bottomInset,
-          ),
-          child: Column(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenPadding,
+              AppSpacing.lg,
+              AppSpacing.screenPadding,
+              AppSpacing.screenPadding,
+            ),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -197,6 +199,7 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
                 },
               ),
             ],
+            ),
           ),
         ),
       ),
@@ -271,13 +274,15 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.screenPadding,
-            AppSpacing.lg,
-            AppSpacing.screenPadding,
-            AppSpacing.screenPadding + bottomInset,
-          ),
-          child: Column(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenPadding,
+              AppSpacing.lg,
+              AppSpacing.screenPadding,
+              AppSpacing.screenPadding,
+            ),
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -372,6 +377,7 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
                           constraints: const BoxConstraints(maxHeight: 420),
                           child: ListView.separated(
                             shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
                             itemCount: filtered.length,
                             separatorBuilder: (context, index) =>
                                 const SizedBox(height: AppSpacing.sm),
@@ -440,6 +446,7 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
                 },
               ),
             ],
+            ),
           ),
         ),
       ),

@@ -222,8 +222,8 @@ export default function SalesPage() {
     <div className="page-shell space-y-8 animate-fade-in">
       <PageHeader
         eyebrow="Session review"
-        title="Sales"
-        description="Review customer sales sessions, filter by supplier or salesman, and open a read-only session detail view."
+        title="Sessions"
+        description="Review customer scan sessions, filter by supplier or salesman, and open a read-only session detail view."
         actions={
           <SalesHeaderStats
             total={sessionTotal}

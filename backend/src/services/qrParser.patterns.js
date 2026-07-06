@@ -192,7 +192,10 @@ const isLikelyAdinathRaw = (raw) => {
 
 const isLikelyUtsavRaw = (raw) => {
   const text = normalizeRaw(raw)
-  return /^[A-Z]+-\d+/i.test(text) && /GWT-/i.test(text) && /NWT-/i.test(text) && /SWT-/i.test(text)
+  const hasGwt = /GWT-/i.test(text)
+  const hasUsv = /\/USV(?:\/|$)/i.test(text)
+  const hasFullFormat = /^[A-Z]+-\d+/i.test(text) && /NWT-/i.test(text) && /SWT-/i.test(text)
+  return hasGwt && (hasUsv || hasFullFormat)
 }
 
 const isLikelyVenzoraRaw = (raw) => {

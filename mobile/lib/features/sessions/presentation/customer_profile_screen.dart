@@ -90,7 +90,13 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
       appBar: AppBar(
         title: const Text('Customer Profile'),
         leading: IconButton(
-          onPressed: () => context.go('/sales-scans'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/sales-scans');
+            }
+          },
           icon: const Icon(Icons.arrow_back_rounded),
         ),
       ),
@@ -271,7 +277,13 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
             const SizedBox(height: AppSpacing.lg),
             AppActionButton(
               label: 'Back to My Sales / Scans',
-              onPressed: () => context.go('/sales-scans'),
+              onPressed: () {
+                if (context.canPop()) {
+                  context.pop();
+                } else {
+                  context.go('/sales-scans');
+                }
+              },
               variant: AppActionButtonVariant.secondary,
               expanded: true,
             ),

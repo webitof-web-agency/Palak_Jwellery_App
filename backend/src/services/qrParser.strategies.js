@@ -203,7 +203,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const netRaw = getTokenValue('NWT-')
     const stoneRaw = getTokenValue('SWT-')
     const colourStoneRaw = getTokenValue('CL-')
-    const categoryRaw = tokens.find((part) => /^[A-Z]+-\d+/i.test(part)) || null
+    const categoryRaw = tokens.find((part) => /^[A-Z]+-[\w\d]*/i.test(part)) || tokens[0] || null
     const supplierCodeRaw = tokens.find((part) => part.toUpperCase() === 'USV') || null
     const stoneComponent1 = stoneRaw === null ? null : toNumber(stoneRaw)
     const stoneComponent2 = colourStoneRaw === null ? null : toNumber(colourStoneRaw)
@@ -247,7 +247,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     if (categoryRaw) {
       fields.category = { value: categoryRaw, parsed: true }
     } else {
-      errors.push({ field: 'category', reason: 'TM- item code is missing' })
+      errors.push({ field: 'category', reason: 'Category or item code is missing' })
     }
 
     if (supplierCodeRaw) {

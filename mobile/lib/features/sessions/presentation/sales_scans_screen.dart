@@ -178,7 +178,7 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
           ),
           children: [
             const AppSectionHeader(
-              title: 'Recent saved sales',
+              title: 'Recent saved sessions',
               subtitle: 'Search by customer name or phone, then open a saved session.',
             ),
             const SizedBox(height: AppSpacing.md),
@@ -265,7 +265,7 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                                   ),
                                   const SizedBox(height: AppSpacing.xs),
                                   Text(
-                                    '${group.customer.phone} | ${group.customer.area}',
+                                    [group.customer.phone, group.customer.area].where((e) => e.trim().isNotEmpty).join(' | '),
                                     style: TextStyle(color: AppColors.textSecondary),
                                   ),
                                 ],

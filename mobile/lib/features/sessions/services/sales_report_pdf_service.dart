@@ -188,10 +188,12 @@ class SalesReportPdfService {
               children: [
                 pw.Text('Customer: ${customer?.name ?? 'Unknown'}',
                     style: const pw.TextStyle(fontSize: 9)),
-                pw.Text('Phone: ${customer?.phone ?? '-'}',
-                    style: const pw.TextStyle(fontSize: 9)),
-                pw.Text('Area: ${customer?.area ?? '-'}',
-                    style: const pw.TextStyle(fontSize: 9)),
+                if ((customer?.phone ?? '').trim().isNotEmpty)
+                  pw.Text('Phone: ${customer!.phone.trim()}',
+                      style: const pw.TextStyle(fontSize: 9)),
+                if ((customer?.area ?? '').trim().isNotEmpty)
+                  pw.Text('Area: ${customer!.area.trim()}',
+                      style: const pw.TextStyle(fontSize: 9)),
                 pw.Text('Date: $generatedAt',
                     style: const pw.TextStyle(fontSize: 9)),
               ],

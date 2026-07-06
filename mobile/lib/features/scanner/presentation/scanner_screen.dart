@@ -263,27 +263,6 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                             ),
                           ),
                           const SizedBox(height: 16),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.zoom_out_rounded, color: AppColors.textSecondary, size: 20),
-                              Slider(
-                                value: _zoomScale,
-                                min: 0.0,
-                                max: 1.0,
-                                activeColor: AppColors.accent,
-                                inactiveColor: AppColors.border,
-                                onChanged: (value) {
-                                  setState(() {
-                                    _zoomScale = value;
-                                  });
-                                  _controller.setZoomScale(value);
-                                },
-                              ),
-                              Icon(Icons.zoom_in_rounded, color: AppColors.textSecondary, size: 20),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 380),
                             child: AspectRatio(
@@ -336,6 +315,27 @@ class _ScannerScreenState extends ConsumerState<ScannerScreen>
                                 ),
                               ),
                             ),
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.zoom_out_rounded, color: AppColors.textSecondary, size: 20),
+                              Slider(
+                                value: _zoomScale,
+                                min: 0.0,
+                                max: 1.0,
+                                activeColor: AppColors.accent,
+                                inactiveColor: AppColors.border,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _zoomScale = value;
+                                  });
+                                  _controller.setZoomScale(value);
+                                },
+                              ),
+                              Icon(Icons.zoom_in_rounded, color: AppColors.textSecondary, size: 20),
+                            ],
                           ),
                         ],
                       ),

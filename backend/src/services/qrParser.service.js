@@ -143,7 +143,7 @@ export const parseQR = (rawQRString, supplierOrMapping) => {
     
     const hasGross = result?.fields?.grossWeight?.parsed && result.fields.grossWeight.value !== null
     const hasNet = result?.fields?.netWeight?.parsed && result.fields.netWeight.value !== null
-    if (!hasGross || !hasNet) {
+    if (!result.success && (!hasGross || !hasNet)) {
       const fallback = applyNumericFallback(normalizedRaw)
       if (fallback) {
         result.fields.grossWeight = { value: fallback.grossWeight, parsed: true }
