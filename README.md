@@ -116,6 +116,7 @@ flutter build apk --debug
 ```powershell
 cd mobile
 flutter build apk --release --dart-define=API_BASE_URL=https://your-host.com
+
 ```
 
 ### Release App Bundle

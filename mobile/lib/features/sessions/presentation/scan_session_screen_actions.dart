@@ -465,7 +465,7 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundHover,
+                  color: AppColors.surfaceAlt,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Row(
@@ -474,7 +474,7 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                     Expanded(
                       child: SelectableText(
                         item.rawQr ?? '',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textSecondary,
                           fontSize: 10,
                           fontFamily: 'monospace',
@@ -494,8 +494,8 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                         );
                       },
                       borderRadius: BorderRadius.circular(4),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4.0),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
                         child: Icon(
                           Icons.copy,
                           size: 14,

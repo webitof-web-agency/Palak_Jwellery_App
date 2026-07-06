@@ -252,7 +252,7 @@ class _RawQrExpandableState extends State<_RawQrExpandable> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               decoration: BoxDecoration(
-                color: AppColors.backgroundHover,
+                color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Row(
@@ -261,7 +261,7 @@ class _RawQrExpandableState extends State<_RawQrExpandable> {
                   Expanded(
                     child: SelectableText(
                       widget.rawQr,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 10,
                         fontFamily: 'monospace',
@@ -281,8 +281,8 @@ class _RawQrExpandableState extends State<_RawQrExpandable> {
                       );
                     },
                     borderRadius: BorderRadius.circular(4),
-                    child: const Padding(
-                      padding: EdgeInsets.all(4.0),
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
                       child: Icon(
                         Icons.copy,
                         size: 14,
