@@ -149,11 +149,24 @@ class ScannedSessionItem {
       return double.tryParse(value.toString());
     }
 
+      final rawCategory = json['category']?.toString();
+      final itemCode = json['itemCode']?.toString() ?? '';
+      final supplier = json['supplier']?.toString() ?? '';
+      
+      String? cleanCategory = rawCategory;
+      if (cleanCategory != null) {
+        final isAayra = supplier.toLowerCase().contains('aayra');
+        final isUtsav = supplier.toLowerCase().contains('utsav');
+        if (cleanCategory == 'null' || cleanCategory == itemCode || isAayra || isUtsav) {
+          cleanCategory = null;
+        }
+      }
+
     return ScannedSessionItem(
       id: json['id']?.toString() ?? '',
-      itemCode: json['itemCode']?.toString() ?? '',
-      supplier: json['supplier']?.toString() ?? '',
-      category: json['category']?.toString(),
+      itemCode: itemCode,
+      supplier: supplier,
+      category: cleanCategory,
       jewelType: json['jewelType']?.toString(),
       qrKarat: json['qrKarat']?.toString(),
       karat: json['karat']?.toString() ?? '',
