@@ -14,7 +14,7 @@ import { parsePurity, toNumber, toText } from './qrNormalization.shared.js'
 
 const serviceDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(serviceDir, '../../..')
-const brandLogoPath = path.resolve(repoRoot, 'admin-panel/public/logo-light-rose-notext-clean.png')
+// brandLogoPath removed
 
 const brandColors = {
   bg: '#fbf6f0',
@@ -170,12 +170,7 @@ const resolveBatchRevisionCounts = (revision = {}, batch = {}) => ({
 })
 
 const loadBrandLogoDataUrl = async () => {
-  try {
-    const buffer = await readFile(brandLogoPath)
-    return `data:image/png;base64,${buffer.toString('base64')}`
-  } catch {
-    return ''
-  }
+  return null
 }
 
 const buildPdfBufferFromHtml = async (html, fallbackTitle, fallbackLines = []) => {

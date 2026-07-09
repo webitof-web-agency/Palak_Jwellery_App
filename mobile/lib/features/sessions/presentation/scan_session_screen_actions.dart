@@ -43,25 +43,7 @@ String _scanSessionDisplayWarningLabel(String label) {
   return '${compact.substring(0, 25).trimRight()}...';
 }
 
-String? _scanSessionSupplierKeyFor(String? supplier) {
-  final normalized = (supplier ?? '').trim().toUpperCase();
-  if (normalized.isEmpty) {
-    return null;
-  }
-  if (normalized.contains('YUG')) {
-    return 'YUG';
-  }
-  if (normalized.contains('AADINATH')) {
-    return 'Aadinath';
-  }
-  if (normalized.contains('VENZORA')) {
-    return 'Venzora Trading';
-  }
-  if (normalized.contains('PALAK')) {
-    return 'Palak Jewellery';
-  }
-  return supplier;
-}
+
 
 SupplierModel? _scanSessionSupplierModelFor(
   _ScanSessionScreenState state,
@@ -122,12 +104,48 @@ double? _scanSessionProviderPurityForKarat(
   return null;
 }
 
-double? _scanSessionCategoryDefaultWastageFor(String? category) {
-  final normalized = (category ?? '').trim().toUpperCase();
+double? _scanSessionCategoryDefaultWastageFor(_ScanSessionScreenState state, String? supplier, String? category) {
+  final normalized = (category ?? '').trim().toLowerCase();
   if (normalized.isEmpty) {
     return null;
   }
-  return _ScanSessionScreenState._categoryWastageDefaults[normalized];
+  
+  final supplierModel = _scanSessionSupplierModelFor(state, supplier);
+  if (supplierModel == null) return null;
+  
+  final categories = supplierModel.businessSettings['categories'];
+  if (categories is! List) return null;
+  
+  for (final item in categories) {
+    if (item is Map<String, dynamic> && 
+        (item['name']?.toString().toLowerCase() == normalized || item['code']?.toString().toLowerCase() == normalized) && 
+        item['isActive'] != false) {
+      final val = item['wastagePercent'];
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val);
+    }
+  }
+  return null;
+}
+
+double? _scanSessionSupplierDefaultWastageFor(SupplierModel? supplierModel, String? karatLabel) {
+  if (supplierModel == null || karatLabel == null) return null;
+  final normalized = karatLabel.trim().toUpperCase();
+  if (normalized.isEmpty) return null;
+  
+  final karats = supplierModel.businessSettings['karats'];
+  if (karats is! List) return null;
+  
+  for (final item in karats) {
+    if (item is Map<String, dynamic> && 
+        (item['name']?.toString().toUpperCase() == normalized || item['code']?.toString().toUpperCase() == normalized) && 
+        item['isActive'] != false) {
+      final val = item['wastagePercent'];
+      if (val is num) return val.toDouble();
+      if (val is String) return double.tryParse(val);
+    }
+  }
+  return null;
 }
 
 ({double purity, double wastage})? _scanSessionDefaultsFor(
@@ -141,22 +159,17 @@ double? _scanSessionCategoryDefaultWastageFor(String? category) {
     return null;
   }
 
-  final supplierKey = _scanSessionSupplierKeyFor(supplier);
-  final supplierMatrix = supplierKey == null
-      ? null
-      : _ScanSessionScreenState._defaultMatrix[supplierKey];
-  final matrixEntry = supplierMatrix?[karatLabel];
-  final karatPurity =
-      matrixEntry?.purity ?? _scanSessionProviderPurityForKarat(state, supplier, karatLabel);
-  if (karatPurity == null && matrixEntry == null) {
+  final supplierModel = _scanSessionSupplierModelFor(state, supplier);
+  final karatPurity = _scanSessionProviderPurityForKarat(state, supplier, karatLabel);
+  if (karatPurity == null) {
     return null;
   }
 
-  final categoryDefaultWastage = _scanSessionCategoryDefaultWastageFor(category);
-  final supplierDefaultWastage = matrixEntry?.wastage;
+  final categoryDefaultWastage = _scanSessionCategoryDefaultWastageFor(state, supplier, category);
+  final supplierDefaultWastage = _scanSessionSupplierDefaultWastageFor(supplierModel, karatLabel);
 
   return (
-    purity: karatPurity ?? 75.0,
+    purity: karatPurity,
     wastage: categoryDefaultWastage ?? supplierDefaultWastage ?? 10.0,
   );
 }
@@ -168,6 +181,11 @@ void _scanSessionApplyDefaultsForSelection(_ScanSessionScreenState state) {
     state._draft.selectedCategory,
     state._draft.karat,
   );
+  
+  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  final catWastage = _scanSessionCategoryDefaultWastageFor(state, state._draft.supplier, state._draft.selectedCategory);
+  final suppWastage = _scanSessionSupplierDefaultWastageFor(supplierModel, state._draft.karat);
+  
   state._draft = state._draft.copyWith(
     purityOriginal: defaults?.purity,
     puritySelected: defaults?.purity,
@@ -175,19 +193,10 @@ void _scanSessionApplyDefaultsForSelection(_ScanSessionScreenState state) {
     wastageOriginal: defaults?.wastage,
     wastageSelected: defaults?.wastage,
     clearWastage: defaults == null,
-    categoryDefaultWastage: _scanSessionCategoryDefaultWastageFor(state._draft.selectedCategory),
-    clearCategoryDefaultWastage: _scanSessionCategoryDefaultWastageFor(state._draft.selectedCategory) == null,
-    supplierDefaultWastage: state._draft.karat == null
-        ? null
-        : (_scanSessionSupplierKeyFor(state._draft.supplier) == null
-            ? null
-            : _ScanSessionScreenState
-                  ._defaultMatrix[_scanSessionSupplierKeyFor(state._draft.supplier)!]?[state
-                      ._draft
-                      .karat!
-                      .toUpperCase()]
-                  ?.wastage),
-    clearSupplierDefaultWastage: state._draft.karat == null || _scanSessionSupplierKeyFor(state._draft.supplier) == null || _ScanSessionScreenState._defaultMatrix[_scanSessionSupplierKeyFor(state._draft.supplier)!]?[state._draft.karat!.toUpperCase()]?.wastage == null,
+    categoryDefaultWastage: catWastage,
+    clearCategoryDefaultWastage: catWastage == null,
+    supplierDefaultWastage: suppWastage,
+    clearSupplierDefaultWastage: suppWastage == null,
     clearValidationMessage: true,
   );
   state._purityController.text =
@@ -250,6 +259,18 @@ void _scanSessionSetWastage(_ScanSessionScreenState state, String value) {
   });
 }
 
+void _scanSessionSetStonePrice(_ScanSessionScreenState state, String value) {
+  final parsed = double.tryParse(value.trim());
+  state._updateDraftState(() {
+    state._draft = state._draft.copyWith(
+      stonePriceSelected: parsed,
+      clearStonePrice: parsed == null,
+      clearValidationMessage: true,
+    );
+    state._localValidationMessage = null;
+  });
+}
+
 void _scanSessionSetNotes(_ScanSessionScreenState state, String value) {
   state._updateDraftState(() {
     state._draft = state._draft.copyWith(notes: value);
@@ -281,23 +302,18 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
 }
 
 Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
-  List<String> options = _ScanSessionScreenState._categoryOptions;
+  final values = <String>{};
+  
   try {
     final overview = await state.ref.read(businessOverviewProvider.future);
-    if (overview.categories.isNotEmpty) {
-      options = overview.categories;
-    }
-  } catch (_) {
-    // Ignore error and use default fallback
-  }
-
-  if (!state.mounted) return;
+    values.addAll(overview.categories);
+  } catch (_) {}
 
   final chosen = await _scanSessionShowSelectionSheet(
     state,
-    title: 'Choose category',
+    title: 'Select Category',
     searchHint: 'Search category',
-    options: options,
+    options: values.toList(),
     selectedValue: state._draft.selectedCategory,
     allowCustomValue: true,
     customValueHint: 'Enter custom category',
@@ -334,11 +350,70 @@ Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
 }
 
 Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
+  final values = <double>{};
+  final selectedSupplier = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  try {
+    final suppliers = await state.ref.read(suppliersProvider.future);
+    final pool = selectedSupplier != null
+        ? suppliers.where((supplier) => supplier.id == selectedSupplier.id).toList(growable: false)
+        : suppliers;
+    final targetSuppliers = pool.isEmpty && selectedSupplier != null
+        ? <SupplierModel>[selectedSupplier]
+        : pool;
+
+    for (final supplier in targetSuppliers) {
+      final karats = supplier.businessSettings['karats'];
+      if (karats is List) {
+        for (final item in karats) {
+          if (item is! Map<String, dynamic>) continue;
+          if (item['isActive'] == false) continue;
+          final val = item['wastagePercent'];
+          if (val is num) values.add(val.toDouble());
+          if (val is String && double.tryParse(val) != null) values.add(double.parse(val));
+        }
+      }
+
+      final categories = supplier.businessSettings['categories'];
+      if (categories is List) {
+        for (final item in categories) {
+          if (item is! Map<String, dynamic>) continue;
+          if (item['isActive'] == false) continue;
+          final val = item['wastagePercent'];
+          if (val is num) values.add(val.toDouble());
+          if (val is String && double.tryParse(val) != null) values.add(double.parse(val));
+        }
+      }
+    }
+  } catch (_) {
+    // Fallback handled below.
+  }
+
+  try {
+    final overview = await state.ref.read(businessOverviewProvider.future);
+    if (overview.wastages.isNotEmpty) {
+      values.addAll(overview.wastages);
+    }
+  } catch (_) {
+    // Ignore errors for global wastages
+  }
+
+  if (values.isEmpty) {
+    final fallback = state._draft.globalDefaultWastage;
+    values.add(fallback);
+  }
+
+  final list = values.map((value) => value.toStringAsFixed(2)).toList(growable: false);
+  list.sort((a, b) {
+    final aValue = double.tryParse(a) ?? 0;
+    final bValue = double.tryParse(b) ?? 0;
+    return aValue.compareTo(bValue);
+  });
+
   final chosen = await _scanSessionShowSelectionSheet(
     state,
     title: 'Select Wastage',
     searchHint: 'Search wastage',
-    options: _ScanSessionScreenState._wastageOptions,
+    options: list,
     selectedValue: state._draft.wastageSelected?.toStringAsFixed(2),
     allowCustomValue: true,
     customValueIsNumeric: true,
@@ -350,6 +425,32 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
 
   state._wastageController.text = chosen;
   _scanSessionSetWastage(state, chosen);
+}
+
+Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
+  final chosen = await _scanSessionShowSelectionSheet(
+    state,
+    title: 'Select Stone Price',
+    searchHint: 'Search or enter price',
+    options: ['800', '1000', '1200', '1400', '1500', '2000'],
+    selectedValue: state._draft.stonePriceSelected?.toStringAsFixed(0),
+    allowCustomValue: true,
+    customValueIsNumeric: true,
+    customValueHint: 'Enter custom price per gram',
+    allowClearSelection: true,
+  );
+  if (!state.mounted || chosen == null) {
+    return;
+  }
+  
+  if (chosen == _clearSelectionSentinel) {
+    state._stonePriceController.text = '';
+    _scanSessionSetStonePrice(state, '');
+    return;
+  }
+  
+  state._stonePriceController.text = chosen;
+  _scanSessionSetStonePrice(state, chosen);
 }
 
 void _scanSessionLockDetails(_ScanSessionScreenState state) {
@@ -600,11 +701,18 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
   final purity = state._draft.selectedPurity ?? state._draft.originalPurity ?? 75.0;
   final wastage = state._draft.selectedWastage ?? state._draft.resolvedWastageDefault;
   final displaySnapshot = parseResult.displaySnapshot;
-  final stoneAmount = readNestedDouble(displaySnapshot, ['amounts', 'stoneAmount']);
-  final otherAmount = readNestedDouble(displaySnapshot, ['amounts', 'otherAmount']);
   final grossWeight = roundToPrecision(pickDouble(parseResult.grossWeight, 0));
   final stoneWeight = roundToPrecision(pickDouble(parseResult.stoneWeight, 0));
   final otherWeight = roundToPrecision(pickDouble(parseResult.otherWeight, 0));
+
+  var computedStoneAmount = readNestedDouble(displaySnapshot, ['amounts', 'stoneAmount']);
+  final lockedStonePrice = state._draft.stonePriceSelected;
+  if (computedStoneAmount == null && lockedStonePrice != null && stoneWeight > 0) {
+    computedStoneAmount = stoneWeight * lockedStonePrice;
+  }
+  
+  final otherAmount = readNestedDouble(displaySnapshot, ['amounts', 'otherAmount']);
+  
   final isDuplicate = state._draft.scannedItems.any(
     (item) =>
         _scanSessionNormalizeText(item.itemCode) == _scanSessionNormalizeText(itemCode) &&
@@ -645,11 +753,11 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
     grossWeight: grossWeight,
     stoneWeight: stoneWeight,
     otherWeight: otherWeight,
-    stoneAmount: stoneAmount == null ? null : roundToPrecision(stoneAmount, digits: 2),
+    stoneAmount: computedStoneAmount == null ? null : roundToPrecision(computedStoneAmount, digits: 2),
     otherAmount: otherAmount == null ? null : roundToPrecision(otherAmount, digits: 2),
     msAmount: null,
     ssAmount: null,
-    totalStoneAmount: stoneAmount == null ? null : roundToPrecision(stoneAmount, digits: 2),
+    totalStoneAmount: computedStoneAmount == null ? null : roundToPrecision(computedStoneAmount, digits: 2),
     addedAt: DateTime.now(),
     status: 'active',
     isDuplicate: isDuplicate,

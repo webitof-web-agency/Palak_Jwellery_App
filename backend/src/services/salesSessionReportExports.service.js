@@ -25,7 +25,7 @@ const MODE_TITLES = {
 
 const serviceDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(serviceDir, '../../..')
-const brandLogoPath = path.resolve(repoRoot, 'admin-panel/public/logo-light-rose-notext-clean.png')
+// brandLogoPath removed
 
 const escapeCsv = (value) => {
   if (value === null || value === undefined) return ''
@@ -130,12 +130,7 @@ const sanitizeFileNameSegment = (value, fallback = 'report') => {
 }
 
 const loadBrandLogoDataUrl = async () => {
-  try {
-    const buffer = await readFile(brandLogoPath)
-    return `data:image/png;base64,${buffer.toString('base64')}`
-  } catch {
-    return ''
-  }
+  return null
 }
 
 const buildFallbackPdfBuffer = (title, lines = []) => {

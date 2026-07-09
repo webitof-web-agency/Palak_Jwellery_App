@@ -134,11 +134,13 @@ class BusinessOverview {
   const BusinessOverview({
     required this.categories,
     required this.metalTypes,
+    required this.wastages,
     required this.settings,
   });
 
   final List<String> categories;
   final List<String> metalTypes;
+  final List<double> wastages;
   final Map<String, dynamic> settings;
 
   static List<String> _extractLabels(dynamic value) {
@@ -160,10 +162,29 @@ class BusinessOverview {
         .toList(growable: false);
   }
 
+  static List<double> _extractWastages(dynamic value) {
+    if (value is! List) {
+      return const [];
+    }
+
+    return value
+        .map((item) {
+          if (item is Map<String, dynamic>) {
+            final val = item['purityPercent'];
+            if (val is num) return val.toDouble();
+            if (val is String) return double.tryParse(val);
+          }
+          return null;
+        })
+        .whereType<double>()
+        .toList(growable: false);
+  }
+
   factory BusinessOverview.fromJson(Map<String, dynamic> json) {
     return BusinessOverview(
       categories: _extractLabels(json['categories']),
       metalTypes: _extractLabels(json['metalTypes']),
+      wastages: _extractWastages(json['wastages']),
       settings: json['settings'] is Map<String, dynamic>
           ? Map<String, dynamic>.from(json['settings'] as Map)
           : <String, dynamic>{},
@@ -560,7 +581,7 @@ class SaleRepository {
       final response = await _dio.get<Map<String, dynamic>>(_businessOverviewPath);
       final body = response.data;
       if (body == null) {
-        return const BusinessOverview(categories: [], metalTypes: [], settings: {});
+        return const BusinessOverview(categories: [], metalTypes: [], wastages: [], settings: {});
       }
 
       final data = body['data'];
@@ -569,7 +590,7 @@ class SaleRepository {
       }
       return BusinessOverview.fromJson(body);
     } catch (_) {
-      return const BusinessOverview(categories: [], metalTypes: [], settings: {});
+      return const BusinessOverview(categories: [], metalTypes: [], wastages: [], settings: {});
     }
   }
 

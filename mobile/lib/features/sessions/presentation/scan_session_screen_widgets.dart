@@ -4,7 +4,6 @@ class _PickerCard extends StatelessWidget {
   const _PickerCard({
     required this.label,
     required this.value,
-    required this.helper,
     required this.icon,
     required this.onTap,
     required this.accent,
@@ -12,7 +11,6 @@ class _PickerCard extends StatelessWidget {
 
   final String label;
   final String value;
-  final String helper;
   final IconData icon;
   final VoidCallback onTap;
   final bool accent;
@@ -21,56 +19,48 @@ class _PickerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(
       onTap: onTap,
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
       borderColor: accent ? AppColors.accent : AppColors.border,
       backgroundColor: accent ? AppColors.accentSoft.withValues(alpha: 0.08) : AppColors.surface,
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceAlt,
-              borderRadius: BorderRadius.circular(AppRadius.md),
-            ),
-            child: Icon(icon, color: AppColors.accent),
+          Icon(
+            icon,
+            color: accent ? AppColors.accent : AppColors.textSecondary,
+            size: 20,
           ),
-          const SizedBox(width: AppSpacing.md),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  label,
+                  label.toUpperCase(),
                   style: TextStyle(
                     color: AppColors.textMuted,
-                    fontSize: AppTypography.labelSize,
-                    fontWeight: AppTypography.labelWeight,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: AppSpacing.xs),
                 Text(
                   value,
                   style: TextStyle(
                     color: AppColors.textPrimary,
-                    fontSize: AppTypography.titleSize,
-                    fontWeight: AppTypography.titleWeight,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  helper,
-                  style: TextStyle(
-                    color: AppColors.textSecondary,
                     fontSize: AppTypography.bodySize,
+                    fontWeight: FontWeight.w600,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          Icon(Icons.chevron_right_rounded, color: AppColors.textMuted),
+          Icon(Icons.expand_more_rounded, color: AppColors.textMuted, size: 20),
         ],
       ),
     );
@@ -262,8 +252,10 @@ class _LockedScanSettingsCard extends StatelessWidget {
     required this.karat,
     required this.purity,
     required this.wastage,
+    required this.stonePrice,
     required this.purityIsCustom,
     required this.wastageIsCustom,
+    required this.stonePriceIsCustom,
     required this.continuousScan,
     required this.onToggleContinuousScan,
     required this.onUnlock,
@@ -275,8 +267,10 @@ class _LockedScanSettingsCard extends StatelessWidget {
   final String? karat;
   final double? purity;
   final double? wastage;
+  final double? stonePrice;
   final bool purityIsCustom;
   final bool wastageIsCustom;
+  final bool stonePriceIsCustom;
   final bool continuousScan;
   final ValueChanged<bool> onToggleContinuousScan;
   final VoidCallback onUnlock;
@@ -346,6 +340,8 @@ class _LockedScanSettingsCard extends StatelessWidget {
               _valueChip('Karat', karat?.trim().isNotEmpty == true ? karat! : '-'),
               _valueChip('Purity', _displayPercent(purity)),
               _valueChip('Wastage', _displayPercent(wastage)),
+              if (stonePrice != null)
+                _valueChip('Stone Price', 'Rs. ${stonePrice!.toStringAsFixed(2)}'),
               if (purityIsCustom)
                 const AppBadge(
                   label: 'Custom Purity',
@@ -356,6 +352,13 @@ class _LockedScanSettingsCard extends StatelessWidget {
               if (wastageIsCustom)
                 const AppBadge(
                   label: 'Custom Wastage',
+                  tone: AppBadgeTone.warning,
+                  icon: Icons.tune_rounded,
+                  compact: true,
+                ),
+              if (stonePriceIsCustom)
+                const AppBadge(
+                  label: 'Custom Stone Price',
                   tone: AppBadgeTone.warning,
                   icon: Icons.tune_rounded,
                   compact: true,

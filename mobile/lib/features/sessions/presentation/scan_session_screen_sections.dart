@@ -87,40 +87,53 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
         children: [
           const AppSectionHeader(
             title: 'Unlocked setup',
-            subtitle: 'Choose supplier for this scan.',
+            subtitle: 'Loaded from live admin supplier settings.',
             tight: true,
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          _PickerCard(
-            label: 'Supplier',
-            value: state._draft.supplier ?? 'Choose supplier',
-            helper: 'Choose supplier for this scan.',
-            icon: Icons.storefront_rounded,
-            onTap: state._pickSupplier,
-            accent: state._draft.supplier != null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _PickerCard(
-            label: 'Category',
-            value: state._draft.selectedCategory ?? 'Optional',
-            helper: 'Choose category / jewel type.',
-            icon: Icons.category_rounded,
-            onTap: state._pickCategory,
-            accent: state._draft.selectedCategory != null,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _PickerCard(
-            label: 'Karat',
-            value: state._draft.karat ?? 'Choose karat',
-            helper: 'Choose jewellery karat.',
-            icon: Icons.diamond_rounded,
-            onTap: state._pickKarat,
-            accent: state._draft.karat != null,
           ),
           const SizedBox(height: AppSpacing.md),
           Row(
+            children: [
+              Expanded(
+                child: _PickerCard(
+                  label: 'Supplier',
+                  value: state._draft.supplier ?? 'Choose supplier',
+                  icon: Icons.storefront_rounded,
+                  onTap: state._pickSupplier,
+                  accent: state._draft.supplier != null,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: _PickerCard(
+                  label: 'Category',
+                  value: state._draft.selectedCategory ?? 'Optional',
+                  icon: Icons.category_rounded,
+                  onTap: state._pickCategory,
+                  accent: state._draft.selectedCategory != null,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Expanded(
+                child: TextFormField(
+                  key: ValueKey(state._draft.karat),
+                  initialValue: state._draft.karat,
+                  readOnly: true,
+                  onTap: state._pickKarat,
+                  decoration: const InputDecoration(
+                    labelText: 'Karat',
+                    hintText: 'Choose karat',
+                    prefixIcon: Icon(Icons.diamond_outlined),
+                    suffixIcon: Icon(Icons.expand_more_rounded),
+                    helperText: 'Tap to select',
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: TextFormField(
                   controller: state._purityController,
@@ -131,7 +144,11 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                   decoration: InputDecoration(
                     labelText: 'Purity %',
                     prefixIcon: const Icon(Icons.percent_rounded),
-                    helperText: 'Default purity. You can edit if required.',
+                    helperText: state._draft.puritySelected == null
+                        ? 'Waiting for Karat'
+                        : (state._draft.purityIsCustom
+                            ? 'Custom (Orig ${state._draft.originalPurity?.toStringAsFixed(2)}%)'
+                            : 'Default purity'),
                   ),
                   onChanged: state._setPurity,
                   validator: (value) {
@@ -141,43 +158,6 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                     }
                     return null;
                   },
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              SizedBox(
-                width: 104,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 2),
-                    AppBadge(
-                      label: state._draft.puritySelected == null
-                          ? 'Waiting'
-                          : (state._draft.purityIsCustom ? 'Custom' : 'Default'),
-                      tone: state._draft.puritySelected == null
-                          ? AppBadgeTone.neutral
-                          : (state._draft.purityIsCustom
-                              ? AppBadgeTone.warning
-                              : AppBadgeTone.neutral),
-                      icon: state._draft.puritySelected == null
-                          ? Icons.hourglass_empty_rounded
-                          : (state._draft.purityIsCustom
-                              ? Icons.tune_rounded
-                              : Icons.lock_rounded),
-                      compact: true,
-                    ),
-                    if (state._draft.purityIsCustom)
-                      Padding(
-                        padding: const EdgeInsets.only(top: AppSpacing.xs),
-                        child: Text(
-                          'Original ${state._draft.originalPurity?.toStringAsFixed(2)}%',
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                  ],
                 ),
               ),
             ],
@@ -196,11 +176,11 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                   decoration: InputDecoration(
                     labelText: 'Wastage %',
                     prefixIcon: const Icon(Icons.water_drop_outlined),
-                    helperText: 'Choose wastage or enter custom value.',
+                    helperText: 'Loaded from live admin settings.',
                     suffixIcon: IconButton(
                       onPressed: state._pickWastage,
                       icon: const Icon(Icons.expand_more_rounded),
-                      tooltip: 'Common wastage options',
+                      tooltip: 'Common options',
                     ),
                   ),
                   onChanged: state._setWastage,
@@ -214,40 +194,24 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              SizedBox(
-                width: 104,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 2),
-                    AppBadge(
-                      label: state._draft.wastageSelected == null
-                          ? 'Waiting'
-                          : (state._draft.wastageIsCustom ? 'Custom' : 'Default'),
-                      tone: state._draft.wastageSelected == null
-                          ? AppBadgeTone.neutral
-                          : (state._draft.wastageIsCustom
-                              ? AppBadgeTone.warning
-                              : AppBadgeTone.neutral),
-                      icon: state._draft.wastageSelected == null
-                          ? Icons.hourglass_empty_rounded
-                          : (state._draft.wastageIsCustom
-                              ? Icons.tune_rounded
-                              : Icons.lock_rounded),
-                      compact: true,
-                    ),
-                    if (state._draft.wastageIsCustom)
-                      Padding(
-                        padding: const EdgeInsets.only(top: AppSpacing.xs),
-                        child: Text(
-                          'Original ${state._draft.originalWastage?.toStringAsFixed(2)}%',
-                          style: TextStyle(
-                            color: AppColors.textMuted,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
+              Expanded(
+                child: TextFormField(
+                  controller: state._stonePriceController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
                   ],
+                  decoration: InputDecoration(
+                    labelText: 'Stone Price (Rs/gm)',
+                    prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                    helperText: 'Optional stone price',
+                    suffixIcon: IconButton(
+                      onPressed: state._pickStonePrice,
+                      icon: const Icon(Icons.expand_more_rounded),
+                      tooltip: 'Common options',
+                    ),
+                  ),
+                  onChanged: state._setStonePrice,
                 ),
               ),
             ],
@@ -295,8 +259,10 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
         karat: state._draft.karat,
         purity: state._draft.selectedPurity,
         wastage: state._draft.selectedWastage,
+        stonePrice: state._draft.selectedStonePrice,
         purityIsCustom: state._draft.purityIsCustom,
         wastageIsCustom: state._draft.wastageIsCustom,
+        stonePriceIsCustom: state._draft.stonePriceIsCustom,
         continuousScan: state._draft.continuousScan,
         onToggleContinuousScan: (val) {
           state._updateDraftState(() {
@@ -500,4 +466,3 @@ Widget _scanSessionBuildScrollToTopButton(_ScanSessionScreenState state) {
     ),
   );
 }
-

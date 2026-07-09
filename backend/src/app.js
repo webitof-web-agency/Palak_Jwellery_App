@@ -31,7 +31,7 @@ app.use(cors({
 }))
 
 // Body parsing
-app.use(express.json({ limit: '10kb' }))
+app.use(express.json({ limit: '50mb' }))
 
 // Public system routes
 app.use(systemRoutes)

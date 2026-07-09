@@ -9,6 +9,7 @@ import {
   listSettlementSettings,
   upsertSettlementSettings,
   updateBusinessOption,
+  reorderBusinessOptions,
 } from '../controllers/business.controller.js'
 
 const router = Router()
@@ -22,6 +23,7 @@ router.use(requireRole('admin'))
 
 router.get('/options', listBusinessOptions)
 router.post('/options', createBusinessOption)
+router.put('/options', reorderBusinessOptions)
 router.put('/options/:id', updateBusinessOption)
 router.delete('/options/:id', deleteBusinessOption)
 router.get('/settings', listSettlementSettings)

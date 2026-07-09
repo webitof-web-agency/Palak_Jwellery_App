@@ -39,6 +39,14 @@ export async function updateBusinessOption(id, payload) {
   return unwrapData(response, 'Update business option response missing data')
 }
 
+export async function reorderBusinessOptions(items) {
+  const response = await request('/api/v1/business/options', {
+    method: 'PUT',
+    body: { items },
+  })
+  return unwrapData(response, 'Reorder business options response missing data')
+}
+
 export async function deleteBusinessOption(id) {
   return request(`/api/v1/business/options/${id}`, {
     method: 'DELETE',

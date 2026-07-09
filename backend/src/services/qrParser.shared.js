@@ -1,4 +1,4 @@
-const FIELD_KEYS = ['supplierCode', 'category', 'grossWeight', 'stoneWeight', 'netWeight']
+const FIELD_KEYS = ['supplierCode', 'category', 'grossWeight', 'stoneWeight', 'otherWeight', 'netWeight']
 const TEXT_FIELDS = new Set(['supplierCode', 'category'])
 const SUPPORTED_STRATEGIES = new Set(['delimiter', 'key_value', 'venzora', 'aayra'])
 

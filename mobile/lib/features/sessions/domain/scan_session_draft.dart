@@ -6,7 +6,7 @@ enum ScanSessionMode { setup, lockedActiveScanning }
 
 double _roundToPrecision(double value, {int digits = 3}) {
   final factor = math.pow(10, digits);
-  return (value * factor).truncateToDouble() / factor;
+  return ((value + 1e-9) * factor).truncateToDouble() / factor;
 }
 
 class ScannedSessionItem {
@@ -253,6 +253,8 @@ class ScanSessionDraft {
     this.puritySelected,
     this.wastageOriginal,
     this.wastageSelected,
+    this.stonePriceOriginal,
+    this.stonePriceSelected,
     this.categoryDefaultWastage,
     this.supplierDefaultWastage,
     this.globalDefaultWastage = 10.0,
@@ -284,6 +286,8 @@ class ScanSessionDraft {
   final double? puritySelected;
   final double? wastageOriginal;
   final double? wastageSelected;
+  final double? stonePriceOriginal;
+  final double? stonePriceSelected;
   // Future fallback order: custom selected -> category default -> supplier default -> global fallback.
   final double? categoryDefaultWastage;
   final double? supplierDefaultWastage;
@@ -321,6 +325,12 @@ class ScanSessionDraft {
       wastageOriginal!.toStringAsFixed(2) != wastageSelected!.toStringAsFixed(2);
   double? get originalWastage => wastageOriginal;
   double? get selectedWastage => wastageSelected;
+  bool get stonePriceIsCustom =>
+      stonePriceOriginal != null &&
+      stonePriceSelected != null &&
+      stonePriceOriginal!.toStringAsFixed(2) != stonePriceSelected!.toStringAsFixed(2);
+  double? get originalStonePrice => stonePriceOriginal;
+  double? get selectedStonePrice => stonePriceSelected;
   double get resolvedWastageDefault =>
       categoryDefaultWastage ?? supplierDefaultWastage ?? globalDefaultWastage;
   bool get hasScannedItems => scannedItems.isNotEmpty;
@@ -355,6 +365,8 @@ class ScanSessionDraft {
       puritySelected: summary.lockedSettings.selectedPurity ?? summary.lockedSettings.originalPurity,
       wastageOriginal: summary.lockedSettings.selectedWastage ?? summary.lockedSettings.originalWastage,
       wastageSelected: summary.lockedSettings.selectedWastage ?? summary.lockedSettings.originalWastage,
+      stonePriceOriginal: summary.lockedSettings.selectedStonePrice ?? summary.lockedSettings.originalStonePrice,
+      stonePriceSelected: summary.lockedSettings.selectedStonePrice ?? summary.lockedSettings.originalStonePrice,
       scannedItems: summary.items,
       removedItems: summary.removedItems,
       notes: summary.notes,
@@ -429,6 +441,9 @@ class ScanSessionDraft {
     double? wastageOriginal,
     double? wastageSelected,
     bool clearWastage = false,
+    double? stonePriceOriginal,
+    double? stonePriceSelected,
+    bool clearStonePrice = false,
     double? categoryDefaultWastage,
     bool clearCategoryDefaultWastage = false,
     double? supplierDefaultWastage,
@@ -461,10 +476,12 @@ class ScanSessionDraft {
       categoryOriginal: clearCategory ? null : (categoryOriginal ?? this.categoryOriginal),
       categorySelected: clearCategory ? null : (categorySelected ?? this.categorySelected),
       karat: clearKarat ? null : (karat ?? this.karat),
-      purityOriginal: clearPurity ? null : (purityOriginal ?? this.purityOriginal),
-      puritySelected: clearPurity ? null : (puritySelected ?? this.puritySelected),
-      wastageOriginal: clearWastage ? null : (wastageOriginal ?? this.wastageOriginal),
-      wastageSelected: clearWastage ? null : (wastageSelected ?? this.wastageSelected),
+      purityOriginal: clearPurity ? null : purityOriginal ?? this.purityOriginal,
+      puritySelected: clearPurity ? null : puritySelected ?? this.puritySelected,
+      wastageOriginal: clearWastage ? null : wastageOriginal ?? this.wastageOriginal,
+      wastageSelected: clearWastage ? null : wastageSelected ?? this.wastageSelected,
+      stonePriceOriginal: clearStonePrice ? null : stonePriceOriginal ?? this.stonePriceOriginal,
+      stonePriceSelected: clearStonePrice ? null : stonePriceSelected ?? this.stonePriceSelected,
       categoryDefaultWastage: clearCategoryDefaultWastage
           ? null
           : (categoryDefaultWastage ?? this.categoryDefaultWastage),
@@ -536,6 +553,8 @@ class ScanSessionDraft {
       'puritySelected': puritySelected,
       'wastageOriginal': wastageOriginal,
       'wastageSelected': wastageSelected,
+      'stonePriceOriginal': stonePriceOriginal,
+      'stonePriceSelected': stonePriceSelected,
       'categoryDefaultWastage': categoryDefaultWastage,
       'supplierDefaultWastage': supplierDefaultWastage,
       'globalDefaultWastage': globalDefaultWastage,
@@ -591,6 +610,8 @@ class ScanSessionDraft {
       puritySelected: asDouble(json['puritySelected']),
       wastageOriginal: asDouble(json['wastageOriginal']),
       wastageSelected: asDouble(json['wastageSelected']),
+      stonePriceOriginal: asDouble(json['stonePriceOriginal']),
+      stonePriceSelected: asDouble(json['stonePriceSelected']),
       categoryDefaultWastage: asDouble(json['categoryDefaultWastage']),
       supplierDefaultWastage: asDouble(json['supplierDefaultWastage']),
       globalDefaultWastage: asDouble(json['globalDefaultWastage']) ?? 10.0,

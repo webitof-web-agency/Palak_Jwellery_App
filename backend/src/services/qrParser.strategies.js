@@ -252,9 +252,11 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     }
 
     if (categoryRaw) {
-      fields.category = { value: categoryRaw, parsed: true }
+      fields.designCode = { value: categoryRaw, parsed: true }
+      fields.meta.itemCode = { value: categoryRaw, parsed: true }
+      fields.meta.designCode = { value: categoryRaw, parsed: true }
     } else {
-      errors.push({ field: 'category', reason: 'Category or item code is missing' })
+      errors.push({ field: 'itemCode', reason: 'Item code is missing' })
     }
 
     if (supplierCodeRaw) {
@@ -315,7 +317,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       },
     }
 
-    const parsedCountUtsav = ['grossWeight', 'stoneWeight', 'netWeight', 'category'].reduce(
+    const parsedCountUtsav = ['grossWeight', 'stoneWeight', 'netWeight', 'designCode'].reduce(
       (count, field) => count + (fields[field].parsed ? 1 : 0),
       0
     )
@@ -660,7 +662,7 @@ const parseKeyValueStrategy = (raw) => {
   const extractValue = (key) => {
     for (const line of lines) {
       const pattern = new RegExp(
-        `^\\s*${key}\\s*(?:[:\\-]?\\s*)?(.+?)\\s*$`,
+        `\\b${key}\\b\\s*(?:[:\\-]?\\s*)?(\\d+(?:\\.\\d+)?)`,
         'i'
       )
       const match = line.match(pattern)
@@ -816,11 +818,13 @@ const parseAayraStrategy = (raw) => {
     return parsed
   }
 
-  const isTabFormat = raw.includes('\t')
+  const cleanRaw = raw.replace(/(?:->|\t)+/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  const spaceFormatRegex = /^(\S+)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/i
+  const match = spaceFormatRegex.exec(cleanRaw)
 
-  if (isTabFormat) {
-    // ── Tab-separated branch ──────────────────────────────────────────────────
-    const parts = raw.split('\t').map((p) => p.trim())
+  if (match) {
+    // ── Positional (Tab/Space/Arrow) branch ──────────────────────────────────────────────────
+    const parts = [match[1], match[2], match[3], match[4], match[5]]
 
     // Field 0: serial/code (numeric or alphanumeric — not assumed 8-digit)
     const serialCode = toText(parts[0] ?? '')
@@ -830,11 +834,11 @@ const parseAayraStrategy = (raw) => {
       errors.push({ field: 'serialCode', reason: 'Field 0 (serial/code) is missing' })
     }
 
-    // Field 1: item/category text → stored as itemCode and category
+    // Field 1: item/category text → stored as itemCode and designCode
     const itemText = toText(parts[1] ?? '')
     if (itemText) {
       fields.meta.itemCode = { value: itemText, parsed: true }
-      fields.category = { value: itemText, parsed: true }
+      fields.designCode = { value: itemText, parsed: true }
     } else {
       errors.push({ field: 'itemCode', reason: 'Field 1 (item/category text) is missing' })
     }

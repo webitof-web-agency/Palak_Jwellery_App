@@ -11,6 +11,8 @@ class ScanSessionLockedSettings {
     required this.selectedPurity,
     required this.originalWastage,
     required this.selectedWastage,
+    required this.originalStonePrice,
+    required this.selectedStonePrice,
   });
 
   final String? supplier;
@@ -20,6 +22,8 @@ class ScanSessionLockedSettings {
   final double? selectedPurity;
   final double? originalWastage;
   final double? selectedWastage;
+  final double? originalStonePrice;
+  final double? selectedStonePrice;
 
   Map<String, dynamic> toJson() {
     return {
@@ -30,6 +34,8 @@ class ScanSessionLockedSettings {
       'selectedPurity': selectedPurity,
       'originalWastage': originalWastage,
       'selectedWastage': selectedWastage,
+      'originalStonePrice': originalStonePrice,
+      'selectedStonePrice': selectedStonePrice,
     };
   }
 
@@ -52,6 +58,8 @@ class ScanSessionLockedSettings {
       selectedPurity: asDouble(json['selectedPurity']),
       originalWastage: asDouble(json['originalWastage']),
       selectedWastage: asDouble(json['selectedWastage']),
+      originalStonePrice: asDouble(json['originalStonePrice']),
+      selectedStonePrice: asDouble(json['selectedStonePrice']),
     );
   }
 }
@@ -251,6 +259,8 @@ class ScanSessionSummary {
         selectedPurity: draft.selectedPurity,
         originalWastage: draft.originalWastage,
         selectedWastage: draft.selectedWastage,
+        originalStonePrice: draft.originalStonePrice,
+        selectedStonePrice: draft.selectedStonePrice,
       ),
       items: draft.scannedItems,
       removedItems: draft.removedItems,
@@ -397,6 +407,8 @@ class ScanSessionSummary {
             selectedPurity: null,
             originalWastage: null,
             selectedWastage: null,
+            originalStonePrice: null,
+            selectedStonePrice: null,
           );
     final customer = json['customer'] is Map<String, dynamic>
         ? CustomerRecord.fromJson(json['customer'] as Map<String, dynamic>)

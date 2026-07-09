@@ -5,6 +5,7 @@ import {
 } from './qrParser.shared.js'
 import {
   isLikelyAayraSlashRaw,
+  isLikelyAayraTabRaw,
   isLikelyAdinathRaw,
   isLikelyAdinathStructuralRaw,
   isLikelyUtsavRaw,
@@ -227,7 +228,7 @@ const getBuiltInPatternVariants = (supplierKey) => {
           name: 'aayra_slash_format',
           priority: 1,
           strategy: 'aayra',
-          matcher: (raw) => isLikelyAayraSlashRaw(raw),
+          matcher: (raw) => isLikelyAayraSlashRaw(raw) || isLikelyAayraTabRaw(raw),
           parserConfig: getDefaultParserConfig('aayra'),
           source: 'builtin',
         },

@@ -7,6 +7,7 @@ import {
   getSettlementSettings,
   saveSettlementSettings,
   updateBusinessOption,
+  reorderBusinessOptions,
 } from '../../api/business.api'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import PageHeader from '../../components/ui/PageHeader'
@@ -38,6 +39,7 @@ const toNullableNumber = (value) => {
 const kindTitles = {
   category: 'Categories',
   karat: 'Karats',
+  wastage: 'Wastages',
 }
 
 export default function BusinessSettingsPage() {
@@ -47,11 +49,18 @@ export default function BusinessSettingsPage() {
   const [success, setSuccess] = useState('')
   const [categories, setCategories] = useState([])
   const [karats, setKarats] = useState([])
+  const [wastages, setWastages] = useState([])
   const [settings, setSettings] = useState(emptySettings)
   const [newCategory, setNewCategory] = useState('')
   const [newKaratName, setNewKaratName] = useState('')
   const [newKaratPurity, setNewKaratPurity] = useState('')
+  const [newWastageName, setNewWastageName] = useState('')
+  const [newWastagePercent, setNewWastagePercent] = useState('')
   const [editingOption, setEditingOption] = useState(null)
+  const [draggedKarat, setDraggedKarat] = useState(null)
+  const [draggedOverKarat, setDraggedOverKarat] = useState(null)
+  const [draggedWastage, setDraggedWastage] = useState(null)
+  const [draggedOverWastage, setDraggedOverWastage] = useState(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -70,6 +79,7 @@ export default function BusinessSettingsPage() {
 
       setCategories(Array.isArray(overviewData?.categories) ? overviewData.categories : [])
       setKarats(Array.isArray(overviewData?.karats) ? overviewData.karats : [])
+      setWastages(Array.isArray(overviewData?.wastages) ? overviewData.wastages : [])
       const nextSettings = { ...emptySettings }
       for (const row of Array.isArray(settingsData) ? settingsData : []) {
         if (!row?.key) continue
@@ -89,6 +99,75 @@ export default function BusinessSettingsPage() {
 
   const categoryRows = useMemo(() => categories, [categories])
   const karatRows = useMemo(() => karats, [karats])
+  const wastageRows = useMemo(() => wastages, [wastages])
+
+  const handleKaratSort = async (fromIndex, toIndex) => {
+    if (fromIndex === null || toIndex === null || fromIndex === toIndex) {
+      setDraggedKarat(null)
+      setDraggedOverKarat(null)
+      return
+    }
+
+    const items = [...karats]
+    const draggedItem = items[fromIndex]
+    items.splice(fromIndex, 1)
+    items.splice(toIndex, 0, draggedItem)
+
+    const payload = items.map((item, index) => ({
+      id: item._id || item.id,
+      sortOrder: (index + 1) * 10,
+    })).filter(i => i.id)
+
+    setKarats(items)
+    setDraggedKarat(null)
+    setDraggedOverKarat(null)
+
+    if (payload.length > 0) {
+      setSaving(true)
+      try {
+        await reorderBusinessOptions(payload)
+      } catch (err) {
+        setError(err instanceof ApiError ? err.error : err?.message || 'Failed to reorder karats.')
+        await loadData()
+      } finally {
+        setSaving(false)
+      }
+    }
+  }
+
+  const handleWastageSort = async (fromIndex, toIndex) => {
+    if (fromIndex === null || toIndex === null || fromIndex === toIndex) {
+      setDraggedWastage(null)
+      setDraggedOverWastage(null)
+      return
+    }
+
+    const items = [...wastages]
+    const draggedItem = items[fromIndex]
+    items.splice(fromIndex, 1)
+    items.splice(toIndex, 0, draggedItem)
+
+    const payload = items.map((item, index) => ({
+      id: item._id || item.id,
+      sortOrder: (index + 1) * 10,
+    })).filter(i => i.id)
+
+    setWastages(items)
+    setDraggedWastage(null)
+    setDraggedOverWastage(null)
+
+    if (payload.length > 0) {
+      setSaving(true)
+      try {
+        await reorderBusinessOptions(payload)
+      } catch (err) {
+        setError(err instanceof ApiError ? err.error : err?.message || 'Failed to reorder wastages.')
+        await loadData()
+      } finally {
+        setSaving(false)
+      }
+    }
+  }
 
   const addKarat = async () => {
     const trimmedName = newKaratName.trim()
@@ -116,6 +195,37 @@ export default function BusinessSettingsPage() {
       setSuccess('Karat added.')
     } catch (err) {
       setError(err instanceof ApiError ? err.error : err?.message || 'Failed to add karat.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const addWastage = async () => {
+    const trimmedName = newWastageName.trim()
+    if (!trimmedName) return
+
+    const purityPercent = toNullableNumber(newWastagePercent)
+    if (purityPercent === null || purityPercent < 0 || purityPercent > 100) {
+      setError('Enter a valid wastage percent between 0 and 100.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      await createBusinessOption({
+        kind: 'wastage',
+        name: trimmedName,
+        code: trimmedName,
+        purityPercent,
+      })
+      setNewWastageName('')
+      setNewWastagePercent('')
+      await loadData()
+      setSuccess('Wastage added.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.error : err?.message || 'Failed to add wastage.')
     } finally {
       setSaving(false)
     }
@@ -384,38 +494,84 @@ export default function BusinessSettingsPage() {
               Add
             </button>
           </div>
-          <div className="space-y-2">
+          <div 
+            className="space-y-2"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => e.preventDefault()}
+          >
             {karatRows.length === 0 ? (
               <div className="text-sm text-muted">No karats configured.</div>
             ) : (
-              karatRows.map((item) => (
-                <div key={item._id || item.id || item.name} className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  {editingOption?.id === (item._id || item.id) ? (
-                    <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[1fr_0.7fr]">
-                      <input
-                        className="input flex-1"
-                        value={editingOption.name}
-                        onChange={(event) => setEditingOption((current) => ({ ...current, name: event.target.value }))}
-                      />
-                      <input
-                        className="input flex-1"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        value={editingOption.purityPercent}
-                        onChange={(event) => setEditingOption((current) => ({ ...current, purityPercent: event.target.value }))}
-                        placeholder="Purity %"
-                      />
-                    </div>
-                  ) : (
-                    <span className="text-sm text-primary">
-                      {item.name}
-                      <span className="text-xs text-muted ml-2">
-                        {item.purityPercent !== null && item.purityPercent !== undefined ? `${item.purityPercent}%` : 'No purity'}
+              karatRows.map((item, index) => (
+                <div 
+                  key={item._id || item.id || item.name} 
+                  draggable={!editingOption && Boolean(item._id || item.id)}
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('text/plain', index.toString())
+                    setDraggedKarat(index)
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault()
+                    setDraggedOverKarat(index)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const sourceIndex = parseInt(e.dataTransfer.getData('text/plain'), 10)
+                    if (!isNaN(sourceIndex)) {
+                      handleKaratSort(sourceIndex, index)
+                    }
+                  }}
+                  onDragEnd={() => {
+                    setDraggedKarat(null)
+                    setDraggedOverKarat(null)
+                  }}
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors ${
+                    draggedKarat === index ? 'opacity-50' : 'opacity-100'
+                  } ${
+                    draggedOverKarat === index ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5'
+                  }`}
+                >
+                  <div className="flex flex-1 items-center gap-3">
+                    {(!editingOption && Boolean(item._id || item.id)) && (
+                      <div className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/50">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                      </div>
+                    )}
+                    {editingOption?.id === (item._id || item.id) ? (
+                      <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[1fr_0.7fr]">
+                        <input
+                          className="input flex-1"
+                          value={editingOption.name}
+                          onChange={(event) => setEditingOption((current) => ({ ...current, name: event.target.value }))}
+                        />
+                        <input
+                          className="input flex-1"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={editingOption.purityPercent}
+                          onChange={(event) => setEditingOption((current) => ({ ...current, purityPercent: event.target.value }))}
+                          placeholder="Purity %"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-sm text-primary">
+                        {item.name}
+                        <span className="text-xs text-muted ml-2">
+                          {item.purityPercent !== null && item.purityPercent !== undefined ? `${item.purityPercent}%` : 'No purity'}
+                        </span>
                       </span>
-                    </span>
-                  )}
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     {editingOption?.id === (item._id || item.id) ? (
                       <>
@@ -428,6 +584,146 @@ export default function BusinessSettingsPage() {
                       </>
                     ) : (item._id || item.id) ? (
                       <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving} onClick={() => beginEdit(item, 'karat')}>
+                        Edit
+                      </button>
+                    ) : (
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted">
+                        Default fallback
+                      </span>
+                    )}
+                    <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving || !(item._id || item.id)} onClick={() => removeOption(item._id || item.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold font-display text-heading">Wastages</h2>
+            <p className="text-sm text-muted">
+              Manage standard wastage options available in the mobile app.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-[1.2fr_0.8fr_auto] gap-2">
+            <input
+              className="input flex-1"
+              value={newWastageName}
+              onChange={(event) => setNewWastageName(event.target.value)}
+              placeholder="e.g. Standard 12%"
+            />
+            <input
+              className="input flex-1"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              value={newWastagePercent}
+              onChange={(event) => setNewWastagePercent(event.target.value)}
+              placeholder="Wastage %"
+            />
+            <button
+              type="button"
+              className="primary-luxury-button"
+              disabled={saving || !newWastageName.trim() || !String(newWastagePercent).trim()}
+              onClick={addWastage}
+            >
+              Add
+            </button>
+          </div>
+          <div 
+            className="space-y-2"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => e.preventDefault()}
+          >
+            {wastageRows.length === 0 ? (
+              <div className="text-sm text-muted">No wastages configured.</div>
+            ) : (
+              wastageRows.map((item, index) => (
+                <div 
+                  key={item._id || item.id || item.name} 
+                  draggable={!editingOption && Boolean(item._id || item.id)}
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('text/plain', index.toString())
+                    setDraggedWastage(index)
+                  }}
+                  onDragEnter={(e) => {
+                    e.preventDefault()
+                    setDraggedOverWastage(index)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    e.dataTransfer.dropEffect = 'move'
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const sourceIndex = parseInt(e.dataTransfer.getData('text/plain'), 10)
+                    if (!isNaN(sourceIndex)) {
+                      handleWastageSort(sourceIndex, index)
+                    }
+                  }}
+                  onDragEnd={() => {
+                    setDraggedWastage(null)
+                    setDraggedOverWastage(null)
+                  }}
+                  className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 transition-colors ${
+                    draggedWastage === index ? 'opacity-50' : 'opacity-100'
+                  } ${
+                    draggedOverWastage === index ? 'border-primary bg-primary/10' : 'border-white/10 bg-white/5'
+                  }`}
+                >
+                  <div className="flex flex-1 items-center gap-3">
+                    {(!editingOption && Boolean(item._id || item.id)) && (
+                      <div className="cursor-grab active:cursor-grabbing text-white/30 hover:text-white/50">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                        </svg>
+                      </div>
+                    )}
+                    {editingOption?.id === (item._id || item.id) ? (
+                      <div className="grid flex-1 grid-cols-1 gap-2 md:grid-cols-[1fr_0.7fr]">
+                        <input
+                          className="input flex-1"
+                          value={editingOption.name}
+                          onChange={(event) => setEditingOption((current) => ({ ...current, name: event.target.value }))}
+                        />
+                        <input
+                          className="input flex-1"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          value={editingOption.purityPercent}
+                          onChange={(event) => setEditingOption((current) => ({ ...current, purityPercent: event.target.value }))}
+                          placeholder="Wastage %"
+                        />
+                      </div>
+                    ) : (
+                      <span className="text-sm text-primary">
+                        {item.name}
+                        <span className="text-xs text-muted ml-2">
+                          {item.purityPercent !== null && item.purityPercent !== undefined ? `${item.purityPercent}%` : 'No wastage'}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {editingOption?.id === (item._id || item.id) ? (
+                      <>
+                        <button type="button" className="text-xs text-gold-500 hover:text-gold-400" disabled={saving} onClick={saveOption}>
+                          Save
+                        </button>
+                        <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving} onClick={cancelEdit}>
+                          Cancel
+                        </button>
+                      </>
+                    ) : (item._id || item.id) ? (
+                      <button type="button" className="text-xs text-muted hover:text-primary" disabled={saving} onClick={() => beginEdit(item, 'wastage')}>
                         Edit
                       </button>
                     ) : (

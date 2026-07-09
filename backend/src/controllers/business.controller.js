@@ -34,7 +34,7 @@ const toSafeSetting = (setting) => {
 const normalizeKind = (value) => {
   const kind = normalizeText(value).toLowerCase()
   if (kind === 'metal_type') return 'karat'
-  return ['category', 'karat'].includes(kind) ? kind : ''
+  return ['category', 'karat', 'wastage'].includes(kind) ? kind : ''
 }
 
 export const listBusinessOptions = async (req, res) => {
@@ -70,9 +70,9 @@ export const createBusinessOption = async (req, res) => {
     }
 
     let purityPercent = null
-    if (kind === 'karat') {
+    if (kind === 'karat' || kind === 'wastage') {
       if (purityPercentRaw === null || purityPercentRaw === undefined || purityPercentRaw === '') {
-        return sendError(res, 400, 'purityPercent is required for karat options', 'MISSING_FIELDS')
+        return sendError(res, 400, `purityPercent is required for ${kind} options`, 'MISSING_FIELDS')
       }
       const parsedPurity = Number(purityPercentRaw)
       if (!Number.isFinite(parsedPurity) || parsedPurity < 0 || parsedPurity > 100) {
@@ -126,7 +126,7 @@ export const updateBusinessOption = async (req, res) => {
     option.kind = kind || option.kind
     option.name = name
     option.code = code || null
-    if (kind === 'karat' || option.kind === 'karat') {
+    if (kind === 'karat' || option.kind === 'karat' || kind === 'wastage' || option.kind === 'wastage') {
       if (purityPercentRaw === undefined) {
         option.purityPercent = option.purityPercent ?? null
       } else if (purityPercentRaw === null || purityPercentRaw === '') {
@@ -151,6 +151,32 @@ export const updateBusinessOption = async (req, res) => {
       return sendError(res, 409, 'Option already exists', 'DUPLICATE_OPTION')
     }
     return sendError(res, 500, 'Failed to update business option', 'SERVER_ERROR')
+  }
+}
+
+export const reorderBusinessOptions = async (req, res) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items)) {
+      return sendError(res, 400, 'items array is required', 'MISSING_FIELDS')
+    }
+
+    const bulkOps = items
+      .filter((item) => mongoose.isValidObjectId(item.id) && Number.isFinite(item.sortOrder))
+      .map((item) => ({
+        updateOne: {
+          filter: { _id: item.id },
+          update: { $set: { sortOrder: item.sortOrder } },
+        },
+      }))
+
+    if (bulkOps.length > 0) {
+      await BusinessOption.bulkWrite(bulkOps)
+    }
+
+    return sendSuccess(res, null, 'Options reordered successfully')
+  } catch (error) {
+    return sendError(res, 500, 'Failed to reorder business options', 'SERVER_ERROR')
   }
 }
 
@@ -222,7 +248,7 @@ export const upsertSettlementSettings = async (req, res) => {
       const updated = await SettlementSetting.findOneAndUpdate(
         { key },
         payload,
-        { upsert: true, new: true, runValidators: true }
+        { upsert: true, returnDocument: 'after', runValidators: true }
       ).lean()
 
       results.push(updated)
@@ -240,9 +266,10 @@ export const upsertSettlementSettings = async (req, res) => {
 
 export const getBusinessOverview = async (req, res) => {
   try {
-    const [categories, karats, settings] = await Promise.all([
+    const [categories, karats, wastages, settings] = await Promise.all([
       BusinessOption.find({ kind: 'category', isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
       loadKaratOptions(),
+      BusinessOption.find({ kind: 'wastage', isActive: true }).sort({ sortOrder: 1, name: 1 }).lean(),
       loadSettlementSettings(),
     ])
 
@@ -252,6 +279,10 @@ export const getBusinessOverview = async (req, res) => {
         return item
       }),
       karats,
+      wastages: wastages.map((item) => {
+        delete item.__v
+        return item
+      }),
       metalTypes: karats,
       settings,
     })

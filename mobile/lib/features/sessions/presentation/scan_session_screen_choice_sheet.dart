@@ -89,7 +89,7 @@ class _SearchChoiceSheetState extends State<_SearchChoiceSheet> {
                 AppSectionHeader(
                   title: widget.title,
                   subtitle: widget.allowCustomValue
-                      ? 'Choose wastage or enter custom value.'
+                      ? 'Loaded from live admin settings. Choose wastage or enter custom value.'
                       : 'Search and choose from the list.',
                 ),
                 if (widget.allowClearSelection && (widget.selectedValue ?? '').trim().isNotEmpty) ...[

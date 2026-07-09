@@ -58,15 +58,13 @@ class SalesReportPdfService {
     );
     final groups = buildSalesReportGroups(summary, mode);
     final generatedAt = _formatDateTime(summary.createdAt);
-    final logoData = await rootBundle.load('assets/images/app_logo_dark.png');
-    final logo = pw.MemoryImage(logoData.buffer.asUint8List());
 
     document.addPage(
       pw.MultiPage(
         pageFormat: pageFormat,
         margin: const pw.EdgeInsets.all(24),
         build: (context) => [
-          _buildHeader(logo, summary, mode, generatedAt),
+          _buildHeader(summary, mode, generatedAt),
           pw.SizedBox(height: 12),
           _buildTable(summary, groups, mode),
           pw.SizedBox(height: 12),
@@ -128,7 +126,6 @@ class SalesReportPdfService {
   }
 
   pw.Widget _buildHeader(
-    pw.MemoryImage logo,
     ScanSessionSummary summary,
     SalesReportMode mode,
     String generatedAt,
@@ -147,19 +144,6 @@ class SalesReportPdfService {
             mainAxisAlignment: pw.MainAxisAlignment.center,
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              pw.Container(
-                width: 48,
-                height: 48,
-                decoration: pw.BoxDecoration(
-                  shape: pw.BoxShape.circle,
-                  color: PdfColors.white,
-                  border: pw.Border.all(color: PdfColors.grey300, width: 1.2),
-                ),
-                child: pw.ClipOval(
-                  child: pw.Image(logo, fit: pw.BoxFit.cover),
-                ),
-              ),
-              pw.SizedBox(width: 14),
               pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [

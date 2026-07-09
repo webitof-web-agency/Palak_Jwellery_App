@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,86 +40,11 @@ class ScanSessionScreen extends ConsumerStatefulWidget {
 }
 
 class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
-  static const List<String> _categoryOptions = <String>[
-    'RING',
-    'PENDANT',
-    'NECKLACE',
-    'BRACELET',
-    'BANGLE',
-    'EARRING',
-    'TOPS',
-  ];
-
-  // Placeholder until admin-defined category defaults are wired from backend settings.
-  static const Map<String, double> _categoryWastageDefaults = <String, double>{
-    'RING': 10.0,
-    'PENDANT': 9.5,
-    'NECKLACE': 9.5,
-    'BRACELET': 10.0,
-    'BANGLE': 10.0,
-    'EARRING': 9.0,
-    'TOPS': 9.0,
-  };
-
-  static const List<String> _wastageOptions = <String>[
-    '6.00',
-    '7.00',
-    '8.00',
-    '9.00',
-    '10.00',
-    '11.00',
-    '12.00',
-  ];
-
-  static const List<String> _karatOrder = <String>[
-    '9K',
-    '14K',
-    '18K',
-    '20K',
-    '22K',
-    '24K',
-  ];
-
-  static const Map<String, Map<String, ({double purity, double wastage})>>
-  _defaultMatrix = {
-    'YUG': {
-      '9K': (purity: 37.50, wastage: 14.0),
-      '14K': (purity: 58.40, wastage: 12.5),
-      '18K': (purity: 75.15, wastage: 10.0),
-      '20K': (purity: 83.30, wastage: 9.0),
-      '22K': (purity: 91.60, wastage: 8.0),
-      '24K': (purity: 99.90, wastage: 6.0),
-    },
-    'Aadinath': {
-      '9K': (purity: 37.50, wastage: 14.0),
-      '14K': (purity: 58.50, wastage: 12.0),
-      '18K': (purity: 75.15, wastage: 10.0),
-      '20K': (purity: 83.30, wastage: 9.0),
-      '22K': (purity: 91.60, wastage: 8.0),
-      '24K': (purity: 99.90, wastage: 6.0),
-    },
-    'Venzora Trading': {
-      '9K': (purity: 37.60, wastage: 14.0),
-      '14K': (purity: 58.60, wastage: 11.5),
-      '18K': (purity: 75.20, wastage: 9.5),
-      '20K': (purity: 83.30, wastage: 8.5),
-      '22K': (purity: 91.55, wastage: 8.0),
-      '24K': (purity: 99.90, wastage: 6.0),
-    },
-    'Palak Jewellery': {
-      '9K': (purity: 37.50, wastage: 14.0),
-      '14K': (purity: 58.50, wastage: 12.0),
-      '18K': (purity: 75.15, wastage: 10.0),
-      '20K': (purity: 83.30, wastage: 9.0),
-      '22K': (purity: 91.60, wastage: 8.0),
-      '24K': (purity: 99.90, wastage: 6.0),
-    },
-  };
-
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late ScanSessionDraft _draft;
   late TextEditingController _purityController;
   late TextEditingController _wastageController;
+  late TextEditingController _stonePriceController;
   late TextEditingController _notesController;
   late TextEditingController _itemSearchController;
   late ScrollController _itemsScrollController;
@@ -133,6 +58,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
         : ScanSessionDraft(customer: widget.selectedCustomer);
     _purityController = TextEditingController();
     _wastageController = TextEditingController();
+    _stonePriceController = TextEditingController();
     _notesController = TextEditingController();
     _itemSearchController = TextEditingController();
     _itemsScrollController = ScrollController();
@@ -144,6 +70,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   void dispose() {
     _purityController.dispose();
     _wastageController.dispose();
+    _stonePriceController.dispose();
     _notesController.dispose();
     _itemSearchController.dispose();
     _itemsScrollController.dispose();
@@ -178,6 +105,9 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   Future<void> _pickKarat() => _scanSessionPickKarat(this);
 
   Future<void> _pickWastage() => _scanSessionPickWastage(this);
+  
+  void _setStonePrice(String value) => _scanSessionSetStonePrice(this, value);
+  Future<void> _pickStonePrice() => _scanSessionPickStonePrice(this);
 
   void _lockDetails() => _scanSessionLockDetails(this);
 
@@ -208,8 +138,36 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     );
     if (confirmed == true && mounted) {
       _scanSessionDiscardDraft(this);
-      context.go('/sales-scans/${widget.resumeSummary!.sessionId}');
+      if (widget.resumeSummary != null) {
+        context.go('/sales-scans/${widget.resumeSummary!.sessionId}');
+      } else {
+        context.pop();
+      }
     }
+  }
+
+  Future<bool> _onWillPop() async {
+    if (!_draft.hasScannedItems) return true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Exit Session?'),
+        content: Text('You have scanned ${_draft.scannedItems.length} items. If you exit now, your unsaved progress will be lost.\n\nAre you sure you want to go back?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Continue Scanning'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+            child: const Text('Discard & Go Back'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
   }
 
   Future<void> _confirmClearItems() async {
@@ -312,13 +270,27 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     final customer = _draft.customer;
     final validationMessage = _draft.validationMessage ?? _localValidationMessage;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scan Session'),
-        leading: IconButton(
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        final shouldPop = await _onWillPop();
+        if (shouldPop && context.mounted) {
+          context.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Scan Session'),
+          leading: IconButton(
+            onPressed: () async {
+              final shouldPop = await _onWillPop();
+              if (shouldPop && context.mounted) {
+                context.pop();
+              }
+            },
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
         actions: [
           if (_draft.hasCustomer || _draft.supplier != null || _draft.hasScannedItems)
             IconButton(
@@ -359,6 +331,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

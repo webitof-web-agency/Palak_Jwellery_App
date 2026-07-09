@@ -56,7 +56,7 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
               const SizedBox(height: AppSpacing.md),
               const AppSectionHeader(
                 title: 'Choose supplier',
-                subtitle: 'Choose supplier for this scan.',
+                subtitle: 'Loaded from live admin supplier settings.',
               ),
               if ((widget.selectedValue ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.sm),
@@ -231,25 +231,7 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
     super.dispose();
   }
 
-  String? _supplierKeyFor(String? supplier) {
-    final normalized = (supplier ?? '').trim().toUpperCase();
-    if (normalized.isEmpty) return null;
-    if (normalized.contains('YUG')) return 'YUG';
-    if (normalized.contains('AADINATH')) return 'Aadinath';
-    if (normalized.contains('VENZORA')) return 'Venzora Trading';
-    if (normalized.contains('PALAK')) return 'Palak Jewellery';
-    return supplier;
-  }
-
   String _previewLabel(KaratOption option, List<KaratOption> options) {
-    final supplierKey = _supplierKeyFor(widget.supplierName);
-    final matrixEntry = supplierKey == null
-        ? null
-        : _ScanSessionScreenState._defaultMatrix[supplierKey]?[option.name.toUpperCase()];
-    if (matrixEntry != null) {
-      return '${option.name} - ${matrixEntry.purity.toStringAsFixed(2)}%';
-    }
-
     final resolved = resolvePurityPercentForKarat(
       supplier: widget.supplierModel,
       karat: option.name,
@@ -299,7 +281,7 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
               const SizedBox(height: AppSpacing.md),
               const AppSectionHeader(
                 title: 'Choose karat',
-                subtitle: 'Choose jewellery karat.',
+                subtitle: 'Loaded from live admin karat settings.',
               ),
               if ((widget.selectedValue ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.sm),
@@ -317,12 +299,12 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
                 loading: () => const _PickerStateCard(
                   icon: Icons.hourglass_empty_rounded,
                   title: 'Loading karats',
-                  message: 'Pulling karat defaults from the backend.',
+                  message: 'Pulling live karat settings from the backend.',
                 ),
                 error: (_, _) => _PickerStateCard(
                   icon: Icons.warning_amber_rounded,
                   title: 'Karat list unavailable',
-                  message: 'Using the default karat list for now.',
+                  message: 'Using the live karat list with a fallback default.',
                   actionLabel: 'Retry',
                   onAction: () => ref.invalidate(karatOptionsProvider),
                 ),
@@ -330,12 +312,10 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
                   final karatOptions = options.isEmpty ? KaratOption.defaults() : options;
                   final sortedOptions = List<KaratOption>.from(karatOptions)
                     ..sort((a, b) {
-                      final aIndex = _ScanSessionScreenState._karatOrder.indexOf(a.name.toUpperCase());
-                      final bIndex = _ScanSessionScreenState._karatOrder.indexOf(b.name.toUpperCase());
-                      if (aIndex == -1 && bIndex == -1) return a.name.compareTo(b.name);
-                      if (aIndex == -1) return 1;
-                      if (bIndex == -1) return -1;
-                      return aIndex.compareTo(bIndex);
+                      final aOrder = a.sortOrder ?? 0;
+                      final bOrder = b.sortOrder ?? 0;
+                      if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+                      return a.name.compareTo(b.name);
                     });
                   final query = _searchController.text.trim().toLowerCase();
                   final filtered = sortedOptions.where((option) {
@@ -419,7 +399,7 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
                                           Text(
                                             option.purityPercent == null
                                                 ? 'Purity preview unavailable'
-                                                : 'Default purity from karat settings',
+                                                : 'Default purity from live admin settings',
                                             style: TextStyle(
                                               color: AppColors.textSecondary,
                                               fontSize: 12,
