@@ -49,6 +49,8 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   late TextEditingController _itemSearchController;
   late ScrollController _itemsScrollController;
   String? _localValidationMessage;
+  final GlobalKey _wastageIconKey = GlobalKey();
+  final GlobalKey _stonePriceIconKey = GlobalKey();
 
   @override
   void initState() {

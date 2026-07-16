@@ -303,10 +303,39 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
 
 Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
   final values = <String>{};
-  
+
+  // 1. Pull business-level categories (global)
   try {
     final overview = await state.ref.read(businessOverviewProvider.future);
     values.addAll(overview.categories);
+  } catch (_) {}
+
+  // 2. Pull supplier-specific categories (from admin supplier settings)
+  try {
+    final suppliers = await state.ref.read(suppliersProvider.future);
+    final selectedSupplier = _scanSessionSupplierModelFor(state, state._draft.supplier);
+
+    final targetSuppliers = selectedSupplier != null
+        ? suppliers.where((s) => s.id == selectedSupplier.id).toList()
+        : suppliers;
+
+    for (final supplier in targetSuppliers) {
+      // From top-level categories array on the supplier
+      values.addAll(supplier.categories.where((c) => c.trim().isNotEmpty));
+
+      // Also from businessSettings.categories list (admin-configured categories per supplier)
+      final settingsCategories = supplier.businessSettings['categories'];
+      if (settingsCategories is List) {
+        for (final item in settingsCategories) {
+          if (item is Map<String, dynamic> && item['isActive'] != false) {
+            final name = item['name']?.toString().trim() ?? '';
+            if (name.isNotEmpty) values.add(name);
+          } else if (item is String && item.trim().isNotEmpty) {
+            values.add(item.trim());
+          }
+        }
+      }
+    }
   } catch (_) {}
 
   final chosen = await _scanSessionShowSelectionSheet(
@@ -409,16 +438,24 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
     return aValue.compareTo(bValue);
   });
 
-  final chosen = await _scanSessionShowSelectionSheet(
-    state,
-    title: 'Select Wastage',
-    searchHint: 'Search wastage',
-    options: list,
-    selectedValue: state._draft.wastageSelected?.toStringAsFixed(2),
-    allowCustomValue: true,
-    customValueIsNumeric: true,
-    customValueHint: 'Enter custom wastage',
+  if (!state.mounted) return;
+
+  final RenderBox? renderBox = state._wastageIconKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+  
+  final chosen = await showMenu<String>(
+    context: state.context,
+    position: RelativeRect.fromLTRB(
+      position.dx, 
+      position.dy + size.height, 
+      position.dx + size.width, 
+      position.dy + size.height * 2,
+    ),
+    items: list.map((e) => PopupMenuItem(value: e, child: Text('$e %'))).toList(),
   );
+
   if (!state.mounted || chosen == null) {
     return;
   }
@@ -428,17 +465,28 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
 }
 
 Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
-  final chosen = await _scanSessionShowSelectionSheet(
-    state,
-    title: 'Select Stone Price',
-    searchHint: 'Search or enter price',
-    options: ['800', '1000', '1200', '1400', '1500', '2000'],
-    selectedValue: state._draft.stonePriceSelected?.toStringAsFixed(0),
-    allowCustomValue: true,
-    customValueIsNumeric: true,
-    customValueHint: 'Enter custom price per gram',
-    allowClearSelection: true,
+  final list = ['800', '1000', '1200', '1400', '1500', '2000'];
+  
+  final RenderBox? renderBox = state._stonePriceIconKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+  
+  final chosen = await showMenu<String>(
+    context: state.context,
+    position: RelativeRect.fromLTRB(
+      position.dx, 
+      position.dy + size.height, 
+      position.dx + size.width, 
+      position.dy + size.height * 2,
+    ),
+    items: [
+      ...list.map((e) => PopupMenuItem(value: e, child: Text('₹$e/gm'))),
+      const PopupMenuDivider(),
+      const PopupMenuItem(value: _clearSelectionSentinel, child: Text('Clear Price')),
+    ],
   );
+
   if (!state.mounted || chosen == null) {
     return;
   }
@@ -697,7 +745,9 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
           ? selectedSupplier
           : 'Selected supplier';
   final itemCode = pickText(parseResult.itemCode) ?? rawQr.trim();
-  final category = pickText(parseResult.category) ?? state._draft.selectedCategory;
+  // If a category is locked in the session setup, ALWAYS use it — ignore what the QR says.
+  // This ensures that if the user picked "Purple" and the QR has "White" or "/", we use "Purple".
+  final category = state._draft.selectedCategory ?? pickText(parseResult.category);
   final purity = state._draft.selectedPurity ?? state._draft.originalPurity ?? 75.0;
   final wastage = state._draft.selectedWastage ?? state._draft.resolvedWastageDefault;
   final displaySnapshot = parseResult.displaySnapshot;

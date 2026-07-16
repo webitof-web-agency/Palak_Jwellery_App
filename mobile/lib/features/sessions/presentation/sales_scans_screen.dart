@@ -19,10 +19,14 @@ class SalesScansScreen extends ConsumerStatefulWidget {
   ConsumerState<SalesScansScreen> createState() => _SalesScansScreenState();
 }
 
+enum DateFilter { all, thisWeek, thisMonth, custom }
+
 class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
   final TextEditingController _searchController = TextEditingController();
   final Set<String> _syncingSessionIds = <String>{};
   String _searchTerm = '';
+  DateFilter _dateFilter = DateFilter.all;
+  DateTimeRange? _customDateRange;
 
   @override
   void dispose() {
@@ -143,11 +147,38 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
       if (customer == null) {
         return false;
       }
-      if (query.isEmpty) {
-        return true;
+      if (query.isNotEmpty) {
+        if (!customer.name.toLowerCase().contains(query) &&
+            !customer.phone.toLowerCase().contains(query)) {
+          return false;
+        }
       }
-      return customer.name.toLowerCase().contains(query) ||
-          customer.phone.toLowerCase().contains(query);
+
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final created = session.createdAt.toLocal();
+      final date = DateTime(created.year, created.month, created.day);
+      
+      switch (_dateFilter) {
+        case DateFilter.all:
+          break;
+        case DateFilter.thisWeek:
+          final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+          if (date.isBefore(startOfWeek)) return false;
+          break;
+        case DateFilter.thisMonth:
+          if (date.year != today.year || date.month != today.month) return false;
+          break;
+        case DateFilter.custom:
+          if (_customDateRange != null) {
+            final start = _customDateRange!.start;
+            final end = _customDateRange!.end;
+            if (date.isBefore(start) || date.isAfter(end)) return false;
+          }
+          break;
+      }
+      
+      return true;
     }).toList(growable: false);
     final groups = _groups(filteredSessions);
     final loading = sessionsAsync.isLoading && sessions.isEmpty;
@@ -190,25 +221,77 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
             ],
-            TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchTerm = value),
-              decoration: InputDecoration(
-                labelText: 'Search customer',
-                hintText: 'Name or phone',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchTerm.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _searchTerm = '';
-                            _searchController.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchTerm = value),
+                    decoration: InputDecoration(
+                      labelText: 'Search customer',
+                      hintText: 'Name or phone',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _searchTerm.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _searchTerm = '';
+                                  _searchController.clear();
+                                });
+                              },
+                              icon: const Icon(Icons.clear_rounded),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                PopupMenuButton<DateFilter>(
+                  initialValue: _dateFilter,
+                  onSelected: (filter) async {
+                    if (filter == DateFilter.custom) {
+                      final range = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (range != null) {
+                        setState(() {
+                          _dateFilter = filter;
+                          _customDateRange = range;
+                        });
+                      }
+                    } else {
+                      setState(() => _dateFilter = filter);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: DateFilter.all, child: Text('All Time')),
+                    const PopupMenuItem(value: DateFilter.thisWeek, child: Text('This Week')),
+                    const PopupMenuItem(value: DateFilter.thisMonth, child: Text('This Month')),
+                    const PopupMenuItem(value: DateFilter.custom, child: Text('Custom Range...')),
+                  ],
+                  child: Container(
+                    height: 56, // Matches standard TextField height
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceAlt,
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _dateFilter == DateFilter.all ? Icons.calendar_today_rounded : Icons.filter_alt_rounded,
+                          color: _dateFilter == DateFilter.all ? AppColors.textSecondary : AppColors.accent,
+                          size: 20,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: AppSpacing.md),
             if (loading)
@@ -305,77 +388,89 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        for (final session in group.sessions.take(2)) ...[
-                          InkWell(
-                            onTap: () => context.push('/sales-scans/${session.sessionId}'),
-                            borderRadius: BorderRadius.circular(AppRadius.md),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                'Saved ${_formatDateTime(session.createdAt)}',
-                                                style: TextStyle(
-                                                  color: AppColors.textPrimary,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
+                        // Only show latest session directly
+                        InkWell(
+                          onTap: () => context.push('/sales-scans/${latest.sessionId}'),
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Saved ${_formatDateTime(latest.createdAt)}',
+                                              style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
-                                            _syncBadge(session),
-                                          ],
+                                          ),
+                                          _syncBadge(latest),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Session ${latest.totalItems} items',
+                                        style: TextStyle(
+                                          color: AppColors.textMuted,
+                                          fontSize: 11,
                                         ),
-                                        const SizedBox(height: 2),
+                                      ),
+                                      if (latest.syncError?.trim().isNotEmpty == true) ...[
+                                        const SizedBox(height: 4),
                                         Text(
-                                          'Session ${session.totalItems} items',
+                                          latest.syncError!,
                                           style: TextStyle(
-                                            color: AppColors.textMuted,
+                                            color: AppColors.warning,
                                             fontSize: 11,
                                           ),
                                         ),
-                                        if (session.syncError?.trim().isNotEmpty == true) ...[
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            session.syncError!,
-                                            style: TextStyle(
-                                              color: AppColors.warning,
-                                              fontSize: 11,
-                                            ),
-                                          ),
-                                        ],
                                       ],
+                                    ],
+                                  ),
+                                ),
+                                if (_canRetry(latest)) ...[
+                                  const SizedBox(width: AppSpacing.sm),
+                                  TextButton(
+                                    onPressed: _syncingSessionIds.contains(latest.sessionId)
+                                        ? null
+                                        : () => _retrySync(latest),
+                                    child: Text(
+                                      _syncingSessionIds.contains(latest.sessionId)
+                                          ? 'Syncing...'
+                                          : 'Retry Sync',
                                     ),
                                   ),
-                                  if (_canRetry(session)) ...[
-                                    const SizedBox(width: AppSpacing.sm),
-                                    TextButton(
-                                      onPressed: _syncingSessionIds.contains(session.sessionId)
-                                          ? null
-                                          : () => _retrySync(session),
-                                      child: Text(
-                                        _syncingSessionIds.contains(session.sessionId)
-                                            ? 'Syncing...'
-                                            : 'Retry Sync',
-                                      ),
-                                    ),
-                                  ],
                                 ],
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (group.sessions.length > 1) ...[
+                          const SizedBox(height: AppSpacing.xs),
+                          InkWell(
+                            onTap: () => context.push('/customers/${group.customer.id}'),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Text(
+                                '+ ${group.sessions.length - 1} older sessions',
+                                style: TextStyle(
+                                  color: AppColors.accent,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
                         ],
-                        if (group.sessions.length > 2)
-                          Text(
-                            '+ ${group.sessions.length - 2} more sessions',
-                            style: TextStyle(color: AppColors.textMuted, fontSize: 12),
-                          ),
                       ],
                     ),
                   ),

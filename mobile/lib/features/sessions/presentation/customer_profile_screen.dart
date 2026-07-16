@@ -63,6 +63,16 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
     }
   }
 
+  void _openAllSessionsSheet(List<ScanSessionSummary> sessions) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AllSessionsSheet(sessions: sessions, formatter: _formatDateTime, weightFormatter: _formatWeight),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sessionsAsync = ref.watch(savedScanSessionsProvider);
@@ -208,71 +218,79 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
                   tone: AppBannerTone.info,
                 )
               else
-                ...customerSessions.map(
+                ...customerSessions.take(5).map(
                   (session) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                    child: AppCard(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: InkWell(
                       onTap: () => context.push('/sales-scans/${session.sessionId}'),
-                      padding: const EdgeInsets.all(AppSpacing.md),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Saved ${_formatDateTime(session.createdAt)}',
-                                      style: TextStyle(
-                                        color: AppColors.textPrimary,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                      borderRadius: BorderRadius.circular(AppRadius.md),
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.md),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _formatDateTime(session.createdAt),
+                                    style: TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.w700,
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${session.totalItems} items',
-                                      style: TextStyle(
-                                        color: AppColors.textMuted,
-                                        fontSize: 11,
-                                      ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${session.totalItems} items',
+                                    style: TextStyle(
+                                      color: AppColors.textMuted,
+                                      fontSize: 12,
                                     ),
-                                  ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${_formatWeight(session.totalFineWeight)} g',
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 15,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Wrap(
-                            spacing: AppSpacing.xs,
-                            runSpacing: AppSpacing.xs,
-                            children: [
-                              AppBadge(
-                                label: 'Gross ${_formatWeight(session.totalGrossWeight)} g',
-                                tone: AppBadgeTone.neutral,
-                                icon: Icons.scale_rounded,
-                                compact: true,
-                              ),
-                              AppBadge(
-                                label: 'Net ${_formatWeight(session.totalNetWeight)} g',
-                                tone: AppBadgeTone.neutral,
-                                icon: Icons.inventory_2_rounded,
-                                compact: true,
-                              ),
-                              AppBadge(
-                                label: 'Fine ${_formatWeight(session.totalFineWeight)} g',
-                                tone: AppBadgeTone.accent,
-                                icon: Icons.balance_rounded,
-                                compact: true,
-                              ),
-                            ],
-                          ),
-                        ],
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Fine Wt',
+                                  style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 10,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
+                if (customerSessions.length > 5) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  AppActionButton(
+                    label: 'View all ${customerSessions.length} sessions',
+                    onPressed: () => _openAllSessionsSheet(customerSessions),
+                    variant: AppActionButtonVariant.secondary,
+                    expanded: true,
+                  ),
+                ],
             ],
             const SizedBox(height: AppSpacing.lg),
             AppActionButton(
@@ -295,6 +313,128 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen> {
 
   double _lifetimeFine(List<ScanSessionSummary> sessions) {
     return sessions.fold(0, (sum, session) => sum + session.totalFineWeight);
+  }
+}
+
+class _AllSessionsSheet extends StatelessWidget {
+  const _AllSessionsSheet({
+    required this.sessions,
+    required this.formatter,
+    required this.weightFormatter,
+  });
+
+  final List<ScanSessionSummary> sessions;
+  final String Function(DateTime) formatter;
+  final String Function(double) weightFormatter;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.lg)),
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'All Sessions',
+                    style: TextStyle(
+                      fontSize: AppTypography.titleSize,
+                      fontWeight: AppTypography.titleWeight,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(AppSpacing.screenPadding),
+              itemCount: sessions.length,
+              itemBuilder: (context, index) {
+                final session = sessions[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: InkWell(
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/sales-scans/${session.sessionId}');
+                    },
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.md),
+                        border: Border.all(color: AppColors.border),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  formatter(session.createdAt),
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '${session.totalItems} items',
+                                  style: TextStyle(
+                                    color: AppColors.textMuted,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${weightFormatter(session.totalFineWeight)} g',
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Fine Wt',
+                                style: TextStyle(
+                                  color: AppColors.textMuted,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

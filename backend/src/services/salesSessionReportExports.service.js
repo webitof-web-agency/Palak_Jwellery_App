@@ -771,13 +771,18 @@ const buildSalesSessionReportPdfHtml = async ({ mode, rows = [], summary = {}, f
           background: #f7efe7;
           font-weight: 700;
         }
-        .remark-card {
+        .footer-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
           margin-top: 12px;
+        }
+        .footer-card {
           border: 1px solid rgba(92, 70, 56, 0.18);
           border-radius: 14px;
           padding: 12px 14px;
         }
-        .remark-title {
+        .footer-title {
           font-size: 11px;
           font-weight: 700;
           text-transform: uppercase;
@@ -785,7 +790,7 @@ const buildSalesSessionReportPdfHtml = async ({ mode, rows = [], summary = {}, f
           color: #7b675a;
           margin-bottom: 4px;
         }
-        .remark-copy {
+        .footer-copy {
           font-size: 10px;
           color: #5a4a41;
         }
@@ -806,9 +811,15 @@ const buildSalesSessionReportPdfHtml = async ({ mode, rows = [], summary = {}, f
           ${buildTableHtml({ mode, rows, summary })}
         </div>
 
-        <div class="remark-card">
-          <div class="remark-title">Remark</div>
-          <div class="remark-copy">Generated from synced mobile sales sessions.</div>
+        <div class="footer-grid">
+          <div class="footer-card">
+            <div class="footer-title">Remark</div>
+            <div class="footer-copy">Generated from synced mobile sales sessions.</div>
+          </div>
+          <div class="footer-card">
+            <div class="footer-title">RTGS Pending</div>
+            <div class="footer-copy">Amount to be received via RTGS</div>
+          </div>
         </div>
       </div>
     </body>

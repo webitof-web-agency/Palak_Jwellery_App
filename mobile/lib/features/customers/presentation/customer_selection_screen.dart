@@ -75,7 +75,7 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     });
 
     if (query.isEmpty) {
-      return customers;
+      return customers.take(5).toList(growable: false);
     }
 
     return customers.where((customer) {
@@ -192,98 +192,86 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
               subtitle: 'Search by name or phone, then continue with the selected customer.',
             ),
             const SizedBox(height: AppSpacing.md),
-            AppBanner(
-              title: 'Customer first',
-              message: 'Choose or add a customer from this screen before starting the scan.',
-              tone: AppBannerTone.info,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _searchTerm = value),
-              textInputAction: TextInputAction.search,
-              decoration: InputDecoration(
-                labelText: 'Search customer',
-                hintText: 'Name or phone',
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: query.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _searchTerm = '';
-                            _searchController.clear();
-                          });
-                        },
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-              ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            AppActionButton(
-              label: 'Add New Customer',
-              onPressed: _openAddCustomerSheet,
-              icon: Icons.person_add_alt_1_rounded,
-              variant: AppActionButtonVariant.secondary,
-              expanded: true,
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchTerm = value),
+                    textInputAction: TextInputAction.search,
+                    decoration: InputDecoration(
+                      labelText: 'Search customer',
+                      hintText: 'Name or phone',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: query.isEmpty
+                          ? null
+                          : IconButton(
+                              onPressed: () {
+                                setState(() {
+                                  _searchTerm = '';
+                                  _searchController.clear();
+                                });
+                              },
+                              icon: const Icon(Icons.clear_rounded),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Container(
+                  height: 56, // Matches standard TextField height
+                  width: 56,
+                  decoration: BoxDecoration(
+                    color: AppColors.accent,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  child: IconButton(
+                    onPressed: _openAddCustomerSheet,
+                    icon: const Icon(Icons.add_rounded, color: Colors.white),
+                    tooltip: 'Add New Customer',
+                  ),
+                ),
+              ],
             ),
             if (selected != null) ...[
-              const SizedBox(height: AppSpacing.lg),
+              const SizedBox(height: AppSpacing.md),
               AppCard(
-                padding: const EdgeInsets.all(AppSpacing.lg),
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                 borderColor: AppColors.accent.withValues(alpha: 0.5),
                 backgroundColor: AppColors.accentSoft.withValues(alpha: 0.10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        const Expanded(
-                          child: Text(
-                            'Selected customer',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                selected.name,
+                                style: TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.sm),
+                              Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 16),
+                            ],
                           ),
-                        ),
-                        AppBadge(
-                          label: 'Selected',
-                          tone: AppBadgeTone.accent,
-                          icon: Icons.check_circle_rounded,
-                          compact: true,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      selected.name,
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontSize: AppTypography.titleSize,
-                        fontWeight: AppTypography.titleWeight,
+                          const SizedBox(height: 2),
+                          Text(
+                            _customerContactLine(selected),
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      _customerContactLine(selected),
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                    if ((selected.email ?? '').isNotEmpty) ...[
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        selected.email!,
-                        style: TextStyle(color: AppColors.textMuted),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: AppActionButton(
-                        label: 'Clear Selection',
-                        onPressed: _clearSelection,
-                        variant: AppActionButtonVariant.tertiary,
-                      ),
+                    IconButton(
+                      onPressed: _clearSelection,
+                      icon: const Icon(Icons.close_rounded),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Clear Selection',
                     ),
                   ],
                 ),
@@ -393,16 +381,22 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                   ),
                 );
               }),
-            const SizedBox(height: AppSpacing.lg),
-            AppActionButton(
-              label: 'Use selected customer',
-              onPressed: selected == null ? null : _continueWithSelected,
-              icon: Icons.arrow_forward_rounded,
-              expanded: true,
-            ),
           ],
         ),
       ),
+      bottomNavigationBar: selected == null
+          ? null
+          : SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.screenPadding),
+                child: AppActionButton(
+                  label: 'Use selected customer',
+                  onPressed: _continueWithSelected,
+                  icon: Icons.arrow_forward_rounded,
+                  expanded: true,
+                ),
+              ),
+            ),
     );
   }
 }

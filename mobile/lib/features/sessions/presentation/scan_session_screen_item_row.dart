@@ -4,12 +4,14 @@ class _ScannedItemCard extends StatelessWidget {
   const _ScannedItemCard({
     required this.item,
     required this.serialNumber,
+    required this.onDelete,
     this.showDivider = true,
   });
 
   final ScannedSessionItem item;
   final int serialNumber;
   final bool showDivider;
+  final VoidCallback onDelete;
 
   String _formatValue(double value) => value.toStringAsFixed(3);
 
@@ -162,6 +164,17 @@ class _ScannedItemCard extends StatelessWidget {
                       child: AppBadgeRow(children: topBadges),
                     ),
                   ),
+                GestureDetector(
+                  onTap: onDelete,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 8),
+                    child: Icon(
+                      Icons.delete_outline_rounded,
+                      size: 18,
+                      color: AppColors.danger,
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: AppSpacing.sm),

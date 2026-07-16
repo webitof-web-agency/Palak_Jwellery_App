@@ -5,72 +5,48 @@ Widget _scanSessionBuildCustomerCard(
   CustomerRecord? customer,
 ) {
   return AppCard(
-    padding: const EdgeInsets.all(AppSpacing.lg),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+    child: Row(
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Selected customer',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
+        Expanded(
+          child: customer == null
+              ? Text(
+                  'No customer selected',
+                  style: TextStyle(color: AppColors.warning, fontWeight: FontWeight.w600),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      customer.name,
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      [customer.phone, customer.area].where((e) => e.trim().isNotEmpty).join(' | '),
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                    ),
+                  ],
                 ),
-              ),
-            ),
-            if (!state._draft.isLocked)
-              AppActionButton(
-                label: customer == null ? 'Choose Customer' : 'Change Customer',
-                onPressed: state._changeCustomer,
-                variant: AppActionButtonVariant.secondary,
-                height: 38,
-              )
-            else
-              const AppBadge(
-                label: 'Locked',
-                tone: AppBadgeTone.neutral,
-                icon: Icons.lock_rounded,
-                compact: true,
-              ),
-          ],
         ),
-        const SizedBox(height: AppSpacing.sm),
-        if (customer == null)
-          AppBanner(
-            title: 'No customer selected',
-            message: 'Choose a customer before locking the session.',
-            tone: AppBannerTone.warning,
+        const SizedBox(width: AppSpacing.sm),
+        if (!state._draft.isLocked)
+          AppActionButton(
+            label: customer == null ? 'Choose' : 'Change',
+            onPressed: state._changeCustomer,
+            variant: AppActionButtonVariant.secondary,
+            height: 36,
           )
         else
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                customer.name,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: AppTypography.titleSize,
-                  fontWeight: AppTypography.titleWeight,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              if (customer.phone.trim().isNotEmpty || customer.area.trim().isNotEmpty) ...[
-                Text(
-                  [customer.phone, customer.area].where((e) => e.trim().isNotEmpty).join(' | '),
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
-              ],
-              if ((customer.email ?? '').isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  customer.email!,
-                  style: TextStyle(color: AppColors.textMuted),
-                ),
-              ],
-            ],
+          const AppBadge(
+            label: 'Locked',
+            tone: AppBadgeTone.neutral,
+            icon: Icons.lock_rounded,
+            compact: true,
           ),
       ],
     ),
@@ -178,6 +154,7 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                     prefixIcon: const Icon(Icons.water_drop_outlined),
                     helperText: 'Loaded from live admin settings.',
                     suffixIcon: IconButton(
+                      key: state._wastageIconKey,
                       onPressed: state._pickWastage,
                       icon: const Icon(Icons.expand_more_rounded),
                       tooltip: 'Common options',
@@ -206,6 +183,7 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                     prefixIcon: const Icon(Icons.currency_rupee_rounded),
                     helperText: 'Optional stone price',
                     suffixIcon: IconButton(
+                      key: state._stonePriceIconKey,
                       onPressed: state._pickStonePrice,
                       icon: const Icon(Icons.expand_more_rounded),
                       tooltip: 'Common options',
@@ -380,6 +358,7 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
                             item: item,
                             serialNumber: serial,
                             showDivider: index != state._visibleScannedItems.length - 1,
+                            onDelete: () => _scanSessionRemoveSelectedItems(state, {item.id}),
                           );
                         },
                       ),
