@@ -56,8 +56,8 @@ Widget _scanSessionBuildCustomerCard(
 Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
   return Form(
     key: state._formKey,
-    child: AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -66,11 +66,12 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
             subtitle: 'Loaded from live admin supplier settings.',
             tight: true,
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Row(
             children: [
               Expanded(
                 child: _PickerCard(
+                  key: state._supplierKey,
                   label: 'Supplier',
                   value: state._draft.supplier ?? 'Choose supplier',
                   icon: Icons.storefront_rounded,
@@ -81,6 +82,7 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: _PickerCard(
+                  key: state._categoryKey,
                   label: 'Category',
                   value: state._draft.selectedCategory ?? 'Optional',
                   icon: Icons.category_rounded,
@@ -95,11 +97,13 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: TextFormField(
-                  key: ValueKey(state._draft.karat),
-                  initialValue: state._draft.karat,
-                  readOnly: true,
-                  onTap: state._pickKarat,
+                child: Container(
+                  key: state._karatKey,
+                  child: TextFormField(
+                    key: ValueKey(state._draft.karat),
+                    initialValue: state._draft.karat,
+                    readOnly: true,
+                    onTap: state._pickKarat,
                   decoration: const InputDecoration(
                     labelText: 'Karat',
                     hintText: 'Choose karat',
@@ -107,6 +111,7 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
                     suffixIcon: Icon(Icons.expand_more_rounded),
                     helperText: 'Tap to select',
                   ),
+                ),
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
@@ -195,19 +200,57 @@ Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          TextFormField(
-            controller: state._notesController,
-            maxLines: 3,
-            textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(
-              alignLabelWithHint: true,
-              floatingLabelBehavior: FloatingLabelBehavior.always,
-              labelText: 'Notes',
-              hintText: 'Optional session notes',
-              prefixIcon: Icon(Icons.notes_rounded),
+          InkWell(
+            onTap: state._toggleNotes,
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+              child: Row(
+                children: [
+                  Icon(
+                    state._isNotesExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: AppSpacing.xs),
+                  Text(
+                    'Session Notes (Optional)',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (state._draft.notes.trim().isNotEmpty && !state._isNotesExpanded) ...[
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Text(
+                        state._draft.notes.trim(),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
-            onChanged: state._setNotes,
           ),
+          if (state._isNotesExpanded) ...[
+            const SizedBox(height: AppSpacing.sm),
+            TextFormField(
+              controller: state._notesController,
+              maxLines: 3,
+              textInputAction: TextInputAction.newline,
+              decoration: const InputDecoration(
+                alignLabelWithHint: true,
+                floatingLabelBehavior: FloatingLabelBehavior.always,
+                labelText: 'Notes',
+                hintText: 'Enter session notes',
+                prefixIcon: Icon(Icons.notes_rounded),
+              ),
+              onChanged: state._setNotes,
+            ),
+          ],
           const SizedBox(height: AppSpacing.lg),
           AppActionButton(
             label: 'Lock Details',

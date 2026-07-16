@@ -211,6 +211,8 @@ void _scanSessionSetSupplier(_ScanSessionScreenState state, String? supplier) {
     state._draft = state._draft.copyWith(
       supplier: supplier,
       clearSupplier: supplier == null,
+      clearCategory: true,
+      clearKarat: true,
     );
     _scanSessionApplyDefaultsForSelection(state);
   });
@@ -282,18 +284,43 @@ void _scanSessionChangeCustomer(_ScanSessionScreenState state) {
 }
 
 Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
-  final chosen = await showModalBottomSheet<String>(
+  List<SupplierModel> suppliers = [];
+  try {
+    suppliers = await state.ref.read(suppliersProvider.future);
+  } catch (_) {}
+
+  final list = suppliers.map((s) => s.name).toList(growable: false);
+  list.sort((a, b) => a.compareTo(b));
+
+  if (!state.mounted) return;
+
+  final RenderBox? renderBox = state._supplierKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+
+  final chosen = await showMenu<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) {
-      return _SupplierPickerSheet(selectedValue: state._draft.supplier);
-    },
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
+    ),
+    items: [
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Selection', style: TextStyle(color: Colors.red)),
+      ),
+      if (list.isNotEmpty) const PopupMenuDivider(),
+      ...list.map((e) => PopupMenuItem(value: e, child: Text(e))),
+    ],
   );
+
   if (!state.mounted || chosen == null) {
     return;
   }
+  
   if (chosen == _clearSelectionSentinel) {
     _scanSessionSetSupplier(state, null);
     return;
@@ -302,72 +329,165 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
 }
 
 Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
-  final values = <String>{};
+  final businessCategories = <String>{};
+  final supplierCategories = <String>{};
 
-  // 1. Pull business-level categories (global)
+  // Always load global business-level categories
   try {
     final overview = await state.ref.read(businessOverviewProvider.future);
-    values.addAll(overview.categories);
+    businessCategories.addAll(overview.categories);
   } catch (_) {}
 
-  // 2. Pull supplier-specific categories (from admin supplier settings)
-  try {
-    final suppliers = await state.ref.read(suppliersProvider.future);
-    final selectedSupplier = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  // Only add supplier-specific categories when a supplier is already selected
+  final selectedSupplierName = state._draft.supplier;
+  if (selectedSupplierName != null) {
+    try {
+      final suppliers = await state.ref.read(suppliersProvider.future);
+      final selectedSupplier = _scanSessionSupplierModelFor(state, selectedSupplierName);
+      final targetSuppliers = selectedSupplier != null
+          ? suppliers.where((s) => s.id == selectedSupplier.id).toList()
+          : <SupplierModel>[];
 
-    final targetSuppliers = selectedSupplier != null
-        ? suppliers.where((s) => s.id == selectedSupplier.id).toList()
-        : suppliers;
+      for (final supplier in targetSuppliers) {
+        supplierCategories.addAll(supplier.categories.where((c) => c.trim().isNotEmpty));
 
-    for (final supplier in targetSuppliers) {
-      // From top-level categories array on the supplier
-      values.addAll(supplier.categories.where((c) => c.trim().isNotEmpty));
-
-      // Also from businessSettings.categories list (admin-configured categories per supplier)
-      final settingsCategories = supplier.businessSettings['categories'];
-      if (settingsCategories is List) {
-        for (final item in settingsCategories) {
-          if (item is Map<String, dynamic> && item['isActive'] != false) {
-            final name = item['name']?.toString().trim() ?? '';
-            if (name.isNotEmpty) values.add(name);
-          } else if (item is String && item.trim().isNotEmpty) {
-            values.add(item.trim());
+        final settingsCategories = supplier.businessSettings['categories'];
+        if (settingsCategories is List) {
+          for (final item in settingsCategories) {
+            if (item is Map<String, dynamic> && item['isActive'] != false) {
+              final name = item['name']?.toString().trim() ?? '';
+              if (name.isNotEmpty) supplierCategories.add(name);
+            } else if (item is String && item.trim().isNotEmpty) {
+              supplierCategories.add(item.trim());
+            }
           }
         }
       }
-    }
-  } catch (_) {}
+    } catch (_) {}
+  }
 
-  final chosen = await _scanSessionShowSelectionSheet(
-    state,
-    title: 'Select Category',
-    searchHint: 'Search category',
-    options: values.toList(),
-    selectedValue: state._draft.selectedCategory,
-    allowCustomValue: true,
-    customValueHint: 'Enter custom category',
-    allowClearSelection: true,
+  // Merge: business categories first, then supplier-specific extras
+  final allCategories = <String>{...businessCategories, ...supplierCategories};
+  final list = allCategories.toList();
+  list.sort((a, b) => a.compareTo(b));
+
+  if (!state.mounted) return;
+
+  final RenderBox? renderBox = state._categoryKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+
+  final chosen = await showMenu<String>(
+    context: state.context,
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
+    ),
+    items: [
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Selection', style: TextStyle(color: Colors.red)),
+      ),
+      if (list.isNotEmpty) const PopupMenuDivider(),
+      ...list.map((e) => PopupMenuItem(value: e, child: Text(e))),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: '__custom__',
+        child: Text('Custom Category...', style: TextStyle(color: AppColors.accent)),
+      ),
+    ],
   );
+
   if (!state.mounted || chosen == null) {
     return;
   }
+  
+  if (chosen == '__custom__') {
+    final custom = await _showCustomTextInput(state, 'Custom Category', 'Enter category name');
+    if (custom != null && custom.trim().isNotEmpty) {
+      _scanSessionSetCategory(state, custom.trim());
+    }
+    return;
+  }
+  
   _scanSessionSetCategory(state, chosen == _clearSelectionSentinel ? null : chosen);
 }
 
-Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
-  final chosen = await showModalBottomSheet<String>(
+Future<String?> _showCustomTextInput(_ScanSessionScreenState state, String title, String hint) async {
+  final controller = TextEditingController();
+  return showDialog<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) {
-      return _KaratPickerSheet(
-        selectedValue: state._draft.karat,
-        supplierName: state._draft.supplier,
-        supplierModel: _scanSessionSupplierModelFor(state, state._draft.supplier),
+    builder: (context) {
+      return AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: Text(title, style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(hintText: hint),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: Text('OK', style: TextStyle(color: AppColors.accent)),
+          ),
+        ],
       );
     },
   );
+}
+
+Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
+  List<KaratOption> options = KaratOption.defaults();
+  try {
+    final liveOptions = await state.ref.read(karatOptionsProvider.future);
+    if (liveOptions.isNotEmpty) {
+      options = liveOptions;
+    }
+  } catch (_) {}
+
+  final sortedOptions = List<KaratOption>.from(options)
+    ..sort((a, b) {
+      final aOrder = a.sortOrder ?? 0;
+      final bOrder = b.sortOrder ?? 0;
+      if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+      return a.name.compareTo(b.name);
+    });
+
+  final list = sortedOptions.map((o) => o.name).toList();
+
+  if (!state.mounted) return;
+
+  final RenderBox? renderBox = state._karatKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+
+  final chosen = await showMenu<String>(
+    context: state.context,
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
+    ),
+    items: [
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Selection', style: TextStyle(color: Colors.red)),
+      ),
+      if (list.isNotEmpty) const PopupMenuDivider(),
+      ...list.map((e) => PopupMenuItem(value: e, child: Text(e))),
+    ],
+  );
+
   if (!state.mounted || chosen == null) {
     return;
   }
@@ -838,36 +958,6 @@ List<ScannedSessionItem> _scanSessionVisibleScannedItems(
   return items.reversed.toList(growable: false);
 }
 
-Future<String?> _scanSessionShowSelectionSheet(
-  _ScanSessionScreenState state, {
-  required String title,
-  required String searchHint,
-  required List<String> options,
-  required String? selectedValue,
-  bool allowCustomValue = false,
-  bool customValueIsNumeric = false,
-  bool allowClearSelection = false,
-  String? customValueHint,
-}) {
-  return showModalBottomSheet<String>(
-    context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) {
-      return _SearchChoiceSheet(
-        title: title,
-        searchHint: searchHint,
-        options: options,
-        selectedValue: selectedValue,
-        allowCustomValue: allowCustomValue,
-        customValueIsNumeric: customValueIsNumeric,
-        allowClearSelection: allowClearSelection,
-        customValueHint: customValueHint,
-      );
-    },
-  );
-}
 
 void _scanSessionDiscardDraft(_ScanSessionScreenState state) {
   state._updateDraftState(() {

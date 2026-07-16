@@ -1,5 +1,5 @@
 import mongoose from 'mongoose'
-import { Sale } from '../models/Sale.js'
+import { CaptureSession } from '../models/CaptureSession.js'
 
 const sendSuccess = (res, data, status = 200) => res.status(status).json({ success: true, data })
 const sendError = (res, status, error, code) => res.status(status).json({ success: false, error, code })
@@ -24,18 +24,19 @@ export const getAdminSummary = async (req, res) => {
     const { start, end } = getISTRange(from, to)
 
     const matchQuery = {
-      saleDate: { $gte: start, $lte: end }
+      createdAt: { $gte: start, $lte: end },
+      status: { $ne: 'cancelled' }
     }
 
     // 1. Overall Totals
-    const totals = await Sale.aggregate([
+    const totals = await CaptureSession.aggregate([
       { $match: matchQuery },
       {
         $group: {
           _id: null,
-          totalSales: { $sum: 1 },
-          totalNetWeight: { $sum: '$netWeight' },
-          totalGrossWeight: { $sum: '$grossWeight' },
+          totalSales: { $sum: 1 }, // Counting sessions
+          totalNetWeight: { $sum: '$totals.netWeight' },
+          totalGrossWeight: { $sum: '$totals.grossWeight' },
         }
       }
     ])
@@ -47,28 +48,20 @@ export const getAdminSummary = async (req, res) => {
     }
 
     // 2. By Supplier
-    const bySupplierRaw = await Sale.aggregate([
+    const bySupplierRaw = await CaptureSession.aggregate([
       { $match: matchQuery },
+      { $unwind: { path: '$mobileItems', preserveNullAndEmptyArrays: false } },
       {
         $group: {
-          _id: '$supplier',
-          salesCount: { $sum: 1 },
-          netWeight: { $sum: '$netWeight' },
-          grossWeight: { $sum: '$grossWeight' },
+          _id: '$mobileItems.supplierName',
+          salesCount: { $sum: 1 }, // Counting items per supplier
+          netWeight: { $sum: '$mobileItems.netWeight' },
+          grossWeight: { $sum: '$mobileItems.grossWeight' },
         }
       },
-      {
-        $lookup: {
-          from: 'suppliers',
-          localField: '_id',
-          foreignField: '_id',
-          as: 'supplierInfo'
-        }
-      },
-      { $unwind: { path: '$supplierInfo', preserveNullAndEmptyArrays: true } },
       {
         $project: {
-          name: { $ifNull: ['$supplierInfo.name', 'Unknown'] },
+          name: { $ifNull: ['$_id', 'Unknown'] },
           salesCount: 1,
           netWeight: 1,
           grossWeight: 1,
@@ -78,13 +71,13 @@ export const getAdminSummary = async (req, res) => {
     ])
 
     // 3. By Salesman
-    const bySalesmanRaw = await Sale.aggregate([
+    const bySalesmanRaw = await CaptureSession.aggregate([
       { $match: matchQuery },
       {
         $group: {
-          _id: '$salesman',
+          _id: '$assignedSalesmanId',
           salesCount: { $sum: 1 },
-          netWeight: { $sum: '$netWeight' },
+          netWeight: { $sum: '$totals.netWeight' },
         }
       },
       {
@@ -107,13 +100,14 @@ export const getAdminSummary = async (req, res) => {
     ])
 
     // 4. By Category
-    const byCategoryRaw = await Sale.aggregate([
+    const byCategoryRaw = await CaptureSession.aggregate([
       { $match: matchQuery },
+      { $unwind: { path: '$mobileItems', preserveNullAndEmptyArrays: false } },
       {
         $group: {
-          _id: '$category',
+          _id: '$mobileItems.category',
           salesCount: { $sum: 1 },
-          netWeight: { $sum: '$netWeight' },
+          netWeight: { $sum: '$mobileItems.netWeight' },
         }
       },
       {
@@ -151,18 +145,19 @@ export const getMySummary = async (req, res) => {
   try {
     const { start, end } = getISTRange()
 
-    const summary = await Sale.aggregate([
+    const summary = await CaptureSession.aggregate([
       {
         $match: {
-          salesman: new mongoose.Types.ObjectId(req.user._id || req.user.id),
-          saleDate: { $gte: start, $lte: end }
+          assignedSalesmanId: new mongoose.Types.ObjectId(req.user._id || req.user.id),
+          createdAt: { $gte: start, $lte: end },
+          status: { $ne: 'cancelled' }
         }
       },
       {
         $group: {
           _id: null,
           todaySales: { $sum: 1 },
-          todayNetWeight: { $sum: '$netWeight' },
+          todayNetWeight: { $sum: '$totals.netWeight' },
         }
       }
     ])

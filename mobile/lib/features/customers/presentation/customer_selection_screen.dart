@@ -8,7 +8,6 @@ import '../domain/customer_record.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/app_action_button.dart';
-import '../../../shared/widgets/app_badge.dart';
 import '../../../shared/widgets/app_banner.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_section_header.dart';
@@ -24,26 +23,19 @@ class CustomerSelectionScreen extends ConsumerStatefulWidget {
 
 class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
-
   final List<CustomerRecord> _localCustomers = <CustomerRecord>[];
 
   String _searchTerm = '';
-  String? _selectedCustomerId;
+  // Store full object to avoid flash during API reload (no ID lookup on every build)
+  CustomerRecord? _selectedCustomer;
 
   String _customerContactLine(CustomerRecord customer) {
     final phone = customer.phone.trim();
     final area = customer.area.trim();
-
-    if (phone.isNotEmpty && area.isNotEmpty) {
-      return '$phone | $area';
-    }
-    if (phone.isNotEmpty) {
-      return phone;
-    }
-    if (area.isNotEmpty) {
-      return area;
-    }
-    return 'No phone added';
+    if (phone.isNotEmpty && area.isNotEmpty) return '$phone | $area';
+    if (phone.isNotEmpty) return phone;
+    if (area.isNotEmpty) return area;
+    return 'No contact info';
   }
 
   @override
@@ -52,11 +44,11 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     super.dispose();
   }
 
-  List<CustomerRecord> get _filteredCustomers {
+  List<CustomerRecord> get _searchResults {
     final query = _searchTerm.trim().toLowerCase();
-    
+    if (query.isEmpty) return const [];
+
     final apiCustomers = ref.watch(customersListProvider).value ?? <CustomerRecord>[];
-    
     final Map<String, CustomerRecord> combined = {};
     for (final c in apiCustomers) {
       combined[c.id] = c;
@@ -64,51 +56,26 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     for (final c in _localCustomers) {
       combined[c.id] = c;
     }
-    
-    final customers = combined.values.toList();
 
-    customers.sort((a, b) {
-      if (a.isRecent != b.isRecent) {
-        return a.isRecent ? -1 : 1;
-      }
-      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-    });
-
-    if (query.isEmpty) {
-      return customers.take(5).toList(growable: false);
-    }
-
-    return customers.where((customer) {
+    return combined.values.where((customer) {
       return customer.name.toLowerCase().contains(query) ||
           customer.phone.toLowerCase().contains(query);
     }).toList(growable: false);
   }
 
-  CustomerRecord? get _selectedCustomer {
-    if (_selectedCustomerId == null) {
-      return null;
-    }
-    
-    final apiCustomers = ref.watch(customersListProvider).value ?? <CustomerRecord>[];
-    final allCustomers = [..._localCustomers, ...apiCustomers];
-    
-    for (final customer in allCustomers) {
-      if (customer.id == _selectedCustomerId) {
-        return customer;
-      }
-    }
-    return null;
-  }
-
   void _selectCustomer(CustomerRecord customer) {
+    FocusScope.of(context).unfocus();
     setState(() {
-      _selectedCustomerId = customer.id;
+      _selectedCustomer = customer;
+      // Clear search after selection for clean UX
+      _searchTerm = '';
+      _searchController.clear();
     });
   }
 
   void _clearSelection() {
     setState(() {
-      _selectedCustomerId = null;
+      _selectedCustomer = null;
     });
   }
 
@@ -125,50 +92,41 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
       },
     );
 
-    if (!mounted || created == null) {
-      return;
-    }
+    if (!mounted || created == null) return;
 
     final saved = await ref.read(customerRepositoryProvider).createCustomer(created);
     final finalCustomer = saved ?? created;
 
-    if (!mounted) {
-      return;
-    }
+    if (!mounted) return;
 
     setState(() {
       _localCustomers.insert(0, finalCustomer);
-      _selectedCustomerId = finalCustomer.id;
+      _selectedCustomer = finalCustomer;
       _searchTerm = '';
       _searchController.clear();
     });
-    
+    FocusScope.of(context).unfocus();
+
     if (saved != null) {
       ref.invalidate(customersListProvider);
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${finalCustomer.name} added and selected.'),
-      ),
+      SnackBar(content: Text('${finalCustomer.name} added and selected.')),
     );
   }
 
   void _continueWithSelected() {
     final selected = _selectedCustomer;
-    if (selected == null) {
-      return;
-    }
-
+    if (selected == null) return;
     context.push('/scan-session', extra: selected);
   }
 
   @override
   Widget build(BuildContext context) {
     final selected = _selectedCustomer;
-    final filtered = _filteredCustomers;
     final query = _searchTerm.trim();
-    final showingSearchResults = query.isNotEmpty;
+    final results = _searchResults;
 
     return Scaffold(
       appBar: AppBar(
@@ -189,9 +147,11 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
           children: [
             const AppSectionHeader(
               title: 'Choose a customer',
-              subtitle: 'Search by name or phone, then continue with the selected customer.',
+              subtitle: 'Search by name or phone to find and select a customer.',
             ),
             const SizedBox(height: AppSpacing.md),
+
+            // ── Search + Add row ──────────────────────────────────────────────
             Row(
               children: [
                 Expanded(
@@ -199,9 +159,10 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                     controller: _searchController,
                     onChanged: (value) => setState(() => _searchTerm = value),
                     textInputAction: TextInputAction.search,
+                    autofocus: selected == null,
                     decoration: InputDecoration(
                       labelText: 'Search customer',
-                      hintText: 'Name or phone',
+                      hintText: 'Name or phone number',
                       prefixIcon: const Icon(Icons.search_rounded),
                       suffixIcon: query.isEmpty
                           ? null
@@ -219,7 +180,7 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Container(
-                  height: 56, // Matches standard TextField height
+                  height: 56,
                   width: 56,
                   decoration: BoxDecoration(
                     color: AppColors.accent,
@@ -233,10 +194,13 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                 ),
               ],
             ),
+
+            // ── Selected customer compact card ────────────────────────────────
             if (selected != null) ...[
               const SizedBox(height: AppSpacing.md),
               AppCard(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md, vertical: AppSpacing.sm),
                 borderColor: AppColors.accent.withValues(alpha: 0.5),
                 backgroundColor: AppColors.accentSoft.withValues(alpha: 0.10),
                 child: Row(
@@ -256,13 +220,15 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.sm),
-                              Icon(Icons.check_circle_rounded, color: AppColors.accent, size: 16),
+                              Icon(Icons.check_circle_rounded,
+                                  color: AppColors.accent, size: 16),
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             _customerContactLine(selected),
-                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            style: TextStyle(
+                                color: AppColors.textSecondary, fontSize: 13),
                           ),
                         ],
                       ),
@@ -277,110 +243,64 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                 ),
               ),
             ],
-            const SizedBox(height: AppSpacing.lg),
-            AppSectionHeader(
-              title: showingSearchResults ? 'Search results' : 'Customers',
-              subtitle: filtered.isEmpty
-                  ? 'No customers match that name or phone.'
-                  : '${filtered.length} customer${filtered.length == 1 ? '' : 's'} shown.',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            if (filtered.isEmpty)
-              AppBanner(
-                title: showingSearchResults ? 'No match found' : 'No customers yet',
-                message: showingSearchResults
-                    ? 'Add a new customer now, or clear the search and try again.'
-                    : 'Add the first customer to start a scan session.',
-                tone: AppBannerTone.warning,
-                actionLabel: 'Add New Customer',
-                onAction: _openAddCustomerSheet,
-              )
-            else
-              ...filtered.map((customer) {
-                final isSelected = customer.id == _selectedCustomerId;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: AppCard(
-                    onTap: () => _selectCustomer(customer),
-                    padding: const EdgeInsets.all(AppSpacing.lg),
-                    borderColor: isSelected ? AppColors.accent : AppColors.border,
-                    backgroundColor: isSelected
-                        ? AppColors.accentSoft.withValues(alpha: 0.08)
-                        : AppColors.surface,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    customer.name,
-                                    style: TextStyle(
-                                      color: AppColors.textPrimary,
-                                      fontSize: AppTypography.titleSize,
-                                      fontWeight: AppTypography.titleWeight,
-                                    ),
+
+            // ── Search results (only while actively searching) ─────────────
+            if (query.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              if (results.isEmpty)
+                AppBanner(
+                  title: 'No match found',
+                  message: 'No customer with that name or phone. Add a new one?',
+                  tone: AppBannerTone.warning,
+                  actionLabel: 'Add New Customer',
+                  onAction: _openAddCustomerSheet,
+                )
+              else
+                ...results.map((customer) {
+                  final isSelected = customer.id == selected?.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: AppCard(
+                      onTap: () => _selectCustomer(customer),
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      borderColor:
+                          isSelected ? AppColors.accent : AppColors.border,
+                      backgroundColor: isSelected
+                          ? AppColors.accentSoft.withValues(alpha: 0.08)
+                          : AppColors.surface,
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  customer.name,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontSize: AppTypography.titleSize,
+                                    fontWeight: AppTypography.titleWeight,
                                   ),
-                                  const SizedBox(height: AppSpacing.xs),
-                                  Text(
-                                    customer.phone.trim().isNotEmpty ? customer.phone : 'No phone added',
-                                    style: TextStyle(
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _customerContactLine(customer),
+                                  style: TextStyle(
                                       color: AppColors.textSecondary,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                      fontSize: 13),
+                                ),
+                              ],
                             ),
-                            if (isSelected)
-                              Icon(
-                                Icons.check_circle_rounded,
-                                color: AppColors.accent,
-                                size: 20,
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        AppBadgeRow(
-                          children: [
-                            AppBadge(
-                              label: customer.area,
-                              tone: AppBadgeTone.neutral,
-                              icon: Icons.place_rounded,
-                              compact: true,
-                            ),
-                            if (customer.isRecent)
-                              AppBadge(
-                                label: customer.lastSeenLabel ?? 'Recent',
-                                tone: AppBadgeTone.warning,
-                                icon: Icons.history_rounded,
-                                compact: true,
-                              ),
-                            if ((customer.email ?? '').isNotEmpty)
-                              AppBadge(
-                                label: 'Email',
-                                tone: AppBadgeTone.neutral,
-                                icon: Icons.email_rounded,
-                                compact: true,
-                              ),
-                            if (isSelected)
-                              AppBadge(
-                                label: 'Selected',
-                                tone: AppBadgeTone.accent,
-                                icon: Icons.check_rounded,
-                                compact: true,
-                              ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          if (isSelected)
+                            Icon(Icons.check_circle_rounded,
+                                color: AppColors.accent, size: 20),
+                        ],
+                      ),
                     ),
-                  ),
-                );
-              }),
+                  );
+                }),
+            ],
           ],
         ),
       ),
@@ -390,7 +310,7 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
               child: Padding(
                 padding: const EdgeInsets.all(AppSpacing.screenPadding),
                 child: AppActionButton(
-                  label: 'Use selected customer',
+                  label: 'Continue with ${selected.name}',
                   onPressed: _continueWithSelected,
                   icon: Icons.arrow_forward_rounded,
                   expanded: true,
@@ -400,14 +320,3 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-

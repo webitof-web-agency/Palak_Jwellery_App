@@ -11,7 +11,6 @@ import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/app_action_button.dart';
 import '../../../shared/widgets/app_badge.dart';
 import '../../../shared/widgets/app_banner.dart';
-import '../../../shared/widgets/app_card.dart';
 
 import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/app_metric_card.dart';
@@ -328,27 +327,23 @@ class DashboardHomeScreen extends ConsumerWidget {
                     height: 52,
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  const AppSectionHeader(
-                    title: 'Today\'s Summary',
-                    subtitle: 'A quick snapshot of your scan sessions today.',
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
                   Builder(
                     builder: (context) {
                       final latestLabel = latestSession == null
                           ? 'No sessions today'
                           : '${latestSession.customer?.name ?? 'Unknown'}${latestSession.totalItems > 0 ? ' | ${latestSession.totalItems} items' : ''}';
 
-                      return AppCard(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AppSectionHeader(
+                            title: 'Today\'s Summary',
+                            subtitle: 'A quick snapshot of your scan sessions today.',
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Expanded(child: SizedBox()),
                                 if (pendingCount == 0 && totalSessionsToday > 0) ...[
-                                  AppBadge(
+                                  const AppBadge(
                                     label: 'Synced',
                                     tone: AppBadgeTone.success,
                                     icon: Icons.cloud_done_rounded,
@@ -364,47 +359,47 @@ class DashboardHomeScreen extends ConsumerWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: AppSpacing.md),
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                final narrow = constraints.maxWidth < 380;
-                                final countCard = AppMetricCard(
-                                  label: 'Sessions today',
-                                  value: '$totalSessionsToday',
-                                  helper: 'Total local sessions',
-                                  compact: true,
-                                );
-                                final latestCard = AppMetricCard(
-                                  label: 'Latest session',
-                                  value: latestSession == null
-                                      ? '-'
-                                      : _formatDateTime(latestSession.createdAt),
-                                  helper: latestLabel,
-                                  compact: true,
-                                );
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final narrow = constraints.maxWidth < 380;
+                              final countCard = AppMetricCard(
+                                label: 'Sessions today',
+                                value: '$totalSessionsToday',
+                                helper: 'Total local sessions',
+                                compact: true,
+                              );
+                              final latestCard = AppMetricCard(
+                                label: 'Latest session',
+                                value: latestSession == null
+                                    ? '-'
+                                    : _formatDateTime(latestSession.createdAt),
+                                helper: latestLabel,
+                                compact: true,
+                              );
 
-                                if (narrow) {
-                                  return Column(
-                                    children: [
-                                      countCard,
-                                      const SizedBox(height: AppSpacing.sm),
-                                      latestCard,
-                                    ],
-                                  );
-                                }
-
-                                return Row(
+                              if (narrow) {
+                                return Column(
                                   children: [
-                                    Expanded(child: countCard),
-                                    const SizedBox(width: AppSpacing.sm),
-                                    Expanded(child: latestCard),
+                                    countCard,
+                                    const SizedBox(height: AppSpacing.sm),
+                                    latestCard,
                                   ],
                                 );
-                              },
-                            ),
-                            const SizedBox(height: AppSpacing.md),
-                          ],
-                        ),
+                              }
+
+                              return Row(
+                                children: [
+                                  Expanded(child: countCard),
+                                  const SizedBox(width: AppSpacing.sm),
+                                  Expanded(child: latestCard),
+                                ],
+                              );
+                            },
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                        ],
                       );
                     },
                   ),

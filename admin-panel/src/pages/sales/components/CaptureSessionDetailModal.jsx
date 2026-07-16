@@ -352,6 +352,11 @@ export default function CaptureSessionDetailModal({
                   <DetailField label="Phone" value={valueOrDash(session?.customerPhone)} />
                   <DetailField label="Date/time" value={valueOrDash(formatDateTime(session?.createdAt || session?.updatedAt))} />
                   <DetailField label="Status" value={formatSessionStatusLabel(status)} />
+                  {session?.referenceNote ? (
+                    <div className="md:col-span-2 xl:col-span-4">
+                      <DetailField label="Notes" value={session.referenceNote} />
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

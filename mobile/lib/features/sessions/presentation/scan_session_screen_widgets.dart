@@ -2,6 +2,7 @@ part of 'scan_session_screen.dart';
 
 class _PickerCard extends StatelessWidget {
   const _PickerCard({
+    super.key,
     required this.label,
     required this.value,
     required this.icon,

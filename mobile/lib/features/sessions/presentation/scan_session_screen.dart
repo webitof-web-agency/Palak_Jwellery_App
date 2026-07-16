@@ -25,7 +25,6 @@ part 'scan_session_screen_sections.dart';
 part 'scan_session_screen_widgets.dart';
 part 'scan_session_screen_item_row.dart';
 part 'scan_session_screen_pickers.dart';
-part 'scan_session_screen_choice_sheet.dart';
 
 const String _clearSelectionSentinel = '__clear_selection__';
 
@@ -51,6 +50,10 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   String? _localValidationMessage;
   final GlobalKey _wastageIconKey = GlobalKey();
   final GlobalKey _stonePriceIconKey = GlobalKey();
+  final GlobalKey _supplierKey = GlobalKey();
+  final GlobalKey _categoryKey = GlobalKey();
+  final GlobalKey _karatKey = GlobalKey();
+  bool _isNotesExpanded = false;
 
   @override
   void initState() {
@@ -96,6 +99,12 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   void _setWastage(String value) => _scanSessionSetWastage(this, value);
 
   void _setNotes(String value) => _scanSessionSetNotes(this, value);
+
+  void _toggleNotes() {
+    setState(() {
+      _isNotesExpanded = !_isNotesExpanded;
+    });
+  }
 
   void _changeCustomer() => _scanSessionChangeCustomer(this);
   void _manualEntry() => _scanSessionManualEntry(this);
