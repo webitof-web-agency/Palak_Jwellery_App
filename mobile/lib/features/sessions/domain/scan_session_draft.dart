@@ -155,9 +155,16 @@ class ScannedSessionItem {
       
       String? cleanCategory = rawCategory;
       if (cleanCategory != null) {
-        final isAayra = supplier.toLowerCase().contains('aayra');
-        final isUtsav = supplier.toLowerCase().contains('utsav');
-        if (cleanCategory == 'null' || cleanCategory == itemCode || isAayra || isUtsav) {
+        // Strip the category only if it looks like a QR artifact:
+        //   - Literally the string "null"
+        //   - Same value as the item code (Utsav QR sometimes repeats the code as category)
+        //   - Just a slash "/" or similar punctuation-only value (noise from QR parsing)
+        // Do NOT strip it just because the supplier is Utsav/Aayra — user-set categories
+        // like "Plain" must be preserved so they appear correctly in category-wise PDFs.
+        final isNullString = cleanCategory == 'null';
+        final isRepeatedItemCode = cleanCategory == itemCode && itemCode.isNotEmpty;
+        final isPunctuation = RegExp(r'^[^a-zA-Z0-9]+$').hasMatch(cleanCategory);
+        if (isNullString || isRepeatedItemCode || isPunctuation) {
           cleanCategory = null;
         }
       }

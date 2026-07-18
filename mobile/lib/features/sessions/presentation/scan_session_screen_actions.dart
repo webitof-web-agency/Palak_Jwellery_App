@@ -883,11 +883,14 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
   
   final otherAmount = readNestedDouble(displaySnapshot, ['amounts', 'otherAmount']);
   
-  final isDuplicate = state._draft.scannedItems.any(
-    (item) =>
-        _scanSessionNormalizeText(item.itemCode) == _scanSessionNormalizeText(itemCode) &&
-        _scanSessionNormalizeText(item.supplier) == _scanSessionNormalizeText(supplierName),
-  );
+  // Duplicate = the exact same physical QR tag scanned again (same raw QR content).
+  // Items from the same supplier with the same item code prefix (e.g. LRG-001) but
+  // different weights/fine values have different raw QR strings and are NOT duplicates.
+  final normalizedRawQr = rawQr.trim();
+  final isDuplicate = normalizedRawQr.isNotEmpty &&
+      state._draft.scannedItems.any(
+        (item) => (item.rawQr ?? '').trim() == normalizedRawQr,
+      );
   final hasSupplierMismatch =
       selectedSupplier != null &&
       parsedSupplier != null &&
