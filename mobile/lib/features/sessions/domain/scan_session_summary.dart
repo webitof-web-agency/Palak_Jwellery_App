@@ -442,7 +442,7 @@ class ScanSessionSummary {
 
 double _roundToPrecision(double value, {int digits = 3}) {
   final factor = math.pow(10, digits);
-  return (value * factor).truncateToDouble() / factor;
+  return (value * factor).roundToDouble() / factor;
 }
 
 

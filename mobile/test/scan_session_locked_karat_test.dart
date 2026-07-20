@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:jwellery_mobile/features/customers/domain/customer_record.dart';
 import 'package:jwellery_mobile/features/sessions/domain/scan_session_draft.dart';
+import 'package:jwellery_mobile/features/sessions/domain/scan_session_summary.dart';
 
 void main() {
   test('locked karat stays applied while qr karat is tracked separately', () {
@@ -31,6 +33,27 @@ void main() {
     expect(item.fineWeight.toStringAsFixed(3), '3.186');
     expect(item.stoneAmount, 242.0);
 
+    final summary = ScanSessionSummary.fromDraft(
+      ScanSessionDraft(
+        customer: const CustomerRecord(
+          id: 'cust-1',
+          name: 'Aadinath Jewels',
+          phone: '+91 98765 43210',
+          area: 'Andheri West',
+        ),
+        supplier: 'YUG',
+        categoryOriginal: 'Orange',
+        categorySelected: 'Orange',
+        karat: '14K',
+        purityOriginal: 58.4,
+        puritySelected: 58.4,
+        wastageOriginal: 12.5,
+        wastageSelected: 12.5,
+        scannedItems: [item],
+      ),
+    );
+
+    expect(summary.totalFineWeight.toStringAsFixed(3), '3.186');
     final counts = ScanSessionWarningCounts.fromItems([item]);
     expect(counts.karatMismatch, 1);
     expect(counts.hasAny, isTrue);
