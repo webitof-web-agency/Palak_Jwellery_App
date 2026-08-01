@@ -53,6 +53,43 @@ Widget _scanSessionBuildCustomerCard(
   );
 }
 
+Future<void> _scanSessionConfirmRemoveItem(_ScanSessionScreenState state, ScannedSessionItem item) async {
+  final confirmed = await showDialog<bool>(
+    context: state.context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Remove item?'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('${item.itemCode} will be removed from this draft.'),
+          const SizedBox(height: AppSpacing.sm),
+          Text('Supplier: ${item.supplier}'),
+          Text('Gross: ${item.grossWeight.toStringAsFixed(3)} g'),
+          Text('Net: ${item.netWeight.toStringAsFixed(3)} g'),
+          Text('Fine: ${item.fineWeight.toStringAsFixed(3)} g'),
+          const SizedBox(height: AppSpacing.xs),
+          const Text('You can review the final session before saving.'),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(false),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(dialogContext).pop(true),
+          style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+          child: const Text('Remove'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true && state.mounted) {
+    _scanSessionRemoveSelectedItems(state, {item.id});
+  }
+}
+
 Widget _scanSessionBuildUnlockedSetupCard(_ScanSessionScreenState state) {
   return Form(
     key: state._formKey,
@@ -401,7 +438,7 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
                             item: item,
                             serialNumber: serial,
                             showDivider: index != state._visibleScannedItems.length - 1,
-                            onDelete: () => _scanSessionRemoveSelectedItems(state, {item.id}),
+                            onDelete: () => _scanSessionConfirmRemoveItem(state, item),
                           );
                         },
                       ),
@@ -488,3 +525,4 @@ Widget _scanSessionBuildScrollToTopButton(_ScanSessionScreenState state) {
     ),
   );
 }
+

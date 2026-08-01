@@ -55,25 +55,29 @@ const extractUtsavFallback = (raw) => {
   }
 
   const tokens = text.split('/').map((part) => part.trim()).filter(Boolean)
+  const buildPrefixMatcher = (prefix) => new RegExp(`^${prefix.replace(/-/g, '\\s*-\\s*')}\\s*([+-]?\\d+(?:\\.\\d+)?)$`, 'i')
   const getTokenValue = (prefix) => {
-    const token = tokens.find((part) => part.toUpperCase().startsWith(prefix))
+    const matcher = buildPrefixMatcher(prefix)
+    const token = tokens.find((part) => matcher.test(part))
     if (!token) return null
-    const value = token.slice(prefix.length).trim()
-    return parseWeight(value)
+    const match = token.match(matcher)
+    if (!match) return null
+    const parsed = parseWeight(match[1])
+    return parsed === null ? null : Math.abs(parsed)
   }
 
   const stoneComponent1 = getTokenValue('SWT-')
   const stoneComponent2 = getTokenValue('CL-')
+  const otherComponent1 = getTokenValue('MZ-')
 
   return {
     stoneComponent1,
     stoneComponent2,
-    stoneWeight:
-      stoneComponent1 === null && stoneComponent2 === null
+    stoneWeight: stoneComponent1,
+    otherWeight:
+      stoneComponent2 === null && otherComponent1 === null
         ? null
-        : (stoneComponent1 ?? 0) + (stoneComponent2 ?? 0),
-    otherWeight: null,
+        : (stoneComponent2 ?? 0) + (otherComponent1 ?? 0),
   }
 }
-
 export { extractAadinathFallback, extractDesignCodeFromRaw, extractSlashTokens, extractUtsavFallback }

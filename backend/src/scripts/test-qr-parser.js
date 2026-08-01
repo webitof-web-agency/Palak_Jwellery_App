@@ -58,6 +58,32 @@ KT - 18K`,
     },
   },
   {
+    name: 'Utsav - multi deduction sample',
+    qr: `NST-4037/GWT-22.680/NWT-18.210/SWT-1.020/CL-1.860/MZ-1.590/HUID-75//USV`,
+    expected: {
+      supplier: 'Utsav',
+      itemCode: 'NST-4037',
+      grossWeight: 22.68,
+      stoneWeight: 1.02,
+      otherWeight: 3.45,
+      netWeight: 18.21,
+      category: null,
+    },
+  },
+  {
+    name: 'Utsav - spaced CL token sample',
+    qr: `NER-5310/GWT-3.060/NWT-2.770/SWT-0.200/CL -0.090/LNIDIA/32X6KC/75/USV`,
+    expected: {
+      supplier: 'Utsav',
+      itemCode: 'NER-5310',
+      grossWeight: 3.06,
+      stoneWeight: 0.2,
+      otherWeight: 0.09,
+      netWeight: 2.77,
+      category: null,
+    },
+  },
+  {
     name: 'Garbage input',
     qr: `HELLO RANDOM TEXT`,
     expected: {
@@ -249,6 +275,9 @@ const validateNormalized = (result, expected) => {
     errors.push(`stoneWeight mismatch: expected ${expected.stoneWeight}, got ${result?.stoneWeight}`)
   }
 
+  if (Object.prototype.hasOwnProperty.call(expected, 'otherWeight') && result?.otherWeight !== expected.otherWeight) {
+    errors.push(`otherWeight mismatch: expected ${expected.otherWeight}, got ${result?.otherWeight}`)
+  }
   if (Object.prototype.hasOwnProperty.call(expected, 'netWeight') && result?.netWeight !== expected.netWeight) {
     errors.push(`netWeight mismatch: expected ${expected.netWeight}, got ${result?.netWeight}`)
   }

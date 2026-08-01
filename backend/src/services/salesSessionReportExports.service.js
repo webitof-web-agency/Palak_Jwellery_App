@@ -811,16 +811,6 @@ const buildSalesSessionReportPdfHtml = async ({ mode, rows = [], summary = {}, f
           ${buildTableHtml({ mode, rows, summary })}
         </div>
 
-        <div class="footer-grid">
-          <div class="footer-card">
-            <div class="footer-title">Remark</div>
-            <div class="footer-copy">Generated from synced mobile sales sessions.</div>
-          </div>
-          <div class="footer-card">
-            <div class="footer-title">RTGS Pending</div>
-            <div class="footer-copy">Amount to be received via RTGS</div>
-          </div>
-        </div>
       </div>
     </body>
   </html>`

@@ -62,7 +62,7 @@ class _ScannedItemCard extends StatelessWidget {
       if (item.isDuplicate)
         const AppBadge(
           label: 'Duplicate',
-          tone: AppBadgeTone.warning,
+          tone: AppBadgeTone.danger,
           icon: Icons.copy_rounded,
           compact: true,
         ),

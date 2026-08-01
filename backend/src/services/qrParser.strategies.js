@@ -165,7 +165,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       computedNetWeight: calculationSnapshot.computedNetWeight,
       selectedNetWeight: calculationSnapshot.selectedNetWeight,
       netFormula: calculationSnapshot.calculationExplanation?.netFormula || 'computedNetWeight = grossWeight - stone components',
-      fineFormula: calculationSnapshot.calculationExplanation?.fineFormula || 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      fineFormula: calculationSnapshot.calculationExplanation?.fineFormula || 'fineWeight = netWeight � (purityPercent + wastagePercent) / 100',
       mismatch,
       tolerance,
       warnings: calculationSnapshot.warnings,
@@ -192,31 +192,36 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
 
   if (delimiter === '/' && isLikelyUtsavRaw(raw)) {
     const tokens = parts.map((part) => String(part).trim()).filter((part) => part)
-    const getTokenValue = (prefix) => {
-      const token = tokens.find((part) => part.toUpperCase().startsWith(prefix))
+    const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const buildPrefixMatcher = (prefix) => {
+      const normalizedPrefix = escapeRegExp(prefix).replace(/-/g, '\\s*-\\s*')
+      return new RegExp(`^${normalizedPrefix}\\s*([+-]?\\d+(?:\\.\\d+)?)$`, 'i')
+    }
+    const getPrefixedWeight = (prefix) => {
+      const matcher = buildPrefixMatcher(prefix)
+      const token = tokens.find((part) => matcher.test(part))
       if (!token) return null
-      const value = token.slice(prefix.length).trim()
-      return toText(value)
+      const match = token.match(matcher)
+      if (!match) return null
+      const parsed = toNumber(match[1])
+      return parsed === null ? null : Math.abs(parsed)
     }
 
-    const grossRaw = getTokenValue('GWT-')
-    const netRaw = getTokenValue('NWT-')
-    const stoneRaw = getTokenValue('SWT-')
-    const colourStoneRaw = getTokenValue('CL-')
-    const categoryRaw = tokens.find((part) => /^[A-Z]+-[\w\d]*/i.test(part)) || tokens[0] || null
+    const grossRaw = getPrefixedWeight('GWT-')
+    const netRaw = getPrefixedWeight('NWT-')
+    const stoneRaw = getPrefixedWeight('SWT-')
+    const colourStoneRaw = getPrefixedWeight('CL-')
+    const otherDeductionRaw = getPrefixedWeight('MZ-')
+    const itemCodeRaw = tokens[0] || null
     const supplierCodeRaw = tokens.find((part) => part.toUpperCase() === 'USV') || null
-    const stoneComponent1 = stoneRaw === null ? null : toNumber(stoneRaw)
-    const stoneComponent2 = colourStoneRaw === null ? null : toNumber(colourStoneRaw)
+    const stoneComponent1 = stoneRaw
+    const stoneComponent2 = colourStoneRaw
+    const otherComponent1 = otherDeductionRaw
 
     if (grossRaw === null) {
       errors.push({ field: 'grossWeight', reason: 'GWT is missing' })
     } else {
-      const parsed = toNumber(grossRaw)
-      if (parsed === null) {
-        errors.push({ field: 'grossWeight', reason: `Expected number for GWT, got '${grossRaw}'` })
-      } else {
-        fields.grossWeight = { value: parsed, parsed: true }
-      }
+      fields.grossWeight = { value: grossRaw, parsed: true }
     }
 
     if (stoneRaw !== null && stoneComponent1 === null) {
@@ -227,34 +232,37 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       errors.push({ field: 'colorStoneWeight', reason: `Expected number for CL, got '${colourStoneRaw}'` })
     }
 
-    if (stoneComponent1 !== null || stoneComponent2 !== null) {
-      const totalStoneWeight = Math.round(((stoneComponent1 ?? 0) + (stoneComponent2 ?? 0)) * 1000) / 1000
-      fields.stoneWeight = { value: totalStoneWeight, parsed: true }
-      fields.meta.stoneComponent1 = { value: stoneComponent1, parsed: stoneComponent1 !== null }
+    if (otherDeductionRaw !== null && otherComponent1 === null) {
+      errors.push({ field: 'otherWeight', reason: `Expected number for MZ, got '${otherDeductionRaw}'` })
+    }
+
+    if (stoneComponent1 !== null) {
+      fields.stoneWeight = { value: stoneComponent1, parsed: true }
+      fields.meta.stoneComponent1 = { value: stoneComponent1, parsed: true }
+    }
+
+    const otherWeightValue = [stoneComponent2, otherComponent1]
+      .filter((value) => value !== null)
+      .reduce((sum, value) => sum + value, 0)
+    if (stoneComponent2 !== null || otherComponent1 !== null) {
+      fields.otherWeight = { value: Math.round(otherWeightValue * 1000) / 1000, parsed: true }
       fields.meta.colorStoneWeight = { value: stoneComponent2, parsed: stoneComponent2 !== null }
-      fields.meta.stoneComponent2 = { value: stoneComponent2, parsed: stoneComponent2 !== null }
+      fields.meta.otherWeightComponent = { value: otherComponent1, parsed: otherComponent1 !== null }
     }
 
     if (netRaw !== null) {
-      const parsed = toNumber(netRaw)
-      if (parsed === null) {
-        errors.push({ field: 'netWeight', reason: `Expected number for NWT, got '${netRaw}'` })
-      } else {
-        fields.netWeight = { value: parsed, parsed: true }
-      }
+      fields.netWeight = { value: netRaw, parsed: true }
     } else if (grossRaw !== null) {
-      const parsedGross = toNumber(grossRaw)
-      if (parsedGross !== null) {
-        const stone1 = stoneComponent1 ?? 0
-        const stone2 = stoneComponent2 ?? 0
-        fields.netWeight = { value: Math.round((parsedGross - stone1 - stone2) * 1000) / 1000, parsed: true }
-      }
+      const stone1 = stoneComponent1 ?? 0
+      const stone2 = stoneComponent2 ?? 0
+      const otherWeight = otherComponent1 ?? 0
+      fields.netWeight = { value: Math.round((grossRaw - stone1 - stone2 - otherWeight) * 1000) / 1000, parsed: true }
     }
 
-    if (categoryRaw) {
-      fields.designCode = { value: categoryRaw, parsed: true }
-      fields.meta.itemCode = { value: categoryRaw, parsed: true }
-      fields.meta.designCode = { value: categoryRaw, parsed: true }
+    if (itemCodeRaw) {
+      fields.designCode = { value: itemCodeRaw, parsed: true }
+      fields.meta.itemCode = { value: itemCodeRaw, parsed: true }
+      fields.meta.designCode = { value: itemCodeRaw, parsed: true }
     } else {
       errors.push({ field: 'itemCode', reason: 'Item code is missing' })
     }
@@ -267,7 +275,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const qrNetValue = netRaw === null ? null : toNumber(netRaw)
     const computedNetWeight =
       grossWeightValue !== null
-        ? Math.round((grossWeightValue - (stoneComponent1 ?? 0) - (stoneComponent2 ?? 0)) * 1000) / 1000
+        ? Math.round((grossWeightValue - (stoneComponent1 ?? 0) - (stoneComponent2 ?? 0) - (otherComponent1 ?? 0)) * 1000) / 1000
         : null
     const mismatch =
       computedNetWeight !== null && qrNetValue !== null
@@ -284,36 +292,43 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const calculationBreakdown = {
       rawQr: raw,
       grossWeight: grossWeightValue,
-      stoneWeight: stoneComponent1 === null && stoneComponent2 === null
-        ? null
-        : Math.round(((stoneComponent1 ?? 0) + (stoneComponent2 ?? 0)) * 1000) / 1000,
+      stoneWeight: stoneComponent1 === null ? null : Math.round(stoneComponent1 * 1000) / 1000,
       stoneComponents: [
         {
           sourceField: 'SWT-',
-          label: 'Stone Component 1',
+          label: 'Stone Weight',
           value: stoneComponent1,
         },
+      ].filter((component) => component.value !== null),
+      otherWeight: {
+        sourceField: stoneComponent2 !== null || otherComponent1 !== null ? 'CL-/MZ-' : null,
+        value: stoneComponent2 === null && otherComponent1 === null
+          ? null
+          : Math.round(((stoneComponent2 ?? 0) + (otherComponent1 ?? 0)) * 1000) / 1000,
+      },
+      otherComponents: [
         {
           sourceField: 'CL-',
           label: 'Colour Stone Weight',
           value: stoneComponent2,
         },
+        {
+          sourceField: 'MZ-',
+          label: 'Other Deduction',
+          value: otherComponent1,
+        },
       ].filter((component) => component.value !== null),
-      otherWeight: {
-        sourceField: null,
-        value: null,
-      },
       qrNetWeight: qrNetValue,
       computedNetWeight,
       selectedNetWeight: computedNetWeight ?? qrNetValue,
-      netFormula: 'computedNetWeight = grossWeight - stone component 1 - colour stone weight',
+      netFormula: 'computedNetWeight = grossWeight - stone weight - other deduction',
       mismatch,
       tolerance,
       warnings,
       requiresReview,
       calculationExplanation: {
-        netFormula: 'computedNetWeight = grossWeight - stone component 1 - colour stone weight',
-        fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+        netFormula: 'computedNetWeight = grossWeight - stone weight - other deduction',
+        fineFormula: 'fineWeight = netWeight � (purityPercent + wastagePercent) / 100',
       },
     }
 
@@ -599,14 +614,14 @@ const parseVenzoraStrategy = (raw) => {
     selectedNetWeight: computedNetWeight ?? netWeight,
     stoneAmount,
     netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-    fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+    fineFormula: 'fineWeight = netWeight � (purityPercent + wastagePercent) / 100',
     mismatch,
     tolerance,
     warnings,
     requiresReview,
     calculationExplanation: {
       netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      fineFormula: 'fineWeight = netWeight � (purityPercent + wastagePercent) / 100',
       explanation: 'Venzora net is validated from gross minus less/stone weight.',
     },
   }
@@ -782,20 +797,20 @@ const parseKeyValueStrategy = (raw) => {
 }
 
 /**
- * Aayra QR parser — handles both slash-token and tab-separated formats.
+ * Aayra QR parser � handles both slash-token and tab-separated formats.
  *
  * Slash format (positional, 5 tokens):
  *   <itemCode>/<grossToken>/<stoneToken>/<netToken>/<optionalRef>
  *   e.g. N66162/G 4.168/L 0.52/N 3.648/LR-M271
  *
- * Tab format (positional, ≥5 fields):
+ * Tab format (positional, =5 fields):
  *   <code>\t<itemText>\t<gross>\t<stone>\t<net>
  *   e.g. 00002416\tNMLR18 B0019\t2.586\t0.000\t2.586
  *
  * Key rules:
- * - Parser never throws — errors accumulate, partial result always returned.
+ * - Parser never throws � errors accumulate, partial result always returned.
  * - Token/field 4 (slash) or field 0 (tab) stored in meta only, not validated.
- * - computedNetWeight = grossWeight - stoneWeight; mismatch > 0.02g → requiresReview.
+ * - computedNetWeight = grossWeight - stoneWeight; mismatch > 0.02g ? requiresReview.
  * - otherAmount is a separate amount bucket, not making charge.
  */
 const parseAayraStrategy = (raw) => {
@@ -823,10 +838,10 @@ const parseAayraStrategy = (raw) => {
   const match = spaceFormatRegex.exec(cleanRaw)
 
   if (match) {
-    // ── Positional (Tab/Space/Arrow) branch ──────────────────────────────────────────────────
+    // -- Positional (Tab/Space/Arrow) branch --------------------------------------------------
     const parts = [match[1], match[2], match[3], match[4], match[5]]
 
-    // Field 0: serial/code (numeric or alphanumeric — not assumed 8-digit)
+    // Field 0: serial/code (numeric or alphanumeric � not assumed 8-digit)
     const serialCode = toText(parts[0] ?? '')
     if (serialCode) {
       fields.meta.serialCode = { value: serialCode, parsed: true }
@@ -834,7 +849,7 @@ const parseAayraStrategy = (raw) => {
       errors.push({ field: 'serialCode', reason: 'Field 0 (serial/code) is missing' })
     }
 
-    // Field 1: item/category text → stored as itemCode and designCode
+    // Field 1: item/category text ? stored as itemCode and designCode
     const itemText = toText(parts[1] ?? '')
     if (itemText) {
       fields.meta.itemCode = { value: itemText, parsed: true }
@@ -881,7 +896,7 @@ const parseAayraStrategy = (raw) => {
       warnings.push('Net weight mismatch beyond tolerance')
     }
 
-    // Ambiguous tab format → mark for review even if mismatch is within tolerance
+    // Ambiguous tab format ? mark for review even if mismatch is within tolerance
     // (tab format detection is intentionally broad; reviewer can confirm)
     const isAmbiguous = parts.length === 5 && !requiresReview
     const confidence = requiresReview ? 58 : isAmbiguous ? 65 : 80
@@ -905,7 +920,7 @@ const parseAayraStrategy = (raw) => {
       computedNetWeight,
       selectedNetWeight: computedNetWeight ?? qrNetWeight,
       netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      fineFormula: 'fineWeight = netWeight � (purityPercent + wastagePercent) / 100',
       mismatch,
       tolerance,
       warnings,
@@ -914,7 +929,7 @@ const parseAayraStrategy = (raw) => {
     return data
   }
 
-  // ── Slash-token branch ────────────────────────────────────────────────────
+  // -- Slash-token branch ----------------------------------------------------
   const parts = raw.split('/').map((p) => p.trim())
 
   if (parts.length !== 5) {
@@ -954,7 +969,7 @@ const parseAayraStrategy = (raw) => {
 
   fields.otherWeight = { value: 0, parsed: true }
 
-  // Token 4: optional reference/lot/design text — stored in meta only, never required
+  // Token 4: optional reference/lot/design text � stored in meta only, never required
   const referenceText = toText(parts[4])
   if (referenceText) {
     fields.meta.referenceText = { value: referenceText, parsed: true }
@@ -999,7 +1014,7 @@ const parseAayraStrategy = (raw) => {
     computedNetWeight,
     selectedNetWeight: computedNetWeight ?? qrNetWeight,
     netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-    fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+    fineFormula: 'fineWeight = netWeight � (purityPercent + wastagePercent) / 100',
     mismatch,
     tolerance,
     warnings,

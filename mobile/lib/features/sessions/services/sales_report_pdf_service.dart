@@ -68,7 +68,6 @@ class SalesReportPdfService {
           pw.SizedBox(height: 12),
           _buildTable(summary, groups, mode),
           pw.SizedBox(height: 12),
-          _buildFooter(summary),
         ],
       ),
     );
@@ -522,78 +521,6 @@ class SalesReportPdfService {
       ),
     );
   }
-
-  pw.Widget _buildFooter(ScanSessionSummary summary) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(12),
-      decoration: pw.BoxDecoration(
-        border: pw.Border.all(color: PdfColors.grey400),
-        borderRadius: pw.BorderRadius.circular(8),
-      ),
-      child: pw.Row(
-        crossAxisAlignment: pw.CrossAxisAlignment.start,
-        children: [
-          pw.Expanded(
-            flex: 2,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'Remark',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                ),
-                pw.SizedBox(height: 4),
-                pw.Text(
-                  'Totals generated from the saved structured session summary.',
-                  style: const pw.TextStyle(fontSize: 9),
-                ),
-                if (summary.warningCounts.hasAny) ...[
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    'Warnings: '
-                    '${summary.warningCounts.duplicates > 0 ? 'Duplicates ${summary.warningCounts.duplicates} ' : ''}'
-                    '${summary.warningCounts.supplierMismatch > 0 ? 'Supplier mismatch ${summary.warningCounts.supplierMismatch} ' : ''}'
-                    '${summary.warningCounts.karatMismatch > 0 ? 'QR Karat Mismatch ${summary.warningCounts.karatMismatch} ' : ''}'
-                    '${summary.warningCounts.weightMismatch > 0 ? 'Weight mismatch ${summary.warningCounts.weightMismatch} ' : ''}'
-                    '${summary.warningCounts.customPurityOverrides > 0 ? 'Custom purity ${summary.warningCounts.customPurityOverrides} ' : ''}'
-                    '${summary.warningCounts.customWastageOverrides > 0 ? 'Custom wastage ${summary.warningCounts.customWastageOverrides} ' : ''}',
-                    style: const pw.TextStyle(fontSize: 9),
-                  ),
-                ],
-                if (summary.notes.trim().isNotEmpty) ...[
-                  pw.SizedBox(height: 6),
-                  pw.Text(
-                    'Notes: ${summary.notes.trim()}',
-                    style: const pw.TextStyle(fontSize: 9),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          pw.SizedBox(width: 16),
-          pw.Expanded(
-            flex: 1,
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              mainAxisAlignment: pw.MainAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'RTGS Pending',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
-                ),
-                pw.SizedBox(height: 24),
-                pw.Container(
-                  height: 1,
-                  color: PdfColors.grey400,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 
   String? _sanitizeForFileName(String? input) {
     final trimmed = input?.trim() ?? '';
