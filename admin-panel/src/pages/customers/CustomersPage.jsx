@@ -426,8 +426,6 @@ export default function CustomersPage() {
   }
 
   const renderCustomerRow = (customer) => {
-    const status = buildStatusMeta(customer)
-
     return (
       <tr key={customer._id} className="border-t border-[var(--jsm-border)] align-top">
         <td className="px-6 py-5">

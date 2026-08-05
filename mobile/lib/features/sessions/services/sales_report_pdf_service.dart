@@ -67,6 +67,7 @@ class SalesReportPdfService {
           _buildHeader(summary, mode, generatedAt),
           pw.SizedBox(height: 12),
           _buildTable(summary, groups, mode),
+          _buildFooter(),
           pw.SizedBox(height: 12),
         ],
       ),
@@ -194,6 +195,68 @@ class SalesReportPdfService {
     );
   }
 
+
+  pw.Widget _buildFooter() {
+    return pw.Container(
+      padding: const pw.EdgeInsets.all(14),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(color: PdfColors.grey400),
+        borderRadius: pw.BorderRadius.circular(10),
+      ),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Expanded(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  "Payment Mode",
+                  style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Container(
+                  height: 1,
+                  width: 140,
+                  color: PdfColors.grey400,
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  "RTGS / NEFT",
+                  style: pw.TextStyle(
+                    fontSize: 11,
+                    fontWeight: pw.FontWeight.normal,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(width: 28),
+          pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                "RTGS Pending",
+                style: pw.TextStyle(
+                  fontSize: 12,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 12),
+              pw.Container(
+                height: 1,
+                width: 140,
+                color: PdfColors.grey400,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
   pw.Widget _buildTable(
     ScanSessionSummary summary,
     List<SalesReportGroup> groups,

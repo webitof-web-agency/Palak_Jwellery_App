@@ -4,6 +4,7 @@ import { captureSessionsApi } from '../../api/captureSessions.api'
 import { batchesApi } from '../../api/batches.api'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
+import TableSkeleton from '../../components/ui/TableSkeleton'
 import SectionCard from '../../components/ui/SectionCard'
 import { formatDateTime, formatWeight } from '../../utils/formatters'
 import { buttonStyles, formatSessionStatusLabel, getName } from './salesPage.utils'
@@ -32,13 +33,6 @@ const formatPercentValue = (value) => {
   return Number.isNaN(numericValue) ? String(value) : `${numericValue.toFixed(2)}%`
 }
 
-const formatFieldLabel = (value) =>
-  String(value || '')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .replace(/^./, (char) => char.toUpperCase())
 
 const DetailField = ({ label, value, hint = null, mono = false, className = '' }) => (
   <div className={`rounded-2xl surface-panel-faint panel-border px-4 py-3 ${className}`.trim()}>
@@ -515,8 +509,11 @@ export default function SalesSessionDetailPage() {
         </div>
 
         {loading ? (
-          <div className="rounded-3xl surface-panel-soft panel-border p-6 text-sm text-muted">
-            <LoadingSpinner /> Loading session detail...
+          <div className="rounded-3xl surface-panel-soft panel-border p-6 space-y-6">
+            <div className="flex items-center gap-3 text-sm text-muted">
+              <LoadingSpinner /> Loading session detail...
+            </div>
+            <TableSkeleton columns={4} rows={2} />
           </div>
         ) : error ? (
           <EmptyState title="Could not load session" description={error} />
@@ -672,7 +669,11 @@ export default function SalesSessionDetailPage() {
                   </div>
                 ) : null}
 
-                {!batchLoading && itemRows.length === 0 ? (
+                {batchLoading ? (
+                  <div className="p-4">
+                    <TableSkeleton columns={14} rows={5} />
+                  </div>
+                ) : itemRows.length === 0 ? (
                   <EmptyState
                     title="No item rows found"
                     description="This session has no batch item rows available for review yet."

@@ -680,6 +680,12 @@
     color: var(--jsm-on-accent);
   }
 
+  .secondary-luxury-button {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all duration-300 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none border hover:bg-white/5;
+    border-color: var(--jsm-border-strong);
+    color: var(--jsm-text);
+  }
+
   .page-shell {
     @apply w-full max-w-[1600px] pb-12 transition-all duration-500 animate-fade-in px-4 sm:px-8 lg:px-12;
   }

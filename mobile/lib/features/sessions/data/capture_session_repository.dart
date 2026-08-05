@@ -64,6 +64,7 @@ class CaptureSessionRepository {
     int page = 1,
     int limit = 10,
     String query = '',
+    String? customerId,
   }) async {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -73,6 +74,7 @@ class CaptureSessionRepository {
           'limit': limit,
           if ((status ?? '').trim().isNotEmpty) 'status': status!.trim(),
           if (query.trim().isNotEmpty) 'q': query.trim(),
+          if (customerId != null && customerId.isNotEmpty) 'customerId': customerId,
           'sortBy': 'updatedAt',
           'sortOrder': 'desc',
         },

@@ -6,10 +6,12 @@ export default function SectionCard({
   children,
   className = "",
 }) {
+  const isFlush = className.includes("p-0");
+
   return (
     <section className={`surface-card ${className}`.trim()}>
       {eyebrow || title || description || actions ? (
-        <div className="surface-card__header">
+        <div className={`surface-card__header ${isFlush ? 'px-6 pt-6' : ''}`.trim()}>
           <div>
             {eyebrow ? <span className="eyebrow">{eyebrow}</span> : null}
             {title ? (

@@ -15,6 +15,7 @@ const SalesPage = lazy(() => import('./pages/sales/SalesPage'))
 const SalesSessionDetailPage = lazy(() => import('./pages/sales/SalesSessionDetailPage'))
 const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'))
 const CustomersPage = lazy(() => import('./pages/customers/CustomersPage'))
+const BullionPage = lazy(() => import('./pages/bullion/BullionPage'))
 const CustomerProfilePage = lazy(() => import('./pages/customers/CustomerProfilePage'))
 const UsersPage = lazy(() => import('./pages/users/UsersPage'))
 const ExceptionsPage = lazy(
@@ -119,6 +120,7 @@ function App() {
             <Route path="/suppliers/form" element={<SupplierFormPage />} />
             <Route path="/sales" element={<SalesPage />} />
             <Route path="/sales/:sessionId" element={<SalesSessionDetailPage />} />
+            <Route path="/bullion" element={<BullionPage />} />
             <Route path="/settlement-reports" element={<SettlementReportsPage />} />
             <Route
               path="/business-settings"

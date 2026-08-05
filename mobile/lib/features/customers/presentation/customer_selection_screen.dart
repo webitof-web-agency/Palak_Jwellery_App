@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +25,7 @@ class CustomerSelectionScreen extends ConsumerStatefulWidget {
 class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
   final List<CustomerRecord> _localCustomers = <CustomerRecord>[];
+  Timer? _debounce;
 
   String _searchTerm = '';
   // Store full object to avoid flash during API reload (no ID lookup on every build)
@@ -40,6 +42,7 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -157,7 +160,12 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (value) => setState(() => _searchTerm = value),
+                    onChanged: (value) {
+                      if (_debounce?.isActive ?? false) _debounce!.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 200), () {
+                        setState(() => _searchTerm = value);
+                      });
+                    },
                     textInputAction: TextInputAction.search,
                     autofocus: selected == null,
                     decoration: InputDecoration(

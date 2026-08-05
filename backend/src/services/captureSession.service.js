@@ -242,11 +242,15 @@ const loadSessionBatches = async (sessionId) => {
     .lean()
 }
 
-const resolveSessionFilters = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, supplier, warningsOnly, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
+const resolveSessionFilters = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, supplier, customerId, warningsOnly, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
   const p = Math.max(1, Number.parseInt(page, 10) || 1)
   const l = Math.max(1, Math.min(100, Number.parseInt(limit, 10) || 20))
   const skip = (p - 1) * l
   const andConditions = []
+
+  if (customerId && mongoose.isValidObjectId(customerId)) {
+    andConditions.push({ customerId })
+  }
 
   if (actor?.role !== 'admin') {
     const actorId = resolveIdValue(actor?.id || actor?._id)
@@ -477,9 +481,9 @@ const createSession = async ({ assignedSalesmanId, customerName, customerPhone, 
   )
 }
 
-const listSessions = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, supplier, warningsOnly, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
+const listSessions = async ({ actor = {}, page = 1, limit = 20, status, assignedSalesman, supplier, customerId, warningsOnly, q, startDate, endDate, sortBy = 'updatedAt', sortOrder = 'desc' } = {}) => {
   const { p, l, skip, query, sort, sortBy: normalizedSortBy, sortOrder: normalizedSortOrder } =
-    await resolveSessionFilters({ actor, page, limit, status, assignedSalesman, supplier, warningsOnly, q, startDate, endDate, sortBy, sortOrder })
+    await resolveSessionFilters({ actor, page, limit, status, assignedSalesman, supplier, customerId, warningsOnly, q, startDate, endDate, sortBy, sortOrder })
 
   const [sessions, total] = await Promise.all([
     CaptureSession.find(query)

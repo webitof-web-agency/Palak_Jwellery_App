@@ -22,6 +22,7 @@ export const Layout = () => {
     { name: "Dashboard", path: "/dashboard" },
     { name: "Customers", path: "/customers" },
     { name: "Sessions", path: "/sales" },
+    { name: "Bullion Sales", path: "/bullion" },
     { name: "Settlement Reports", path: "/settlement-reports" },
     { name: "Suppliers", path: "/suppliers" },
     ...(user?.role === "admin" ? [{ name: "Users", path: "/users" }] : []),
@@ -85,7 +86,7 @@ export const Layout = () => {
           </div>
         </div>
 
-        <div className="p-6 flex-1 flex flex-col gap-3">
+        <div className="p-6 flex-1 flex flex-col gap-3 overflow-y-auto">
           <div className="text-[10px] uppercase tracking-widest text-faint font-bold mb-1 ml-2">
             Main Navigation
           </div>
@@ -127,7 +128,7 @@ export const Layout = () => {
           })}
         </div>
 
-        <div className="p-6 pb-20 lg:pb-6 border-t border-white/5 bg-dark-900/40">
+        <div className="p-6 pb-6 border-t border-white/5 bg-dark-900/40 flex-shrink-0">
           <div className="flex items-center gap-4 mb-6">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-dark-800 to-dark-950 border border-white/10 flex items-center justify-center font-bold text-heading uppercase">
               {user?.name?.[0] || "A"}
@@ -174,8 +175,8 @@ export const Layout = () => {
           />
         </div>
 
-        <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-gold-600/5 rounded-full blur-[160px] pointer-events-none -translate-y-1/2 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gold-700/5 rounded-full blur-[120px] pointer-events-none translate-y-1/2 -translate-x-1/4" />
+        <div className="absolute top-0 right-0 w-[800px] h-[600px] bg-gold-600/5 rounded-full blur-[160px] pointer-events-none -translate-y-1/2 translate-x-1/4 transform-gpu will-change-transform" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gold-700/5 rounded-full blur-[120px] pointer-events-none translate-y-1/2 -translate-x-1/4 transform-gpu will-change-transform" />
 
         <ThemeToggleButton
           themeName={themeName}

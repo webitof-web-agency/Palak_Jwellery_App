@@ -7,6 +7,9 @@ import 'features/auth/presentation/auth_notifier.dart';
 import 'features/auth/presentation/login_screen.dart';
 import 'features/customers/domain/customer_record.dart';
 import 'features/customers/presentation/customer_selection_screen.dart';
+import 'features/bullion_sales/presentation/bullion_customer_screen.dart';
+import 'features/bullion_sales/presentation/bullion_entry_screen.dart';
+import 'features/bullion_sales/presentation/bullion_history_screen.dart';
 import 'features/dashboard/presentation/dashboard_home_screen.dart';
 import 'features/batches/presentation/batch_detail_screen.dart';
 import 'features/batches/presentation/create_batch_screen.dart';
@@ -54,6 +57,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const CustomerSelectionScreen(),
       ),
       GoRoute(
+        path: '/bullion-sale',
+        builder: (context, state) => const BullionCustomerScreen(),
+      ),
+      GoRoute(
+        path: '/bullion-sale/entry',
+        builder: (context, state) {
+          final customer = state.extra is CustomerRecord
+              ? state.extra as CustomerRecord
+              : null;
+          return BullionEntryScreen(customer: customer);
+        },
+      ),
+      GoRoute(
         path: '/scan-session',
         builder: (context, state) {
           final extra = state.extra;
@@ -98,7 +114,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/sales-scans/:sessionId',
         builder: (context, state) {
           final sessionId = state.pathParameters['sessionId'];
-          return ScanSessionSummaryScreen(sessionId: sessionId);
+          final extra = state.extra;
+          final summary = extra is ScanSessionSummary ? extra : null;
+          return ScanSessionSummaryScreen(sessionId: sessionId, summary: summary);
         },
       ),
       GoRoute(
@@ -157,6 +175,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/sales-history',
         builder: (context, state) => const SalesHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/bullion-history',
+        builder: (context, state) => const BullionHistoryScreen(),
       ),
     ],
     redirect: (context, state) {
@@ -242,6 +264,8 @@ class _BootScreen extends StatelessWidget {
     );
   }
 }
+
+
 
 
 

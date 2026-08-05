@@ -9,16 +9,27 @@ final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
 });
 
 final customersListProvider = FutureProvider.autoDispose<List<CustomerRecord>>((ref) {
-  return ref.watch(customerRepositoryProvider).getCustomers();
+  return ref.watch(customerRepositoryProvider).getCustomers(limit: 100);
+});
+
+final customerSearchProvider = FutureProvider.autoDispose.family<List<CustomerRecord>, String>((ref, query) {
+  if (query.trim().isEmpty) return ref.watch(customersListProvider.future);
+  return ref.watch(customerRepositoryProvider).getCustomers(query: query, limit: 100);
 });
 
 class CustomerRepository {
   const CustomerRepository(this._dio);
   final Dio _dio;
 
-  Future<List<CustomerRecord>> getCustomers() async {
+  Future<List<CustomerRecord>> getCustomers({String? query, int limit = 50}) async {
     try {
-      final response = await _dio.get<Map<String, dynamic>>('/api/v1/customers');
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/customers',
+        queryParameters: {
+          if (query != null && query.isNotEmpty) 'q': query,
+          'limit': limit,
+        },
+      );
       final body = response.data;
       if (body == null || body['success'] != true) {
         return [];

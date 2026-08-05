@@ -13,6 +13,9 @@ import reportsRoutes from './routes/reports.routes.js'
 import businessRoutes from './routes/business.routes.js'
 import userRoutes from './routes/users.routes.js'
 import qrRoutes from './routes/qr.routes.js'
+import bullionSalesRoutes from './routes/bullionSales.routes.js'
+import bullionInventoryRoutes from './routes/bullionInventory.routes.js'
+import bullionPurchaseOrdersRoutes from './routes/bullionPurchaseOrders.routes.js'
 import systemRoutes from './routes/system.routes.js'
 
 const app = express()
@@ -62,6 +65,9 @@ app.use('/api/v1/reports', reportsRoutes)
 app.use('/api/v1/business', businessRoutes)
 app.use('/api/v1/users', userRoutes)
 app.use('/api/v1/qr', qrRoutes)
+app.use('/api/v1/bullion-sales', bullionSalesRoutes)
+app.use('/api/v1/bullion-inventory', bullionInventoryRoutes)
+app.use('/api/v1/bullion-purchase-orders', bullionPurchaseOrdersRoutes)
 
 // 404
 app.use((req, res) => {
@@ -75,4 +81,3 @@ app.use((err, req, res, next) => {
 })
 
 export default app
-

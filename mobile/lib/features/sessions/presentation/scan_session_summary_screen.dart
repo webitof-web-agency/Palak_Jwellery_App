@@ -22,9 +22,10 @@ import 'session_item_selection_sheet.dart';
 part 'scan_session_summary_screen_parts.dart';
 
 class ScanSessionSummaryScreen extends ConsumerStatefulWidget {
-  const ScanSessionSummaryScreen({super.key, this.sessionId});
+  const ScanSessionSummaryScreen({super.key, this.sessionId, this.summary});
 
   final String? sessionId;
+  final ScanSessionSummary? summary;
 
   @override
   ConsumerState<ScanSessionSummaryScreen> createState() =>
@@ -144,6 +145,10 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
   }
 
   ScanSessionSummary? _activeSummary(WidgetRef ref) {
+    if (widget.summary != null) {
+      return widget.summary;
+    }
+
     if (widget.sessionId == null) {
       return ref.watch(scanSessionSummaryProvider);
     }
@@ -810,7 +815,13 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
       appBar: AppBar(
         title: const Text('Sales Summary'),
         leading: IconButton(
-          onPressed: () => context.go('/sales-scans'),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/sales-scans');
+            }
+          },
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         actions: [

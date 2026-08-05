@@ -7,6 +7,7 @@ class CustomerRecord {
     this.email,
     this.isRecent = false,
     this.lastSeenLabel,
+    this.lastSessionAt,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class CustomerRecord {
   final String? email;
   final bool isRecent;
   final String? lastSeenLabel;
+  final DateTime? lastSessionAt;
 
   Map<String, dynamic> toJson() {
     return {
@@ -26,10 +28,16 @@ class CustomerRecord {
       'email': email,
       'isRecent': isRecent,
       'lastSeenLabel': lastSeenLabel,
+      'lastSessionAt': lastSessionAt?.toIso8601String(),
     };
   }
 
   factory CustomerRecord.fromJson(Map<String, dynamic> json) {
+    DateTime? lastSessionAt;
+    final rawDate = json['lastSessionAt'];
+    if (rawDate != null) {
+      lastSessionAt = DateTime.tryParse(rawDate.toString());
+    }
     return CustomerRecord(
       id: (json['_id'] ?? json['id'])?.toString() ?? '',
       name: json['name']?.toString() ?? '',
@@ -38,6 +46,7 @@ class CustomerRecord {
       email: json['email']?.toString(),
       isRecent: json['isRecent'] == true || (json['sessionCount'] != null && json['sessionCount'] > 0),
       lastSeenLabel: json['lastSeenLabel']?.toString(),
+      lastSessionAt: lastSessionAt,
     );
   }
 }

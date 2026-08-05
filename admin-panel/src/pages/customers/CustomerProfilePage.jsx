@@ -1,6 +1,7 @@
-﻿import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { customersApi } from '../../api/customers.api'
+import { bullionApi } from '../../api/bullion.js'
 import EmptyState from '../../components/ui/EmptyState'
 import LoadingSpinner from '../../components/ui/LoadingSpinner'
 import SectionCard from '../../components/ui/SectionCard'
@@ -18,6 +19,7 @@ const emptyFormData = {
 const tabs = [
   { label: 'Overview', value: 'overview' },
   { label: 'Sales History', value: 'history' },
+  { label: 'Bullion Sales', value: 'bullion' },
 ]
 
 const statusMeta = (customer) => {
@@ -82,6 +84,22 @@ const toHistoryTableRow = (item) => ({
   reference: item?.reference || item?.sessionRef || item?._id || null,
 })
 
+
+const toBullionHistoryTableRow = (item) => ({
+  id: item?.id || item?._id || item?.clientEntryId || null,
+  date: item?.createdAt || item?.date || item?.updatedAt || null,
+  salesman: item?.salesmanName || item?.salesman?.name || '-',
+  weightGrams: Number(item?.weightGrams ?? item?.weight ?? 0) || 0,
+  ratePerGram: Number(item?.ratePerGram ?? item?.rate ?? 0) || 0,
+  totalAmount: Number(item?.totalAmount ?? 0) || 0,
+  purity: item?.goldPurity || '-',
+  transactionType: String(item?.transactionType || 'sale'),
+})
+
+const formatAmount = (value) => {
+  const numeric = Number(value || 0)
+  return 'Rs. ' + numeric.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
 export default function CustomerProfilePage() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -100,10 +118,13 @@ export default function CustomerProfilePage() {
   const [archiveReason, setArchiveReason] = useState('')
   const [archiveConfirmText, setArchiveConfirmText] = useState('')
   const [archiveSubmitting, setArchiveSubmitting] = useState(false)
+  const [bullionHistory, setBullionHistory] = useState([])
+  const [bullionLoading, setBullionLoading] = useState(false)
 
   const customer = profile.customer || emptyDetails.customer
   const aggregates = profile.aggregates || emptyDetails.aggregates
   const salesmanHistory = Array.isArray(profile.salesmanHistory) ? profile.salesmanHistory : []
+  const bullionRows = useMemo(() => (Array.isArray(bullionHistory) ? bullionHistory : []).map(toBullionHistoryTableRow), [bullionHistory])
   const isArchived = Boolean(customer?.isArchived)
   const status = statusMeta(customer)
 
@@ -130,6 +151,38 @@ export default function CustomerProfilePage() {
   useEffect(() => {
     void loadProfile()
   }, [loadProfile])
+
+  useEffect(() => {
+    if (activeTab !== 'bullion' || !id) return
+
+    let isActive = true
+
+    const loadBullionHistory = async () => {
+      setBullionLoading(true)
+
+      try {
+        const response = await bullionApi.getBullionSalesByCustomer(id)
+        const rows = response?.data?.sales || response?.sales || []
+        if (isActive) {
+          setBullionHistory(Array.isArray(rows) ? rows : [])
+        }
+      } catch {
+        if (isActive) {
+          setBullionHistory([])
+        }
+      } finally {
+        if (isActive) {
+          setBullionLoading(false)
+        }
+      }
+    }
+
+    void loadBullionHistory()
+
+    return () => {
+      isActive = false
+    }
+  }, [activeTab, id])
 
   const openEdit = () => {
     if (!customer) return
@@ -399,7 +452,7 @@ export default function CustomerProfilePage() {
                 )}
               </div>
             </div>
-          ) : (
+          ) : activeTab === 'history' ? (
             <div className="space-y-4 p-6">
               {sessionRows.length > 0 ? (
                 <div className="overflow-x-auto">
@@ -455,6 +508,54 @@ export default function CustomerProfilePage() {
                 <EmptyState
                   title="No sales history"
                   description="No saved sessions were returned for this customer."
+                />
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4 p-6">
+              {bullionLoading ? (
+                <div className="flex min-h-44 items-center justify-center rounded-3xl border border-[var(--jsm-border)] surface-panel-soft">
+                  <LoadingSpinner />
+                </div>
+              ) : bullionRows.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="min-w-[980px] w-full text-left">
+                    <thead>
+                      <tr className="surface-panel-faint">
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Date</th>
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Salesman</th>
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Weight (g)</th>
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Rate (Rs/g)</th>
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Total (Rs)</th>
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Purity</th>
+                        <th className="px-5 py-4 text-[10px] tracking-widest uppercase text-heading font-bold">Type</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--jsm-border)]">
+                      {bullionRows.map((item) => (
+                        <tr key={String(item.id)} className="align-top">
+                          <td className="px-5 py-4 text-sm text-primary whitespace-nowrap">{formatDate(item.date)}</td>
+                          <td className="px-5 py-4 text-sm text-primary">{item.salesman}</td>
+                          <td className="px-5 py-4 text-sm text-primary">{formatWeight(item.weightGrams)}</td>
+                          <td className="px-5 py-4 text-sm text-primary">{formatAmount(item.ratePerGram)}</td>
+                          <td className="px-5 py-4 text-sm text-primary">{formatAmount(item.totalAmount)}</td>
+                          <td className="px-5 py-4 text-sm text-primary">{item.purity}</td>
+                          <td className="px-5 py-4 text-sm text-primary">
+                            <span
+                              className={"inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest " + (item.transactionType === 'return' ? 'border-red-500/25 bg-red-500/10 text-red-100' : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-100')}
+                            >
+                              {item.transactionType === 'return' ? 'Return' : 'Sale'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <EmptyState
+                  title="No bullion sales found for this customer."
+                  description="This customer has not been linked to any bullion sales yet."
                 />
               )}
             </div>

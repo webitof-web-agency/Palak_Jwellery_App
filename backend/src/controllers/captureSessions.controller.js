@@ -84,6 +84,7 @@ export const listSessions = async (req, res) => {
       status: req.query.status,
       assignedSalesman: req.query.assignedSalesman,
       supplier: req.query.supplier,
+      customerId: req.query.customerId,
       warningsOnly: req.query.warningsOnly,
       q: req.query.q,
       startDate: req.query.startDate,

@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -326,6 +326,15 @@ class DashboardHomeScreen extends ConsumerWidget {
                     expanded: true,
                     height: 52,
                   ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AppActionButton(
+                    label: 'Bullion Sales',
+                    onPressed: () => context.push('/bullion-sale'),
+                    icon: Icons.monetization_on_rounded,
+                    variant: AppActionButtonVariant.secondary,
+                    expanded: true,
+                    height: 52,
+                  ),
                   const SizedBox(height: AppSpacing.xl),
                   Builder(
                     builder: (context) {
@@ -412,5 +421,6 @@ class DashboardHomeScreen extends ConsumerWidget {
     );
   }
 }
+
 
 

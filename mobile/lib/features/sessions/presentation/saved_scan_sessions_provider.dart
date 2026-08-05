@@ -1,10 +1,12 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../customers/domain/customer_record.dart';
 import '../data/capture_session_repository.dart';
 import '../data/saved_scan_sessions_store.dart';
 import '../domain/scan_session_summary.dart';
+import '../domain/scan_session_draft.dart';
 
 final savedScanSessionsStoreProvider = Provider<SavedScanSessionsStore>(
   (ref) => SavedScanSessionsStore(const FlutterSecureStorage()),
@@ -14,6 +16,56 @@ final savedScanSessionsProvider =
     AsyncNotifierProvider<SavedScanSessionsNotifier, List<ScanSessionSummary>>(
   SavedScanSessionsNotifier.new,
 );
+
+final customerScanSessionsProvider = FutureProvider.autoDispose.family<List<ScanSessionSummary>, String>((ref, customerId) async {
+  final localSessionsAsync = await ref.watch(savedScanSessionsProvider.future);
+  final localSessions = localSessionsAsync.where((s) => s.customer?.id == customerId).toList();
+
+  final repository = ref.watch(captureSessionRepositoryProvider);
+  try {
+    final remotePage = await repository.getMySessions(customerId: customerId, page: 1, limit: 100);
+    
+    // Convert CaptureSessionListItem to ScanSessionSummary
+    final remoteSessions = remotePage.sessions.map((item) {
+      return ScanSessionSummary(
+        sessionId: item.id,
+        clientSessionId: item.id,
+        backendSessionId: item.id,
+        customer: CustomerRecord(id: customerId, name: item.customerName, phone: item.customerPhone, area: '', email: null, isRecent: false, lastSeenLabel: ''),
+        lockedSettings: const ScanSessionLockedSettings(supplier: null, category: null, karat: null, originalPurity: null, selectedPurity: null, originalWastage: null, selectedWastage: null, originalStonePrice: null, selectedStonePrice: null),
+        items: const [],
+        totalItems: item.itemCount,
+        totalGrossWeight: item.totals.grossWeight,
+        totalStoneWeight: item.totals.stoneWeight,
+        totalOtherWeight: item.totals.otherWeight,
+        totalNetWeight: item.totals.netWeight,
+        totalFineWeight: item.totals.fineWeight,
+        totalStoneAmount: item.totals.stoneAmount,
+        totalOtherAmount: 0.0,
+        warningCounts: const ScanSessionWarningCounts(karatMismatch: 0, supplierMismatch: 0, weightMismatch: 0, customPurityOverrides: 0, customWastageOverrides: 0, duplicates: 0),
+        supplierBreakdown: List.generate(item.supplierCount, (_) => const ScanSessionSupplierSummary(supplier: '', items: 0, grossWeight: 0, netWeight: 0, fineWeight: 0)),
+        createdAt: item.createdAt ?? DateTime.now(),
+        updatedAt: item.updatedAt ?? DateTime.now(),
+        notes: item.referenceNote,
+        status: item.status,
+        syncStatus: ScanSessionSyncStatus.synced,
+      );
+    }).toList();
+
+    // Merge them, prioritizing local sessions to avoid duplicates
+    final localIds = localSessions.map((e) => e.backendSessionId).where((id) => id != null && id.isNotEmpty).toSet();
+    final uniqueRemoteSessions = remoteSessions.where((e) => !localIds.contains(e.backendSessionId)).toList();
+    
+    final allSessions = [...localSessions, ...uniqueRemoteSessions];
+    allSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return allSessions;
+  } catch (e) {
+    debugPrint('Failed to load remote sessions for customer: $e');
+  }
+  
+  localSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  return localSessions;
+});
 
 class SavedScanSessionsNotifier extends AsyncNotifier<List<ScanSessionSummary>> {
   @override

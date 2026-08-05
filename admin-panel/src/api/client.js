@@ -91,8 +91,16 @@ export async function request(path, options = {}) {
   const payload = await parseResponse(response)
 
   if (!response.ok) {
-    const errorMessage =
-      payload?.error || payload?.message || response.statusText || 'Request failed'
+    let errorMessage = 'Request failed'
+    if (typeof payload?.error === 'string') {
+      errorMessage = payload.error
+    } else if (typeof payload?.message === 'string') {
+      errorMessage = payload.message
+    } else if (payload?.error && typeof payload.error === 'object') {
+      errorMessage = payload.error.message || JSON.stringify(payload.error)
+    } else if (response.statusText) {
+      errorMessage = response.statusText
+    }
     const errorCode = payload?.code || 'API_ERROR'
 
     if (
