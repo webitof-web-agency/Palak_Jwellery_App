@@ -246,6 +246,15 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen>
                               fontSize: 12,
                             ),
                           ),
+                          if ((session.notes).trim().isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              session.notes,
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -653,6 +662,15 @@ class _AllSessionsSheet extends StatelessWidget {
                                     fontSize: 12,
                                   ),
                                 ),
+                                if ((session.notes).trim().isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    session.notes,
+                                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ],
                             ),
                           ),

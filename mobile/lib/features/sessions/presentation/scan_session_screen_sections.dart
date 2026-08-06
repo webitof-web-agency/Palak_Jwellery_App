@@ -428,19 +428,28 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
                   children: [
                     Padding(
                       padding: const EdgeInsets.only(bottom: 72),
-                      child: ListView.builder(
+                      child: Scrollbar(
                         controller: state._itemsScrollController,
-                        itemCount: state._visibleScannedItems.length,
-                        itemBuilder: (context, index) {
-                          final item = state._visibleScannedItems[index];
-                          final serial = state._draft.scannedItems.indexOf(item) + 1;
-                          return _ScannedItemCard(
-                            item: item,
-                            serialNumber: serial,
-                            showDivider: index != state._visibleScannedItems.length - 1,
-                            onDelete: () => _scanSessionConfirmRemoveItem(state, item),
-                          );
-                        },
+                        thumbVisibility: true,
+                        thickness: 6,
+                        radius: const Radius.circular(AppRadius.pill),
+                        child: ListView.builder(
+                          controller: state._itemsScrollController,
+                          physics: const BouncingScrollPhysics(
+                            parent: AlwaysScrollableScrollPhysics(),
+                          ),
+                          itemCount: state._visibleScannedItems.length,
+                          itemBuilder: (context, index) {
+                            final item = state._visibleScannedItems[index];
+                            final serial = state._draft.scannedItems.indexOf(item) + 1;
+                            return _ScannedItemCard(
+                              item: item,
+                              serialNumber: serial,
+                              showDivider: index != state._visibleScannedItems.length - 1,
+                              onDelete: () => _scanSessionConfirmRemoveItem(state, item),
+                            );
+                          },
+                        ),
                       ),
                     ),
                     if (state._visibleScannedItems.length > 3)

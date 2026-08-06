@@ -94,7 +94,7 @@ class _ScannedItemCard extends StatelessWidget {
           icon: Icons.scale_rounded,
           compact: true,
         ),
-      if (item.warningLabel != null)
+      if (item.warningLabel != null && !(item.isDuplicate && item.warningLabel!.toLowerCase().contains('duplicate')))
         AppBadge(
           label: _scanSessionDisplayWarningLabel(item.warningLabel!),
           tone: AppBadgeTone.warning,
@@ -119,6 +119,9 @@ class _ScannedItemCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
+        color: item.isDuplicate 
+            ? AppColors.danger.withValues(alpha: 0.2) 
+            : (topBadges.isNotEmpty ? AppColors.warning.withValues(alpha: 0.1) : null),
         border: Border(
           bottom: showDivider
               ? BorderSide(color: AppColors.border)
@@ -126,7 +129,7 @@ class _ScannedItemCard extends StatelessWidget {
         ),
       ),
       child: Padding(
-        padding: const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.sm),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm, horizontal: AppSpacing.md),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -154,23 +157,24 @@ class _ScannedItemCard extends StatelessWidget {
                           ),
                         ),
                       ],
+                      if (topBadges.isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: AppSpacing.xs,
+                          runSpacing: AppSpacing.xs,
+                          children: topBadges,
+                        ),
+                      ],
                     ],
                   ),
                 ),
-                if (topBadges.isNotEmpty)
-                  Flexible(
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: AppBadgeRow(children: topBadges),
-                    ),
-                  ),
                 GestureDetector(
                   onTap: onDelete,
                   child: Padding(
                     padding: const EdgeInsets.only(left: 8),
                     child: Icon(
                       Icons.delete_outline_rounded,
-                      size: 18,
+                      size: 20,
                       color: AppColors.danger,
                     ),
                   ),

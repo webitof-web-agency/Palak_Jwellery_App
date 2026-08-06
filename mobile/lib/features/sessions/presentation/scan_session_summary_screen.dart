@@ -219,9 +219,21 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 8),
-              child: Text(
-                'Session date/time: ${_formatDateTime(summary.createdAt)}',
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Session date/time: ${_formatDateTime(summary.createdAt)}',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                  if (summary.notes.trim().isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Notes: ${summary.notes}',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -246,23 +258,21 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
             spacing: AppSpacing.xs,
             runSpacing: AppSpacing.xs,
             children: [
-              _summaryMetricChip('Items', summary.totalItems.toString(), 'Total items'),
-              _summaryMetricChip('Gross', '${_formatWeight(summary.totalGrossWeight)} g', 'Total gross'),
-              _summaryMetricChip('Net', '${_formatWeight(summary.totalNetWeight)} g', 'Total net'),
-              _summaryMetricChip('Stone', '${_formatWeight(summary.totalStoneWeight)} g', 'Total stone'),
-              _summaryMetricChip('Other', '${_formatWeight(summary.totalOtherWeight)} g', 'Total other'),
-              _summaryMetricChip('Fine', '${_formatWeight(summary.totalFineWeight)} g', 'Total fine'),
+              _summaryMetricChip('Items', summary.totalItems.toString()),
+              _summaryMetricChip('Gross', '${_formatWeight(summary.totalGrossWeight)} g'),
+              _summaryMetricChip('Net', '${_formatWeight(summary.totalNetWeight)} g'),
+              _summaryMetricChip('Stone', '${_formatWeight(summary.totalStoneWeight)} g'),
+              _summaryMetricChip('Other', '${_formatWeight(summary.totalOtherWeight)} g'),
+              _summaryMetricChip('Fine', '${_formatWeight(summary.totalFineWeight)} g'),
               _summaryMetricChip(
                 'Stone Amt',
                 _formatCurrency(summary.totalStoneAmount),
-                'Total amount',
               ),
               // otherAmount is a separate amount bucket, not making charge.
               if (summary.totalOtherAmount > 0)
                 _summaryMetricChip(
                   'Other Amount',
                   _formatCurrency(summary.totalOtherAmount),
-                  'Total amount',
                 ),
             ],
           ),
@@ -426,45 +436,33 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     );
   }
 
-  Widget _summaryMetricChip(String label, String value, String helper) {
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 96, maxWidth: 140),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceAlt,
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 10,
-                  letterSpacing: 1.0,
-                  fontWeight: FontWeight.w800,
-                ),
+  Widget _summaryMetricChip(String label, String value) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceAlt,
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '$label: ',
+              style: TextStyle(
+                color: AppColors.textMuted,
+                fontSize: 12,
               ),
-              const SizedBox(height: 2),
-              Text(
-                value,
-                style: TextStyle(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w800,
-                ),
+            ),
+            Text(
+              value,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
               ),
-              const SizedBox(height: 2),
-              Text(
-                helper,
-                style: TextStyle(color: AppColors.textSecondary, fontSize: 10),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
