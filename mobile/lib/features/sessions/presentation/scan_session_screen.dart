@@ -68,6 +68,8 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     _itemSearchController = TextEditingController();
     _itemsScrollController = ScrollController();
     _applyDefaultsForSelection();
+    _stonePriceController.text =
+        _draft.selectedStonePrice?.toStringAsFixed(2) ?? '';
     _notesController.text = _draft.notes;
   }
 
@@ -346,13 +348,4 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
 

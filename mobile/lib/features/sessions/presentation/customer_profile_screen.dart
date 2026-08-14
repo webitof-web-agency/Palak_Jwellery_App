@@ -115,7 +115,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen>
 
   Widget _buildCustomerCard(CustomerRecord customer) {
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -216,7 +216,7 @@ class _CustomerProfileScreenState extends ConsumerState<CustomerProfileScreen>
           (session) => Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.xs),
             child: InkWell(
-              onTap: () => context.push('/sales-scans/${session.sessionId}', extra: session),
+              onTap: () => context.push('/sales-scans/${session.sessionId}'),
               borderRadius: BorderRadius.circular(AppRadius.md),
               child: Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
@@ -631,7 +631,7 @@ class _AllSessionsSheet extends StatelessWidget {
                   child: InkWell(
                     onTap: () {
                       Navigator.pop(context);
-                      context.push('/sales-scans/${session.sessionId}', extra: session);
+                      context.push('/sales-scans/${session.sessionId}');
                     },
                     borderRadius: BorderRadius.circular(AppRadius.md),
                     child: Container(
@@ -855,3 +855,9 @@ class _AllBullionSheet extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+

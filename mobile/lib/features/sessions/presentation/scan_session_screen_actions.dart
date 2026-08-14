@@ -147,7 +147,24 @@ double? _scanSessionSupplierDefaultWastageFor(SupplierModel? supplierModel, Stri
   }
   return null;
 }
-
+double? _scanSessionSupplierDefaultStonePriceFor(SupplierModel? supplierModel) {
+  if (supplierModel == null) return null;
+  final value = supplierModel.businessSettings['defaultStoneRate'];
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+double? _scanSessionBusinessDefaultStonePriceFor(_ScanSessionScreenState state) {
+  final overview = state.ref.read(businessOverviewProvider).maybeWhen(
+        data: (value) => value,
+        orElse: () => null,
+      );
+  final settings = overview?.settings ?? const <String, dynamic>{};
+  final value = settings['default_stone_rate'] ?? settings['defaultStoneRate'];
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
 ({double purity, double wastage})? _scanSessionDefaultsFor(
   _ScanSessionScreenState state,
   String? supplier,
@@ -208,13 +225,22 @@ void _scanSessionApplyDefaultsForSelection(_ScanSessionScreenState state) {
 
 void _scanSessionSetSupplier(_ScanSessionScreenState state, String? supplier) {
   state._updateDraftState(() {
+    final supplierModel = _scanSessionSupplierModelFor(state, supplier);
+    final defaultStonePrice =
+        _scanSessionSupplierDefaultStonePriceFor(supplierModel) ??
+        _scanSessionBusinessDefaultStonePriceFor(state);
     state._draft = state._draft.copyWith(
       supplier: supplier,
       clearSupplier: supplier == null,
       clearCategory: true,
       clearKarat: true,
+      stonePriceOriginal: defaultStonePrice,
+      stonePriceSelected: defaultStonePrice,
+      clearStonePrice: defaultStonePrice == null,
     );
     _scanSessionApplyDefaultsForSelection(state);
+    state._stonePriceController.text =
+        defaultStonePrice == null ? '' : defaultStonePrice.toStringAsFixed(2);
   });
 }
 
@@ -585,23 +611,48 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
 }
 
 Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
-  final list = ['800', '1000', '1200', '1400', '1500', '2000'];
-  
+  final values = <double>{};
+  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  final supplierDefault = _scanSessionSupplierDefaultStonePriceFor(supplierModel);
+  final businessDefault = _scanSessionBusinessDefaultStonePriceFor(state);
+  final selected = state._draft.selectedStonePrice;
+
+  if (supplierDefault != null && supplierDefault > 0) {
+    values.add(supplierDefault);
+  }
+  if (businessDefault != null && businessDefault > 0) {
+    values.add(businessDefault);
+  }
+  if (selected != null && selected > 0) {
+    values.add(selected);
+  }
+  if (values.isEmpty) {
+    values.addAll(<double>{800, 1000, 1200, 1400, 1500, 2000});
+  }
+
+  final list = values.toList(growable: false)
+    ..sort((a, b) => a.compareTo(b));
+
   final RenderBox? renderBox = state._stonePriceIconKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) return;
   final position = renderBox.localToGlobal(Offset.zero);
   final size = renderBox.size;
-  
+
   final chosen = await showMenu<String>(
     context: state.context,
     position: RelativeRect.fromLTRB(
-      position.dx, 
-      position.dy + size.height, 
-      position.dx + size.width, 
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
       position.dy + size.height * 2,
     ),
     items: [
-      ...list.map((e) => PopupMenuItem(value: e, child: Text('₹$e/gm'))),
+      ...list.map(
+        (e) => PopupMenuItem(
+          value: e.toStringAsFixed(2),
+          child: Text('Rs. ${e.toStringAsFixed(2)}/gm'),
+        ),
+      ),
       const PopupMenuDivider(),
       const PopupMenuItem(value: _clearSelectionSentinel, child: Text('Clear Price')),
     ],
@@ -610,13 +661,13 @@ Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
   if (!state.mounted || chosen == null) {
     return;
   }
-  
+
   if (chosen == _clearSelectionSentinel) {
     state._stonePriceController.text = '';
     _scanSessionSetStonePrice(state, '');
     return;
   }
-  
+
   state._stonePriceController.text = chosen;
   _scanSessionSetStonePrice(state, chosen);
 }
@@ -877,8 +928,12 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
 
   var computedStoneAmount = readNestedDouble(displaySnapshot, ['amounts', 'stoneAmount']);
   final lockedStonePrice = state._draft.stonePriceSelected;
-  if (computedStoneAmount == null && lockedStonePrice != null && stoneWeight > 0) {
-    computedStoneAmount = stoneWeight * lockedStonePrice;
+  final fallbackAmountWeight = roundToPrecision(stoneWeight + otherWeight);
+  if ((computedStoneAmount == null || computedStoneAmount == 0) &&
+      lockedStonePrice != null &&
+      lockedStonePrice > 0 &&
+      fallbackAmountWeight > 0) {
+    computedStoneAmount = fallbackAmountWeight * lockedStonePrice;
   }
   
   final otherAmount = readNestedDouble(displaySnapshot, ['amounts', 'otherAmount']);
@@ -1060,26 +1115,6 @@ Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
     );
   });
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

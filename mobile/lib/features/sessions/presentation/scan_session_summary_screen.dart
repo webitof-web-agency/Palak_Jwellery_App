@@ -153,27 +153,17 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
       return ref.watch(scanSessionSummaryProvider);
     }
 
-    final sessionsAsync = ref.watch(savedScanSessionsProvider);
-    final sessions = sessionsAsync.maybeWhen(
+    final sessionAsync = ref.watch(salesSessionSummaryByIdProvider(widget.sessionId!));
+    return sessionAsync.maybeWhen(
       data: (value) => value,
       orElse: () => null,
     );
-    if (sessions == null) {
-      return null;
-    }
-
-    for (final session in sessions) {
-      if (session.sessionId == widget.sessionId) {
-        return session;
-      }
-    }
-    return null;
   }
 
   Widget _buildCustomerCard(ScanSessionSummary summary) {
     final customer = summary.customer;
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -190,7 +180,7 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               _buildSyncBadge(summary),
             ],
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             customer?.name ?? 'Unknown customer',
             style: TextStyle(
@@ -218,7 +208,7 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               border: Border.all(color: AppColors.border),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -757,7 +747,7 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
   Widget build(BuildContext context) {
     final summary = _activeSummary(ref);
     if (widget.sessionId != null) {
-      final loading = ref.watch(savedScanSessionsProvider).isLoading;
+      final loading = ref.watch(salesSessionSummaryByIdProvider(widget.sessionId!)).isLoading;
       if (summary == null && loading) {
         return const Scaffold(
           body: SafeArea(
@@ -1055,6 +1045,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     );
   }
 }
+
+
+
 
 
 

@@ -430,7 +430,6 @@ Widget _scanSessionBuildLockedActiveSection(_ScanSessionScreenState state) {
                       padding: const EdgeInsets.only(bottom: 72),
                       child: Scrollbar(
                         controller: state._itemsScrollController,
-                        thumbVisibility: true,
                         thickness: 6,
                         radius: const Radius.circular(AppRadius.pill),
                         child: ListView.builder(

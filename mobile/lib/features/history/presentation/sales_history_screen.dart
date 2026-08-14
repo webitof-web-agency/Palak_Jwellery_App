@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'sales_history_provider.dart';
 import '../../sale_entry/data/sale_repository.dart';
@@ -32,12 +33,40 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
   String _sortValue = 'saleDate:desc';
   bool _duplicatesOnly = false;
   bool _searchExpanded = false;
+  bool _showTopButton = false;
+  final ScrollController _scrollController = ScrollController();
   final _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
+
+  @override
   void dispose() {
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _handleScroll() {
+    final shouldShow = _scrollController.hasClients && _scrollController.offset > 240;
+    if (shouldShow != _showTopButton && mounted) {
+      setState(() => _showTopButton = shouldShow);
+    }
+  }
+
+  Future<void> _scrollToTop() async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
   }
 
   SalesHistoryQuery get _query {
@@ -441,54 +470,96 @@ class _SalesHistoryScreenState extends ConsumerState<SalesHistoryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Your Entries'),
+        leading: IconButton(
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/dashboard');
+            }
+          },
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
       ),
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: _refresh,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            slivers: [
-              const SliverPadding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
-                sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
-                sliver: SliverToBoxAdapter(
-                  child: _buildFilterPanel(context),
-                ),
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 16)),
-              ...salesAsync.when<List<Widget>>(
-                loading: () => const [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
+        child: Stack(
+          children: [
+            RefreshIndicator(
+              onRefresh: _refresh,
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  const SliverPadding(
+                    padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
+                    sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
                   ),
-                ],
-                error: (error, _) => [
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: Text(
-                          'Could not load entries.\n$error',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: AppColors.textSecondary,
-                            height: 1.5,
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                    sliver: SliverToBoxAdapter(
+                      child: _buildFilterPanel(context),
+                    ),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                  ...salesAsync.when<List<Widget>>(
+                    loading: () => const [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+                    ],
+                    error: (error, _) => [
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            child: Text(
+                              'Could not load entries.\n$error',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                height: 1.5,
+                              ),
+                            ),
                           ),
                         ),
                       ),
+                    ],
+                    data: (page) => _buildEntriesSlivers(page),
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                ],
+              ),
+            ),
+            if (_showTopButton)
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.transparent,
+                    child: AnimatedOpacity(
+                      opacity: 1,
+                      duration: const Duration(milliseconds: 180),
+                      child: TextButton.icon(
+                        onPressed: _scrollToTop,
+                        style: TextButton.styleFrom(
+                          backgroundColor: AppColors.accent,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                        label: const Text('Top'),
+                      ),
                     ),
                   ),
-                ],
-                data: (page) => _buildEntriesSlivers(page),
+                ),
               ),
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -681,3 +752,10 @@ class _ChoiceSheet extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+

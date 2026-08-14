@@ -143,6 +143,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       wastagePercent: 0,
       tolerance,
     })
+    fields.otherWeight = { value: calculationSnapshot.otherWeight ?? 0, parsed: calculationSnapshot.otherWeight !== null }
     const mismatch =
       calculationSnapshot.computedNetWeight !== null && calculationSnapshot.qrNetWeight !== null
         ? Math.abs(Number((calculationSnapshot.computedNetWeight - calculationSnapshot.qrNetWeight).toFixed(3)))
@@ -618,7 +619,7 @@ const parseVenzoraStrategy = (raw) => {
     mismatch,
     tolerance,
     warnings,
-    requiresReview,
+      requiresReview,
     calculationExplanation: {
       netFormula: 'computedNetWeight = grossWeight - stoneWeight',
       fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
@@ -824,24 +825,63 @@ const parseAayraStrategy = (raw) => {
     return createResult({ success: false, strategy, fields, errors, raw })
   }
 
-  // Helper: strip any leading alpha prefix + optional whitespace, parse as number
   const parseWeightToken = (token) => {
     if (!token) return null
     const numeric = String(token).replace(/^[A-Za-z]+\s*/, '').trim()
     if (numeric === '') return null
-    const parsed = toNumber(numeric)
-    return parsed
+    return toNumber(numeric)
   }
 
-  const cleanRaw = raw.replace(/(?:->|\t)+/g, ' ').replace(/\s{2,}/g, ' ').trim()
+  const buildBreakdown = ({ format, grossWeight, stoneWeight, qrNetWeight, stoneComponents, referenceText = null }) => {
+    const snapshot = calculateSettlementSnapshot({
+      grossWeight,
+      stoneWeight,
+      otherWeight: 0,
+      qrNetWeight,
+      purityPercent: 0,
+      wastagePercent: 0,
+      tolerance,
+    })
+
+    fields.otherWeight = { value: snapshot.otherWeight ?? 0, parsed: snapshot.otherWeight !== null }
+
+    const mismatch =
+      snapshot.computedNetWeight !== null && snapshot.qrNetWeight !== null
+        ? Math.abs(Number((snapshot.computedNetWeight - snapshot.qrNetWeight).toFixed(3)))
+        : null
+
+    return {
+      rawQr: raw,
+      format,
+      grossWeight: snapshot.grossWeight,
+      stoneWeight: snapshot.stoneWeight,
+      stoneComponents,
+      otherWeight: {
+        sourceField: snapshot.reconciliationStatus === 'inferred_remaining' ? 'reconciled' : null,
+        value: snapshot.otherWeight,
+      },
+      qrNetWeight: snapshot.qrNetWeight,
+      computedNetWeight: snapshot.computedNetWeight,
+      selectedNetWeight: snapshot.selectedNetWeight,
+      netFormula: 'computedNetWeight = grossWeight - stoneWeight - otherWeight',
+      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      mismatch,
+      tolerance,
+      warnings: snapshot.warnings,
+      requiresReview: snapshot.requiresReview,
+      reconciliationStatus: snapshot.reconciliationStatus,
+      reconciliationProof: snapshot.reconciliationProof,
+      referenceText,
+    }
+  }
+
+  const cleanedRaw = raw.replace(/(?:->|\t)+/g, ' ').replace(/\s{2,}/g, ' ').trim()
   const spaceFormatRegex = /^(\S+)\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/i
-  const match = spaceFormatRegex.exec(cleanRaw)
+  const match = spaceFormatRegex.exec(cleanedRaw)
 
   if (match) {
-    // -- Positional (Tab/Space/Arrow) branch --------------------------------------------------
     const parts = [match[1], match[2], match[3], match[4], match[5]]
 
-    // Field 0: serial/code (numeric or alphanumeric — not assumed 8-digit)
     const serialCode = toText(parts[0] ?? '')
     if (serialCode) {
       fields.meta.serialCode = { value: serialCode, parsed: true }
@@ -849,7 +889,6 @@ const parseAayraStrategy = (raw) => {
       errors.push({ field: 'serialCode', reason: 'Field 0 (serial/code) is missing' })
     }
 
-    // Field 1: item/category text ? stored as itemCode and designCode
     const itemText = toText(parts[1] ?? '')
     if (itemText) {
       fields.meta.itemCode = { value: itemText, parsed: true }
@@ -858,7 +897,6 @@ const parseAayraStrategy = (raw) => {
       errors.push({ field: 'itemCode', reason: 'Field 1 (item/category text) is missing' })
     }
 
-    // Field 2: gross weight
     const grossWeight = toNumber(parts[2] ?? '')
     if (grossWeight === null) {
       errors.push({ field: 'grossWeight', reason: `Field 2 (gross weight) is missing or invalid: '${parts[2] ?? ''}'` })
@@ -866,12 +904,9 @@ const parseAayraStrategy = (raw) => {
       fields.grossWeight = { value: grossWeight, parsed: true }
     }
 
-    // Field 3: stone weight
-    const stoneWeightRaw = toNumber(parts[3] ?? '')
-    const stoneWeight = stoneWeightRaw ?? 0
-    fields.stoneWeight = { value: stoneWeight, parsed: stoneWeightRaw !== null }
+    const stoneWeight = toNumber(parts[3] ?? '') ?? 0
+    fields.stoneWeight = { value: stoneWeight, parsed: true }
 
-    // Field 4: QR-provided net weight
     const qrNetWeight = toNumber(parts[4] ?? '')
     if (qrNetWeight === null) {
       errors.push({ field: 'netWeight', reason: `Field 4 (net weight) is missing or invalid: '${parts[4] ?? ''}'` })
@@ -879,27 +914,18 @@ const parseAayraStrategy = (raw) => {
       fields.netWeight = { value: qrNetWeight, parsed: true }
     }
 
-    fields.otherWeight = { value: 0, parsed: true }
+    const calculationBreakdown = buildBreakdown({
+      format: 'tab',
+      grossWeight,
+      stoneWeight,
+      qrNetWeight,
+      stoneComponents: [{ sourceField: 'field[3]', label: 'Stone Weight', value: stoneWeight }],
+    })
 
-    // Net weight validation
-    const computedNetWeight =
-      grossWeight !== null
-        ? Math.round((grossWeight - stoneWeight) * 1000) / 1000
-        : null
-    const mismatch =
-      computedNetWeight !== null && qrNetWeight !== null
-        ? Math.abs(Number((computedNetWeight - qrNetWeight).toFixed(3)))
-        : null
-    const requiresReview = mismatch !== null && mismatch > tolerance
-    const warnings = []
-    if (requiresReview) {
-      warnings.push('Net weight mismatch beyond tolerance')
-    }
-
-    // Ambiguous tab format ? mark for review even if mismatch is within tolerance
-    // (tab format detection is intentionally broad; reviewer can confirm)
-    const isAmbiguous = parts.length === 5 && !requiresReview
-    const confidence = requiresReview ? 58 : isAmbiguous ? 65 : 80
+    const parsedCount = ['grossWeight', 'stoneWeight', 'netWeight'].reduce(
+      (count, field) => count + (fields[field].parsed ? 1 : 0),
+      0
+    )
 
     const data = createResult({
       success: grossWeight !== null && qrNetWeight !== null && errors.length === 0,
@@ -907,29 +933,12 @@ const parseAayraStrategy = (raw) => {
       fields,
       errors,
       raw,
-      confidence,
+      confidence: calculationBreakdown.requiresReview ? 58 : 80,
     })
-    data.calculationBreakdown = {
-      rawQr: raw,
-      format: 'tab',
-      grossWeight,
-      stoneWeight,
-      stoneComponents: [{ sourceField: 'field[3]', label: 'Stone Weight', value: stoneWeight }],
-      otherWeight: { sourceField: null, value: 0 },
-      qrNetWeight,
-      computedNetWeight,
-      selectedNetWeight: computedNetWeight ?? qrNetWeight,
-      netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
-      mismatch,
-      tolerance,
-      warnings,
-      requiresReview,
-    }
+    data.calculationBreakdown = calculationBreakdown
     return data
   }
 
-  // -- Slash-token branch ----------------------------------------------------
   const parts = raw.split('/').map((p) => p.trim())
 
   if (parts.length !== 5) {
@@ -937,7 +946,6 @@ const parseAayraStrategy = (raw) => {
     return createResult({ success: false, strategy, fields, errors, raw })
   }
 
-  // Token 0: item/design code
   const itemCode = toText(parts[0])
   if (!itemCode) {
     errors.push({ field: 'itemCode', reason: 'Token 0 (item/design code) is missing' })
@@ -946,7 +954,6 @@ const parseAayraStrategy = (raw) => {
     fields.designCode = { value: itemCode, parsed: true }
   }
 
-  // Token 1: gross weight (strips any leading alpha prefix e.g. "G ")
   const grossWeight = parseWeightToken(parts[1])
   if (grossWeight === null) {
     errors.push({ field: 'grossWeight', reason: `Token 1 (gross weight) is missing or invalid: '${parts[1]}'` })
@@ -954,12 +961,9 @@ const parseAayraStrategy = (raw) => {
     fields.grossWeight = { value: grossWeight, parsed: true }
   }
 
-  // Token 2: stone/less weight (strips any leading alpha prefix e.g. "L ")
-  const stoneWeightRaw = parseWeightToken(parts[2])
-  const stoneWeight = stoneWeightRaw ?? 0
-  fields.stoneWeight = { value: stoneWeight, parsed: stoneWeightRaw !== null }
+  const stoneWeight = parseWeightToken(parts[2]) ?? 0
+  fields.stoneWeight = { value: stoneWeight, parsed: true }
 
-  // Token 3: QR-provided net weight (strips any leading alpha prefix e.g. "N ")
   const qrNetWeight = parseWeightToken(parts[3])
   if (qrNetWeight === null) {
     errors.push({ field: 'netWeight', reason: `Token 3 (net weight) is missing or invalid: '${parts[3]}'` })
@@ -967,28 +971,19 @@ const parseAayraStrategy = (raw) => {
     fields.netWeight = { value: qrNetWeight, parsed: true }
   }
 
-  fields.otherWeight = { value: 0, parsed: true }
-
-  // Token 4: optional reference/lot/design text — stored in meta only, never required
   const referenceText = toText(parts[4])
   if (referenceText) {
     fields.meta.referenceText = { value: referenceText, parsed: true }
   }
 
-  // Net weight validation: computedNetWeight = grossWeight - stoneWeight
-  const computedNetWeight =
-    grossWeight !== null
-      ? Math.round((grossWeight - stoneWeight) * 1000) / 1000
-      : null
-  const mismatch =
-    computedNetWeight !== null && qrNetWeight !== null
-      ? Math.abs(Number((computedNetWeight - qrNetWeight).toFixed(3)))
-      : null
-  const requiresReview = mismatch !== null && mismatch > tolerance
-  const warnings = []
-  if (requiresReview) {
-    warnings.push('Net weight mismatch beyond tolerance')
-  }
+  const calculationBreakdown = buildBreakdown({
+    format: 'slash',
+    grossWeight,
+    stoneWeight,
+    qrNetWeight,
+    stoneComponents: [{ sourceField: 'token[2]', label: 'Stone/Less Weight', value: stoneWeight }],
+    referenceText,
+  })
 
   const parsedCount = ['grossWeight', 'stoneWeight', 'netWeight'].reduce(
     (count, field) => count + (fields[field].parsed ? 1 : 0),
@@ -1001,28 +996,11 @@ const parseAayraStrategy = (raw) => {
     fields,
     errors,
     raw,
-    confidence: requiresReview ? 65 : 88,
+    confidence: calculationBreakdown.requiresReview ? 65 : 88,
   })
-  data.calculationBreakdown = {
-    rawQr: raw,
-    format: 'slash',
-    grossWeight,
-    stoneWeight,
-    stoneComponents: [{ sourceField: 'token[2]', label: 'Stone/Less Weight', value: stoneWeight }],
-    otherWeight: { sourceField: null, value: 0 },
-    qrNetWeight,
-    computedNetWeight,
-    selectedNetWeight: computedNetWeight ?? qrNetWeight,
-    netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-    fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
-    mismatch,
-    tolerance,
-    warnings,
-    requiresReview,
-  }
+  data.calculationBreakdown = calculationBreakdown
   return data
 }
-
 const runParserByStrategy = (strategy, raw, parserConfig) => {
   if (strategy === 'key_value') {
     return parseKeyValueStrategy(raw)
@@ -1048,3 +1026,7 @@ export {
   resolveFieldConfig,
   runParserByStrategy,
 }
+
+
+
+

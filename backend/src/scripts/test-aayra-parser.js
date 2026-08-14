@@ -14,6 +14,7 @@ import { connectDB } from '../config/db.js'
 import { Supplier } from '../models/Supplier.js'
 import { detectSupplier } from '../services/qrParser.detection.js'
 import { parseQR } from '../services/qrParser.service.js'
+import { calculateSettlementSnapshot } from '../services/settlementCalculation.service.js'
 
 const PASS = '?'
 const FAIL = '?'
@@ -123,6 +124,54 @@ const main = async () => {
     assert(String(detection?.supplier?.name || '').toLowerCase() !== 'aayra', `${sample.label} is not misdetected as Aayra`)
   }
 
+  console.log('\nEquation reconciliation checks:')
+  const reconciliationCases = [
+    {
+      label: 'inferred other weight',
+      input: { grossWeight: 4.59, stoneWeight: 0.27, otherWeight: 0, qrNetWeight: 4.29 },
+      expected: { otherWeight: 0.03, computedNetWeight: 4.29 },
+    },
+    {
+      label: 'exact stone only',
+      input: { grossWeight: 1.94, stoneWeight: 0.17, otherWeight: 0, qrNetWeight: 1.77 },
+      expected: { otherWeight: 0, computedNetWeight: 1.77 },
+    },
+    {
+      label: 'deductions exceed gross',
+      input: { grossWeight: 1, stoneWeight: 0.8, otherWeight: 0.3, qrNetWeight: 0.1 },
+      expectedReview: true,
+    },
+    {
+      label: 'net greater than gross',
+      input: { grossWeight: 1, stoneWeight: 0.1, otherWeight: 0, qrNetWeight: 1.2 },
+      expectedReview: true,
+    },
+  ]
+
+  for (const testCase of reconciliationCases) {
+    const result = calculateSettlementSnapshot({
+      ...testCase.input,
+      purityPercent: 58.4,
+      wastagePercent: 12.5,
+    })
+    console.log(`  ${testCase.label}:`, {
+      otherWeight: result.otherWeight,
+      computedNetWeight: result.computedNetWeight,
+      reconciliationStatus: result.reconciliationStatus,
+      warnings: result.warnings,
+      requiresReview: result.requiresReview,
+    })
+
+    if (testCase.expected) {
+      assert(approxEqual(result.otherWeight, testCase.expected.otherWeight), `${testCase.label} otherWeight = ${testCase.expected.otherWeight}`)
+      assert(approxEqual(result.computedNetWeight, testCase.expected.computedNetWeight), `${testCase.label} computedNetWeight = ${testCase.expected.computedNetWeight}`)
+    }
+
+    if (testCase.expectedReview) {
+      assert(result.requiresReview === true, `${testCase.label} requires review`)
+    }
+  }
+
   console.log(`\nResults: ${passed} passed, ${failed} failed`)
   if (failed > 0) {
     process.exit(1)
@@ -135,3 +184,8 @@ main().catch((error) => {
   console.error('Aayra parser test harness failed:', error)
   process.exit(1)
 })
+
+
+
+
+

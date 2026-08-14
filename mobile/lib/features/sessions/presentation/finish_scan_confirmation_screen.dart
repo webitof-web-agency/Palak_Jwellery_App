@@ -127,16 +127,16 @@ class _FinishScanConfirmationScreenState
 
   Widget _buildCustomerCard(CustomerRecord? customer) {
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSectionHeader(
             title: 'Customer',
-            subtitle: 'Review the customer attached to this session.',
+            subtitle: 'Customer attached to this session.',
             tight: true,
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.sm),
           Text(
             customer?.name ?? 'No customer selected',
             style: TextStyle(
@@ -146,26 +146,26 @@ class _FinishScanConfirmationScreenState
             ),
           ),
           if (customer == null) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: 4),
             Text(
               'Customer details are missing.',
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ] else if (customer.phone.trim().isNotEmpty || customer.area.trim().isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: 4),
             Text(
               [
                 if (customer.phone.trim().isNotEmpty) customer.phone.trim(),
                 if (customer.area.trim().isNotEmpty) customer.area.trim(),
               ].join(' | '),
-              style: TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
             ),
           ],
           if ((customer?.email ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: 4),
             Text(
               customer!.email!.trim(),
-              style: TextStyle(color: AppColors.textMuted),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
           ],
         ],
@@ -179,7 +179,7 @@ class _FinishScanConfirmationScreenState
     }
 
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       backgroundColor: AppColors.surfaceAlt,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,7 +206,7 @@ class _FinishScanConfirmationScreenState
             'Added gross ${_formatWeight(draft.addedGrossWeight)} g | '
             'Added net ${_formatWeight(draft.addedNetWeight)} g | '
             'Added fine ${_formatWeight(draft.addedFineWeight)} g',
-            style: TextStyle(color: AppColors.textSecondary),
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -230,7 +230,7 @@ class _FinishScanConfirmationScreenState
               child: AppMetricCard(
                 label: 'Items',
                 value: summary.totalItems.toString(),
-                helper: 'Total items',
+                helper: null,
                 compact: true,
               ),
             ),
@@ -239,7 +239,7 @@ class _FinishScanConfirmationScreenState
               child: AppMetricCard(
                 label: 'Gross',
                 value: '${_formatWeight(summary.totalGrossWeight)} g',
-                helper: 'Total gross',
+                helper: null,
                 compact: true,
               ),
             ),
@@ -248,7 +248,7 @@ class _FinishScanConfirmationScreenState
               child: AppMetricCard(
                 label: 'Stone',
                 value: '${_formatWeight(summary.totalStoneWeight)} g',
-                helper: 'Total stone',
+                helper: null,
                 compact: true,
               ),
             ),
@@ -261,7 +261,7 @@ class _FinishScanConfirmationScreenState
               child: AppMetricCard(
                 label: 'Other',
                 value: '${_formatWeight(summary.totalOtherWeight)} g',
-                helper: 'Total other',
+                helper: null,
                 compact: true,
               ),
             ),
@@ -270,7 +270,7 @@ class _FinishScanConfirmationScreenState
               child: AppMetricCard(
                 label: 'Net',
                 value: '${_formatWeight(summary.totalNetWeight)} g',
-                helper: 'Total net',
+                helper: null,
                 compact: true,
               ),
             ),
@@ -279,7 +279,7 @@ class _FinishScanConfirmationScreenState
               child: AppMetricCard(
                 label: 'Fine',
                 value: '${_formatWeight(summary.totalFineWeight)} g',
-                helper: 'Total fine',
+                helper: null,
                 compact: true,
               ),
             ),
@@ -294,7 +294,7 @@ class _FinishScanConfirmationScreenState
                   child: AppMetricCard(
                     label: 'Stone Amt',
                     value: _formatCurrency(summary.totalStoneAmount),
-                    helper: 'Available',
+                    helper: null,
                     compact: true,
                   ),
                 ),
@@ -305,7 +305,7 @@ class _FinishScanConfirmationScreenState
                   child: AppMetricCard(
                     label: 'Other Amount',
                     value: _formatCurrency(summary.totalOtherAmount),
-                    helper: 'Available',
+                    helper: null,
                     compact: true,
                   ),
                 ),
@@ -322,7 +322,7 @@ class _FinishScanConfirmationScreenState
       children: [
         const AppSectionHeader(
           title: 'Supplier breakdown',
-          subtitle: 'Supplier-wise totals for the locked session.',
+          subtitle: 'Supplier totals for this session.',
           tight: true,
         ),
         const SizedBox(height: AppSpacing.md),
@@ -334,7 +334,7 @@ class _FinishScanConfirmationScreenState
                 (entry) => SizedBox(
                   width: 156,
                   child: AppCard(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.all(AppSpacing.sm),
                     backgroundColor: AppColors.surfaceAlt,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -346,7 +346,7 @@ class _FinishScanConfirmationScreenState
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.xs),
+                        const SizedBox(height: 4),
                         Text(
                           '${entry.items} items',
                           style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
@@ -380,7 +380,7 @@ class _FinishScanConfirmationScreenState
     final hasWarnings = counts.hasAny;
 
     return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
+      padding: const EdgeInsets.all(AppSpacing.sm),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -446,21 +446,21 @@ class _FinishScanConfirmationScreenState
             ],
           ),
           if (hasWarnings) ...[
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             if (counts.supplierMismatch > 0) ...[
               const AppBanner(
                 title: 'Supplier mismatch detected',
                 message: 'Some scanned items belong to a different supplier. Please verify before saving.',
                 tone: AppBannerTone.danger,
               ),
-              const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: AppSpacing.sm),
             ],
             const AppBanner(
               title: 'Some items require review.',
               message: 'Review the warning items before saving this session.',
               tone: AppBannerTone.warning,
             ),
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.sm),
             AppActionButton(
               label: 'Review Items',
               onPressed: () async {
@@ -522,35 +522,35 @@ class _FinishScanConfirmationScreenState
           children: [
             AppSectionHeader(
               title: 'Review before save',
-              subtitle: 'Check the customer, totals, supplier breakdown, and warnings before saving.',
+              subtitle: 'Check customer, totals, and warnings before saving.',
               trailing: Text(
                 _formatDateTime(summary.createdAt),
                 style: TextStyle(color: AppColors.textMuted, fontSize: 12),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             _buildCustomerCard(summary.customer),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             _buildAmendmentPreview(_draft),
-            if (_draft.isAmendment) const SizedBox(height: AppSpacing.lg),
+            if (_draft.isAmendment) const SizedBox(height: AppSpacing.md),
             AppCard(
-              padding: const EdgeInsets.all(AppSpacing.lg),
+              padding: const EdgeInsets.all(AppSpacing.sm),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const AppSectionHeader(
                     title: 'Session summary',
-                    subtitle: 'Totals from the locked scan session.',
+                    subtitle: 'Locked session totals.',
                     tight: true,
                   ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.sm),
                   _buildSummaryMetrics(summary),
                 ],
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             _buildSupplierBreakdown(summary),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.sm),
             _buildWarningCard(summary),
           ],
         ),
@@ -558,3 +558,6 @@ class _FinishScanConfirmationScreenState
     );
   }
 }
+
+
+

@@ -325,8 +325,107 @@ class CaptureSessionListItem {
   }
 }
 
-class CaptureSessionDetail extends CaptureSessionListItem {
-  const CaptureSessionDetail({
+class CaptureSessionItemDetail {
+  const CaptureSessionItemDetail({
+    required this.id,
+    required this.itemCode,
+    required this.supplierName,
+    required this.category,
+    required this.jewelType,
+    required this.appliedKarat,
+    required this.qrKarat,
+    required this.purityPercent,
+    required this.wastagePercent,
+    required this.grossWeight,
+    required this.stoneWeight,
+    required this.otherWeight,
+    required this.netWeight,
+    required this.fineWeight,
+    required this.stoneAmount,
+    required this.otherAmount,
+    required this.rawQr,
+    required this.addedAt,
+    required this.warnings,
+    required this.requiresReview,
+    required this.hasKaratMismatch,
+    required this.isDuplicate,
+    required this.hasSupplierMismatch,
+    required this.hasWeightMismatch,
+    required this.hasPurityOverride,
+    required this.hasWastageOverride,
+    required this.warningLabel,
+  });
+
+  final String id;
+  final String itemCode;
+  final String supplierName;
+  final String? category;
+  final String? jewelType;
+  final String? appliedKarat;
+  final String? qrKarat;
+  final double purityPercent;
+  final double wastagePercent;
+  final double grossWeight;
+  final double stoneWeight;
+  final double otherWeight;
+  final double netWeight;
+  final double fineWeight;
+  final double stoneAmount;
+  final double otherAmount;
+  final String? rawQr;
+  final DateTime? addedAt;
+  final List<String> warnings;
+  final bool requiresReview;
+  final bool hasKaratMismatch;
+  final bool isDuplicate;
+  final bool hasSupplierMismatch;
+  final bool hasWeightMismatch;
+  final bool hasPurityOverride;
+  final bool hasWastageOverride;
+  final String? warningLabel;
+
+  factory CaptureSessionItemDetail.fromJson(dynamic json) {
+    final data = _asMap(json) ?? const <String, dynamic>{};
+    final parsedSnapshot = _asMap(data['parsedSnapshot']) ?? const <String, dynamic>{};
+    final display = _asMap(parsedSnapshot['display']) ?? const <String, dynamic>{};
+    final displayItem = _asMap(display['item']) ?? const <String, dynamic>{};
+    final calculation = _asMap(data['calculationSnapshot']) ?? const <String, dynamic>{};
+    final settlementInputs = _asMap(data['settlementInputs']) ?? const <String, dynamic>{};
+    final rawWarnings = _asList(calculation['warnings']).map((value) => _asText(value)).whereType<String>().toList(growable: false);
+
+    return CaptureSessionItemDetail(
+      id: _resolveId(data['_id'] ?? data['id']),
+      itemCode: _asText(data['itemCode'] ?? displayItem['itemCode']) ?? '',
+      supplierName: _asText(data['supplierName'] ?? _asMap(data['supplier'])?['name']) ?? 'Unknown',
+      category: _asText(data['category'] ?? displayItem['category']),
+      jewelType: _asText(data['jewelType'] ?? displayItem['jewelType']),
+      appliedKarat: _asText(settlementInputs['karat'] ?? data['appliedKarat']),
+      qrKarat: _asText(displayItem['karat'] ?? data['qrKarat']),
+      purityPercent: _asDouble(settlementInputs['purityPercent'] ?? calculation['purityPercent'] ?? data['purityPercent']),
+      wastagePercent: _asDouble(settlementInputs['wastagePercent'] ?? calculation['wastagePercent'] ?? data['wastagePercent']),
+      grossWeight: _asDouble(data['grossWeight'] ?? calculation['grossWeight']),
+      stoneWeight: _asDouble(data['stoneWeight'] ?? calculation['stoneWeight']),
+      otherWeight: _asDouble(data['otherWeight'] ?? calculation['otherWeight']),
+      netWeight: _asDouble(data['netWeight'] ?? calculation['netWeight']),
+      fineWeight: _asDouble(data['fineWeight'] ?? calculation['fineWeight']),
+      stoneAmount: _asDouble(calculation['stoneAmount'] ?? data['stoneAmount']),
+      otherAmount: _asDouble(calculation['otherAmount'] ?? data['otherAmount']),
+      rawQr: _asText(data['rawQr']),
+      addedAt: _asDate(data['addedAt']),
+      warnings: rawWarnings,
+      requiresReview: calculation['requiresReview'] == true || data['requiresReview'] == true,
+      hasKaratMismatch: data['hasKaratMismatch'] == true,
+      isDuplicate: data['isDuplicate'] == true,
+      hasSupplierMismatch: data['hasSupplierMismatch'] == true,
+      hasWeightMismatch: data['hasWeightMismatch'] == true,
+      hasPurityOverride: data['hasPurityOverride'] == true,
+      hasWastageOverride: data['hasWastageOverride'] == true,
+      warningLabel: _asText(data['warningLabel']),
+    );
+  }
+}
+
+class CaptureSessionDetail extends CaptureSessionListItem {  const CaptureSessionDetail({
     required super.id,
     required super.sessionRef,
     required super.customerName,
@@ -351,6 +450,11 @@ class CaptureSessionDetail extends CaptureSessionListItem {
     required this.cancelledBy,
     required this.cancelledAt,
     required this.cancelReason,
+    required this.customerId,
+    required this.customerArea,
+    required this.customerEmail,
+    required this.lockedSettings,
+    required this.items,
     required this.batchIds,
     required this.batches,
   });
@@ -361,6 +465,11 @@ class CaptureSessionDetail extends CaptureSessionListItem {
   final CaptureSessionUserSummary? cancelledBy;
   final DateTime? cancelledAt;
   final String? cancelReason;
+  final String? customerId;
+  final String? customerArea;
+  final String? customerEmail;
+  final Map<String, dynamic>? lockedSettings;
+  final List<CaptureSessionItemDetail> items;
   final List<String> batchIds;
   final List<CaptureSessionBatchSummary> batches;
 
@@ -401,6 +510,14 @@ class CaptureSessionDetail extends CaptureSessionListItem {
           : null,
       cancelledAt: _asDate(data['cancelledAt']),
       cancelReason: _asText(data['cancelReason']),
+      customerId: _asText(data['customerId']),
+      customerArea: _asText(data['customerArea']),
+      customerEmail: _asText(data['customerEmail']),
+      lockedSettings: _asMap(data['lockedSettings']),
+      items: _asList(data['items'])
+          .whereType<dynamic>()
+          .map(CaptureSessionItemDetail.fromJson)
+          .toList(growable: false),
       batchIds: _asList(data['batchIds']).map((value) => _resolveId(value)).where((value) => value.isNotEmpty).toList(growable: false),
       batches: _asList(data['batches'])
           .whereType<dynamic>()
@@ -467,3 +584,5 @@ class CaptureSessionOperationResult {
     );
   }
 }
+
+

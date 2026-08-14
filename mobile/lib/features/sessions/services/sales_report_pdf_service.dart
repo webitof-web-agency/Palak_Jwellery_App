@@ -67,6 +67,7 @@ class SalesReportPdfService {
           _buildHeader(summary, mode, generatedAt),
           pw.SizedBox(height: 12),
           _buildTable(summary, groups, mode),
+          pw.SizedBox(height: 20),
           _buildFooter(),
           pw.SizedBox(height: 12),
         ],
@@ -138,7 +139,7 @@ class SalesReportPdfService {
         borderRadius: pw.BorderRadius.circular(10),
       ),
       child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+        crossAxisAlignment: pw.CrossAxisAlignment.center,
         children: [
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.center,
@@ -174,6 +175,8 @@ class SalesReportPdfService {
               borderRadius: pw.BorderRadius.circular(6),
             ),
             child: pw.Wrap(
+              alignment: pw.WrapAlignment.center,
+              runAlignment: pw.WrapAlignment.center,
               spacing: 16,
               runSpacing: 4,
               children: [
@@ -198,6 +201,7 @@ class SalesReportPdfService {
 
   pw.Widget _buildFooter() {
     return pw.Container(
+      margin: const pw.EdgeInsets.only(top: 6),
       padding: const pw.EdgeInsets.all(14),
       decoration: pw.BoxDecoration(
         border: pw.Border.all(color: PdfColors.grey400),
@@ -628,6 +632,11 @@ class SalesReportPdfService {
     return '${local.day}/${local.month}/${local.year} $hour:$minute $period';
   }
 }
+
+
+
+
+
 
 
 

@@ -19,22 +19,65 @@ class SalesScansScreen extends ConsumerStatefulWidget {
   ConsumerState<SalesScansScreen> createState() => _SalesScansScreenState();
 }
 
-enum DateFilter { all, thisWeek, thisMonth, custom }
+enum DateFilter { all, today, thisWeek, thisMonth, custom }
 
 class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final Set<String> _syncingSessionIds = <String>{};
   String _searchTerm = '';
   DateFilter _dateFilter = DateFilter.all;
   DateTimeRange? _customDateRange;
+  bool _showTopButton = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_handleScroll);
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_handleScroll);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
+  void _handleScroll() {
+    final shouldShow = _scrollController.hasClients && _scrollController.offset > 240;
+    if (shouldShow != _showTopButton && mounted) {
+      setState(() => _showTopButton = shouldShow);
+    }
+  }
+
+  Future<void> _scrollToTop() async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+    );
+  }
+
   String _formatWeight(double value) => value.toStringAsFixed(3);
+
+  String _customerGroupKey(CustomerRecord customer) {
+    final name = customer.name.trim().toLowerCase();
+    final phone = customer.phone.trim().toLowerCase();
+    final area = customer.area.trim().toLowerCase();
+    final id = customer.id.trim().toLowerCase();
+
+    if (phone.isNotEmpty) {
+      return 'phone:$phone|name:$name|area:$area';
+    }
+    if (id.isNotEmpty) {
+      return 'id:$id|name:$name|area:$area';
+    }
+    return 'name:$name|area:$area';
+  }
 
   List<_CustomerSessionsGroup> _groups(List<ScanSessionSummary> sessions) {
     final grouped = <String, _CustomerSessionsGroup>{};
@@ -43,10 +86,15 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
       if (customer == null) {
         continue;
       }
-      grouped.putIfAbsent(
-        customer.id,
+      final key = _customerGroupKey(customer);
+      final group = grouped.putIfAbsent(
+        key,
         () => _CustomerSessionsGroup(customer: customer, sessions: <ScanSessionSummary>[]),
-      ).sessions.add(session);
+      );
+      if (group.customer.id.trim().isEmpty && customer.id.trim().isNotEmpty) {
+        group.customer = customer;
+      }
+      group.sessions.add(session);
     }
 
     final groups = grouped.values.toList(growable: false);
@@ -129,17 +177,11 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
     }
   }
 
-  void _openGroup(BuildContext context, _CustomerSessionsGroup group) {
-    if (group.sessions.length > 1) {
-      context.push('/customers/${group.customer.id}');
-      return;
-    }
-    context.push('/sales-scans/${group.latestSession.sessionId}');
-  }
 
   @override
   Widget build(BuildContext context) {
-    final sessionsAsync = ref.watch(savedScanSessionsProvider);
+    final localSessionsAsync = ref.watch(savedScanSessionsProvider);
+    final sessionsAsync = ref.watch(salesScansSessionsProvider);
     final sessions = sessionsAsync.maybeWhen(data: (value) => value, orElse: () => const <ScanSessionSummary>[]);
     final query = _searchTerm.trim().toLowerCase();
     final filteredSessions = sessions.where((session) {
@@ -162,6 +204,9 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
       switch (_dateFilter) {
         case DateFilter.all:
           break;
+        case DateFilter.today:
+          if (date.year != today.year || date.month != today.month || date.day != today.day) return false;
+          break;
         case DateFilter.thisWeek:
           final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
           if (date.isBefore(startOfWeek)) return false;
@@ -183,7 +228,8 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
     final groups = _groups(filteredSessions);
     final loading = sessionsAsync.isLoading && sessions.isEmpty;
     final hasSearchQuery = query.isNotEmpty;
-    final pendingCount = sessions.where((session) => _canRetry(session)).length;
+    final localSessions = localSessionsAsync.maybeWhen(data: (value) => value, orElse: () => const <ScanSessionSummary>[]);
+    final pendingCount = localSessions.where((session) => _canRetry(session)).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -200,7 +246,10 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
         ),
       ),
       body: SafeArea(
-        child: ListView(
+        child: Stack(
+          children: [
+            ListView(
+              controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.screenPadding,
             AppSpacing.lg,
@@ -267,6 +316,7 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                   },
                   itemBuilder: (context) => [
                     const PopupMenuItem(value: DateFilter.all, child: Text('All Time')),
+                    const PopupMenuItem(value: DateFilter.today, child: Text('Today')),
                     const PopupMenuItem(value: DateFilter.thisWeek, child: Text('This Week')),
                     const PopupMenuItem(value: DateFilter.thisMonth, child: Text('This Month')),
                     const PopupMenuItem(value: DateFilter.custom, child: Text('Custom Range...')),
@@ -327,7 +377,7 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: AppCard(
-                    onTap: () => _openGroup(context, group),
+                    onTap: () => context.push('/sales-scans/${latest.sessionId}'),
                     padding: const EdgeInsets.all(AppSpacing.lg),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -456,7 +506,9 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
                         if (group.sessions.length > 1) ...[
                           const SizedBox(height: AppSpacing.xs),
                           InkWell(
-                            onTap: () => context.push('/customers/${group.customer.id}'),
+                            onTap: group.customer.id.trim().isNotEmpty
+                                ? () => context.push('/customers/${group.customer.id}')
+                                : null,
                             borderRadius: BorderRadius.circular(AppRadius.sm),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -478,6 +530,31 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
               }),
           ],
         ),
+        if (_showTopButton)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: SafeArea(
+              child: Material(
+                color: Colors.transparent,
+                child: TextButton.icon(
+                  onPressed: _scrollToTop,
+                  style: TextButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                  icon: const Icon(Icons.arrow_upward_rounded, size: 18),
+                  label: const Text('Top'),
+                ),
+              ),
+            ),
+          ),
+          ],
+        ),
       ),
     );
   }
@@ -497,10 +574,18 @@ class _CustomerSessionsGroup {
     required this.sessions,
   });
 
-  final CustomerRecord customer;
+  CustomerRecord customer;
   final List<ScanSessionSummary> sessions;
 
   ScanSessionSummary get latestSession => sessions.first;
 
   double get totalFine => sessions.fold(0, (sum, session) => sum + session.totalFineWeight);
 }
+
+
+
+
+
+
+
+

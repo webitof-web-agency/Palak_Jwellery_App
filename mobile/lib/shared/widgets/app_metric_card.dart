@@ -25,7 +25,7 @@ class AppMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppCard(
-      padding: EdgeInsets.all(compact ? AppSpacing.md : AppSpacing.lg),
+      padding: EdgeInsets.all(compact ? AppSpacing.sm : AppSpacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -55,7 +55,7 @@ class AppMetricCard extends StatelessWidget {
             value,
             style: TextStyle(
               color: valueColor ?? AppColors.textPrimary,
-              fontSize: compact ? AppTypography.titleSize : AppTypography.headingSize,
+              fontSize: compact ? AppTypography.bodySize + 1 : AppTypography.headingSize,
               fontWeight: AppTypography.headingWeight,
               height: 1.1,
             ),
@@ -76,4 +76,5 @@ class AppMetricCard extends StatelessWidget {
     );
   }
 }
+
 

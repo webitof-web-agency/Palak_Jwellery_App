@@ -135,7 +135,13 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
       appBar: AppBar(
         title: const Text('Customer Selection'),
         leading: IconButton(
-          onPressed: () => context.pop(),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go('/dashboard');
+            }
+          },
           icon: const Icon(Icons.arrow_back_rounded),
         ),
       ),
@@ -328,3 +334,5 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     );
   }
 }
+
+

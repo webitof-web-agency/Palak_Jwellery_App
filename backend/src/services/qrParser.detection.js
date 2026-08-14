@@ -1,7 +1,6 @@
 import { normalizeRaw, toText } from './qrParser.shared.js'
 import {
   isLikelyAayraSlashRaw,
-  isLikelyAayraTabRaw,
   isLikelyAdinathRaw,
   isLikelyUtsavRaw,
   isLikelyVenzoraRaw,
@@ -121,7 +120,7 @@ const detectSupplier = (rawQRString, suppliers = []) => {
     const supplierCode = toText(supplier?.code)?.toLowerCase()
     return supplierName === 'aayra' || supplierCode === 'aayra'
   })
-  if (aayraMatch && (isLikelyAayraSlashRaw(raw) || isLikelyAayraTabRaw(raw))) {
+  if (aayraMatch && isLikelyAayraSlashRaw(raw)) {
     return { supplier: aayraMatch, matchType: 'structural' }
   }
 
@@ -138,5 +137,8 @@ const detectSupplier = (rawQRString, suppliers = []) => {
 }
 
 export { detectSupplier, getDetectionToken, matchesContains, matchesPrefix, matchesRegex }
+
+
+
 
 

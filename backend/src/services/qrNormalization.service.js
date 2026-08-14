@@ -119,10 +119,13 @@ const buildDisplayContract = ({
 }) => {
   const calculationBreakdown = cloneValue(parsedResult?.calculationBreakdown ?? null)
   const warnings = collectWarningTexts(parsedResult, calculationBreakdown)
+  const resolvedBreakdownOtherWeight = normalizeNull(
+    parseWeight(calculationBreakdown?.otherWeight?.value ?? calculationBreakdown?.otherWeight ?? otherWeight)
+  )
   const computedNetWeight = normalizeNull(
     parseWeight(calculationBreakdown?.computedNetWeight) ??
       (grossWeight !== null && stoneWeight !== null
-        ? parseWeight(grossWeight - stoneWeight - (otherWeight ?? 0))
+        ? parseWeight(grossWeight - stoneWeight - (resolvedBreakdownOtherWeight ?? 0))
         : null)
   )
   const selectedNetWeight = normalizeNull(
@@ -169,7 +172,7 @@ const buildDisplayContract = ({
     grossWeight: normalizeNull(parseWeight(grossWeight)),
     stoneWeight: normalizeNull(parseWeight(stoneWeight)),
     stoneComponents: stoneComponentDisplay,
-    otherWeight: normalizeNull(parseWeight(otherWeight)),
+    otherWeight: resolvedBreakdownOtherWeight,
     qrNetWeight,
     computedNetWeight,
     selectedNetWeight,
@@ -186,6 +189,8 @@ const buildDisplayContract = ({
     mismatch: normalizeNull(parseWeight(mismatch)),
     tolerance: normalizeNull(parseWeight(tolerance)),
     explanation: calculationExplanation,
+    reconciliationStatus: toText(calculationBreakdown?.reconciliationStatus) || null,
+    reconciliationProof: cloneValue(calculationBreakdown?.reconciliationProof ?? null),
   }
 
   return {
@@ -203,6 +208,7 @@ const buildDisplayContract = ({
 const normalize = (parsedResult, supplier) => {
   const confidenceValue = normalizeConfidence(parsedResult?.confidence)
   const rawText = toText(parsedResult?.raw)
+  const calculationBreakdown = cloneValue(parsedResult?.calculationBreakdown ?? null)
   const supplierName = resolveSupplierName(parsedResult, supplier).toUpperCase()
   const aadinathFallback = supplierName.includes('AADINATH') ? extractAadinathFallback(rawText) : {}
   const utsavFallback = supplierName.includes('UTSAV') ? extractUtsavFallback(rawText) : {}
@@ -268,7 +274,7 @@ const normalize = (parsedResult, supplier) => {
     design_code: normalizeNull(designCode),
     gross_weight: grossWeight,
     stone_weight: stoneWeight,
-    other_weight: otherWeight,
+    other_weight: normalizeNull(parseWeight(calculationBreakdown?.otherWeight?.value ?? calculationBreakdown?.otherWeight ?? otherWeight)),
     net_weight: netWeight,
     purityPercent: resolvedPurityPercent,
     purity_percent: resolvedPurityPercent,
@@ -288,3 +294,7 @@ const normalize = (parsedResult, supplier) => {
 }
 
 export { normalize }
+
+
+
+
