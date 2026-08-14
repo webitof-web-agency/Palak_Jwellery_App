@@ -218,46 +218,12 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
     const stoneComponent1 = stoneRaw
     const stoneComponent2 = colourStoneRaw
     const otherComponent1 = otherDeductionRaw
+    const tolerance = 0.02
 
     if (grossRaw === null) {
       errors.push({ field: 'grossWeight', reason: 'GWT is missing' })
     } else {
       fields.grossWeight = { value: grossRaw, parsed: true }
-    }
-
-    if (stoneRaw !== null && stoneComponent1 === null) {
-      errors.push({ field: 'stoneWeight', reason: `Expected number for SWT, got '${stoneRaw}'` })
-    }
-
-    if (colourStoneRaw !== null && stoneComponent2 === null) {
-      errors.push({ field: 'colorStoneWeight', reason: `Expected number for CL, got '${colourStoneRaw}'` })
-    }
-
-    if (otherDeductionRaw !== null && otherComponent1 === null) {
-      errors.push({ field: 'otherWeight', reason: `Expected number for MZ, got '${otherDeductionRaw}'` })
-    }
-
-    if (stoneComponent1 !== null) {
-      fields.stoneWeight = { value: stoneComponent1, parsed: true }
-      fields.meta.stoneComponent1 = { value: stoneComponent1, parsed: true }
-    }
-
-    const otherWeightValue = [stoneComponent2, otherComponent1]
-      .filter((value) => value !== null)
-      .reduce((sum, value) => sum + value, 0)
-    if (stoneComponent2 !== null || otherComponent1 !== null) {
-      fields.otherWeight = { value: Math.round(otherWeightValue * 1000) / 1000, parsed: true }
-      fields.meta.colorStoneWeight = { value: stoneComponent2, parsed: stoneComponent2 !== null }
-      fields.meta.otherWeightComponent = { value: otherComponent1, parsed: otherComponent1 !== null }
-    }
-
-    if (netRaw !== null) {
-      fields.netWeight = { value: netRaw, parsed: true }
-    } else if (grossRaw !== null) {
-      const stone1 = stoneComponent1 ?? 0
-      const stone2 = stoneComponent2 ?? 0
-      const otherWeight = otherComponent1 ?? 0
-      fields.netWeight = { value: Math.round((grossRaw - stone1 - stone2 - otherWeight) * 1000) / 1000, parsed: true }
     }
 
     if (itemCodeRaw) {
@@ -272,28 +238,86 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       fields.supplierCode = { value: supplierCodeRaw, parsed: true }
     }
 
-    const grossWeightValue = grossRaw === null ? null : toNumber(grossRaw)
-    const qrNetValue = netRaw === null ? null : toNumber(netRaw)
-    const computedNetWeight =
-      grossWeightValue !== null
-        ? Math.round((grossWeightValue - (stoneComponent1 ?? 0) - (stoneComponent2 ?? 0) - (otherComponent1 ?? 0)) * 1000) / 1000
-        : null
-    const mismatch =
-      computedNetWeight !== null && qrNetValue !== null
-        ? Math.abs(Number((computedNetWeight - qrNetValue).toFixed(3)))
-        : null
-    const tolerance = 0.02
-    const requiresReview = mismatch !== null && mismatch > tolerance
-    const warnings = []
-
-    if (requiresReview) {
-      warnings.push('Net weight mismatch beyond tolerance')
+    if (stoneComponent1 !== null) {
+      fields.meta.stoneComponent1 = { value: stoneComponent1, parsed: true }
     }
+    if (stoneComponent2 !== null) {
+      fields.meta.colorStoneWeight = { value: stoneComponent2, parsed: true }
+    }
+    if (otherComponent1 !== null) {
+      fields.meta.otherWeightComponent = { value: otherComponent1, parsed: true }
+    }
+
+    const knownPrefixMatchers = [
+      buildPrefixMatcher('GWT-'),
+      buildPrefixMatcher('NWT-'),
+      buildPrefixMatcher('SWT-'),
+      buildPrefixMatcher('CL-'),
+      buildPrefixMatcher('MZ-'),
+    ]
+    const isKnownPrefixedToken = (token) => knownPrefixMatchers.some((matcher) => matcher.test(token))
+    const unknownWeightCandidates = tokens
+      .filter((token, index) => index !== 0 && token.toUpperCase() !== 'USV' && !isKnownPrefixedToken(token))
+      .map((token) => {
+        const match =
+          token.match(/^([A-Z]{2,16})\s*-\s*([+-]?\d+(?:\.\d+)?)$/i) ||
+          token.match(/^([A-Z]{2,16})\s+([+-]?\d+(?:\.\d+)?)$/i)
+        if (!match) return null
+        const parsed = toNumber(match[2])
+        if (parsed === null) return null
+        const value = Math.abs(parsed)
+        if (grossRaw !== null && value > grossRaw + tolerance) return null
+        return {
+          token,
+          label: match[1].toUpperCase(),
+          value,
+        }
+      })
+      .filter((value) => value !== null)
+
+    const explicitOtherWeight = Math.round(((stoneComponent2 ?? 0) + (otherComponent1 ?? 0)) * 1000) / 1000
+    const snapshot = calculateSettlementSnapshot({
+      grossWeight: grossRaw,
+      stoneWeight: stoneComponent1 ?? 0,
+      otherWeight: explicitOtherWeight,
+      qrNetWeight: netRaw,
+      purityPercent: 0,
+      wastagePercent: 0,
+      tolerance,
+      unmatchedValues: unknownWeightCandidates.map((candidate) => candidate.value),
+    })
+
+    fields.stoneWeight = {
+      value: snapshot.stoneWeight ?? 0,
+      parsed: snapshot.stoneWeight !== null,
+    }
+    fields.otherWeight = {
+      value: snapshot.otherWeight ?? 0,
+      parsed: snapshot.otherWeight !== null,
+    }
+    fields.netWeight = {
+      value: snapshot.qrNetWeight ?? snapshot.selectedNetWeight ?? snapshot.computedNetWeight,
+      parsed:
+        snapshot.qrNetWeight !== null ||
+        snapshot.selectedNetWeight !== null ||
+        snapshot.computedNetWeight !== null,
+    }
+
+    if (unknownWeightCandidates.length > 0) {
+      fields.meta.unmatchedWeightCandidates = { value: unknownWeightCandidates, parsed: true }
+    }
+    fields.meta.reconciliationStatus = { value: snapshot.reconciliationStatus, parsed: true }
+    fields.meta.reconciliationProof = { value: snapshot.reconciliationProof, parsed: true }
+
+    const mismatch =
+      snapshot.computedNetWeight !== null && snapshot.qrNetWeight !== null
+        ? Math.abs(Number((snapshot.computedNetWeight - snapshot.qrNetWeight).toFixed(3)))
+        : null
 
     const calculationBreakdown = {
       rawQr: raw,
-      grossWeight: grossWeightValue,
-      stoneWeight: stoneComponent1 === null ? null : Math.round(stoneComponent1 * 1000) / 1000,
+      grossWeight: snapshot.grossWeight,
+      stoneWeight: snapshot.stoneWeight,
       stoneComponents: [
         {
           sourceField: 'SWT-',
@@ -302,10 +326,14 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
         },
       ].filter((component) => component.value !== null),
       otherWeight: {
-        sourceField: stoneComponent2 !== null || otherComponent1 !== null ? 'CL-/MZ-' : null,
-        value: stoneComponent2 === null && otherComponent1 === null
-          ? null
-          : Math.round(((stoneComponent2 ?? 0) + (otherComponent1 ?? 0)) * 1000) / 1000,
+        sourceField:
+          snapshot.reconciliationStatus === 'reconciled_unmatched' ||
+          snapshot.reconciliationStatus === 'inferred_remaining'
+            ? 'reconciled'
+            : stoneComponent2 !== null || otherComponent1 !== null
+              ? 'CL-/MZ-'
+              : null,
+        value: snapshot.otherWeight,
       },
       otherComponents: [
         {
@@ -318,18 +346,26 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
           label: 'Other Deduction',
           value: otherComponent1,
         },
+        ...unknownWeightCandidates.map((candidate) => ({
+          sourceField: candidate.label,
+          label: `${candidate.label} deduction candidate`,
+          value: candidate.value,
+        })),
       ].filter((component) => component.value !== null),
-      qrNetWeight: qrNetValue,
-      computedNetWeight,
-      selectedNetWeight: computedNetWeight ?? qrNetValue,
-      netFormula: 'computedNetWeight = grossWeight - stone weight - other deduction',
+      qrNetWeight: snapshot.qrNetWeight,
+      computedNetWeight: snapshot.computedNetWeight,
+      selectedNetWeight: snapshot.selectedNetWeight,
+      netFormula: 'netWeight = grossWeight - stoneWeight - otherWeight',
       mismatch,
       tolerance,
-      warnings,
-      requiresReview,
+      warnings: snapshot.warnings,
+      requiresReview: snapshot.requiresReview,
+      reconciliationStatus: snapshot.reconciliationStatus,
+      reconciliationProof: snapshot.reconciliationProof,
       calculationExplanation: {
-        netFormula: 'computedNetWeight = grossWeight - stone weight - other deduction',
+        netFormula: 'netWeight = grossWeight - stoneWeight - otherWeight',
         fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+        reconciliationStatus: snapshot.reconciliationStatus,
       },
     }
 
@@ -1026,6 +1062,8 @@ export {
   resolveFieldConfig,
   runParserByStrategy,
 }
+
+
 
 
 
