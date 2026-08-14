@@ -69,13 +69,27 @@ List<String> _scanSessionExplicitWarningLabels(ScannedSessionItem item) {
   return labels;
 }
 
+List<String> _scanSessionDedupeWarningLabels(Iterable<String> labels) {
+  final seen = <String>{};
+  final unique = <String>[];
+  for (final label in labels) {
+    final normalized = _scanSessionNormalizeText(label);
+    if (normalized.isEmpty || !seen.add(normalized)) {
+      continue;
+    }
+    unique.add(label);
+  }
+  return List.unmodifiable(unique);
+}
+
 List<String> _scanSessionAdditionalWarningLabels(ScannedSessionItem item) {
   final explicit = _scanSessionExplicitWarningLabels(item)
       .map(_scanSessionNormalizeText)
       .toSet();
-  return _scanSessionSplitDisplayWarningLabels(item.warningLabel)
-      .where((label) => !explicit.contains(_scanSessionNormalizeText(label)))
-      .toList(growable: false);
+  return _scanSessionDedupeWarningLabels(
+    _scanSessionSplitDisplayWarningLabels(item.warningLabel)
+        .where((label) => !explicit.contains(_scanSessionNormalizeText(label))),
+  );
 }
 SupplierModel? _scanSessionSupplierModelFor(
   _ScanSessionScreenState state,
@@ -786,10 +800,11 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
     parseResult: parsed,
   );
 
-  final warningLabels = <String>[
+  final warningLabels = _scanSessionDedupeWarningLabels([
     ..._scanSessionExplicitWarningLabels(item),
     ..._scanSessionAdditionalWarningLabels(item),
-  ];
+  ]);
+  final isDuplicateWarning = item.isDuplicate;
   final shouldWarn = warningLabels.isNotEmpty;
   if (shouldWarn) {
 
@@ -817,8 +832,15 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceAlt,
+                  color: isDuplicateWarning
+                      ? Colors.amberAccent.withValues(alpha: 0.40)
+                      : AppColors.surfaceAlt,
                   borderRadius: BorderRadius.circular(4),
+                  border: isDuplicateWarning
+                      ? Border.all(
+                          color: Colors.amber.shade800,
+                        )
+                      : null,
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -827,7 +849,9 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                       child: SelectableText(
                         item.rawQr ?? '',
                         style: TextStyle(
-                          color: AppColors.textSecondary,
+                          color: isDuplicateWarning
+                              ? Colors.amber.shade900
+                              : AppColors.textSecondary,
                           fontSize: 10,
                           fontFamily: 'monospace',
                         ),
@@ -851,7 +875,9 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                         child: Icon(
                           Icons.copy,
                           size: 14,
-                          color: AppColors.textSecondary,
+                          color: isDuplicateWarning
+                              ? Colors.amber.shade900
+                              : AppColors.textSecondary,
                         ),
                       ),
                     ),
@@ -1144,6 +1170,10 @@ Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
     );
   });
 }
+
+
+
+
 
 
 

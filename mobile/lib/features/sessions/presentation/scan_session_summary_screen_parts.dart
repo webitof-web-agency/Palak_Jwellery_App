@@ -83,13 +83,27 @@ List<String> _summaryExplicitWarningLabels(ScannedSessionItem item) {
   return labels;
 }
 
+List<String> _summaryDedupeWarningLabels(Iterable<String> labels) {
+  final seen = <String>{};
+  final unique = <String>[];
+  for (final label in labels) {
+    final normalized = label.trim().toLowerCase();
+    if (normalized.isEmpty || !seen.add(normalized)) {
+      continue;
+    }
+    unique.add(label);
+  }
+  return List.unmodifiable(unique);
+}
+
 List<String> _summaryAdditionalWarningLabels(ScannedSessionItem item) {
   final explicit = _summaryExplicitWarningLabels(item)
       .map((label) => label.trim().toLowerCase())
       .toSet();
-  return _summarySplitDisplayWarningLabels(item.warningLabel)
-      .where((label) => !explicit.contains(label.trim().toLowerCase()))
-      .toList(growable: false);
+  return _summaryDedupeWarningLabels(
+    _summarySplitDisplayWarningLabels(item.warningLabel)
+        .where((label) => !explicit.contains(label.trim().toLowerCase())),
+  );
 }
 
 
