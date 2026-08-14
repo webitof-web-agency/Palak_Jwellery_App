@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/system/backend_status.dart';
@@ -28,11 +31,13 @@ import 'features/sessions/presentation/sales_scans_screen.dart';
 import 'features/sessions/presentation/scan_session_screen.dart';
 import 'features/sessions/presentation/scan_session_summary_screen.dart';
 import 'shared/navigation/app_route_observer.dart';
+import 'shared/navigation/app_route_resume_store.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/backend_fallback_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppRouteResumeStore(const FlutterSecureStorage()).load();
   final savedPreset = await ThemePreferences.loadPreset();
   if (savedPreset != null) {
     activePreset = savedPreset;
@@ -42,10 +47,11 @@ Future<void> main() async {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authSession = ref.watch(authSessionProvider);
+  final routeResumeStore = AppRouteResumeStore(const FlutterSecureStorage());
 
-  return GoRouter(
+  final router = GoRouter(
     observers: [appRouteObserver],
-    initialLocation: '/login',
+    initialLocation: AppRouteResumeStore.currentRoute ?? '/login',
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
@@ -195,12 +201,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isLoginRoute || location == '/') {
-        return '/dashboard';
+        return AppRouteResumeStore.currentRoute ?? '/dashboard';
       }
 
       return null;
     },
   );
+
+  void persistCurrentRoute() {
+    final location = router.routeInformationProvider.value.uri.toString();
+    unawaited(routeResumeStore.save(location));
+  }
+
+  router.routeInformationProvider.addListener(persistCurrentRoute);
+  ref.onDispose(() {
+    router.routeInformationProvider.removeListener(persistCurrentRoute);
+  });
+
+  return router;
 });
 
 class JewelleryApp extends ConsumerWidget {
@@ -264,6 +282,8 @@ class _BootScreen extends StatelessWidget {
     );
   }
 }
+
+
 
 
 
