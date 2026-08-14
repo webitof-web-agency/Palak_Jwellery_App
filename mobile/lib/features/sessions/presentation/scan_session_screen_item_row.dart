@@ -58,6 +58,8 @@ class _ScannedItemCard extends StatelessWidget {
     ];
     final detailLine = lineParts.join(' | ');
 
+    final extraWarningLabels = _scanSessionAdditionalWarningLabels(item);
+
     final topBadges = <Widget>[
       if (item.isDuplicate)
         const AppBadge(
@@ -94,13 +96,14 @@ class _ScannedItemCard extends StatelessWidget {
           icon: Icons.scale_rounded,
           compact: true,
         ),
-      if (item.warningLabel != null && !(item.isDuplicate && item.warningLabel!.toLowerCase().contains('duplicate')))
-        AppBadge(
-          label: _scanSessionDisplayWarningLabel(item.warningLabel!),
+      ...extraWarningLabels.map(
+        (label) => AppBadge(
+          label: label,
           tone: AppBadgeTone.warning,
           icon: Icons.warning_amber_rounded,
           compact: true,
         ),
+      ),
       if (item.hasPurityOverride)
         const AppBadge(
           label: 'Custom Purity',
@@ -315,6 +318,9 @@ class _RawQrExpandableState extends State<_RawQrExpandable> {
     );
   }
 }
+
+
+
 
 
 

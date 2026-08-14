@@ -43,8 +43,40 @@ String _scanSessionDisplayWarningLabel(String label) {
   return '${compact.substring(0, 25).trimRight()}...';
 }
 
+List<String> _scanSessionSplitDisplayWarningLabels(String? warningLabel) {
+  if (warningLabel == null || warningLabel.trim().isEmpty) {
+    return const <String>[];
+  }
 
+  final labels = <String>[];
+  for (final rawLabel in warningLabel.split(';')) {
+    final display = _scanSessionDisplayWarningLabel(rawLabel);
+    if (display.isEmpty || labels.contains(display)) {
+      continue;
+    }
+    labels.add(display);
+  }
+  return labels;
+}
 
+List<String> _scanSessionExplicitWarningLabels(ScannedSessionItem item) {
+  final labels = <String>[];
+  if (item.isDuplicate) labels.add('Duplicate item');
+  if (item.hasSupplierMismatch) labels.add('Supplier mismatch');
+  if (item.requiresReview) labels.add('Needs review');
+  if (item.hasKaratMismatch) labels.add('QR Karat Mismatch');
+  if (item.hasWeightMismatch) labels.add('Weight mismatch');
+  return labels;
+}
+
+List<String> _scanSessionAdditionalWarningLabels(ScannedSessionItem item) {
+  final explicit = _scanSessionExplicitWarningLabels(item)
+      .map(_scanSessionNormalizeText)
+      .toSet();
+  return _scanSessionSplitDisplayWarningLabels(item.warningLabel)
+      .where((label) => !explicit.contains(_scanSessionNormalizeText(label)))
+      .toList(growable: false);
+}
 SupplierModel? _scanSessionSupplierModelFor(
   _ScanSessionScreenState state,
   String? supplier,
@@ -754,15 +786,12 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
     parseResult: parsed,
   );
 
-  final shouldWarn =
-      item.isDuplicate || item.hasSupplierMismatch || item.requiresReview || item.warningLabel != null;
+  final warningLabels = <String>[
+    ..._scanSessionExplicitWarningLabels(item),
+    ..._scanSessionAdditionalWarningLabels(item),
+  ];
+  final shouldWarn = warningLabels.isNotEmpty;
   if (shouldWarn) {
-    final warnings = <String>[
-      if (item.isDuplicate) 'This item already exists in this session.',
-      if (item.hasSupplierMismatch) 'This scan belongs to a different supplier.',
-      if (item.requiresReview) 'Net mismatch requires review.',
-      if (item.warningLabel != null && item.warningLabel!.trim().isNotEmpty) item.warningLabel!.trim(),
-    ];
 
     final keepItem = await showDialog<bool>(
       context: state.context,
@@ -776,10 +805,10 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
             children: [
               const Text('This scan has warnings. Choose whether to keep it in the session.'),
               const SizedBox(height: 12),
-              ...warnings.map(
+              ...warningLabels.map(
                 (warning) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
-                  child: Text('- ${_scanSessionDisplayWarningLabel(warning)}'),
+                  child: Text('- $warning'),
                 ),
               ),
               const SizedBox(height: 16),
@@ -1115,6 +1144,12 @@ Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
     );
   });
 }
+
+
+
+
+
+
 
 
 

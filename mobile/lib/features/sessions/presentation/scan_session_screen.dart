@@ -151,6 +151,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     );
     if (confirmed == true && mounted) {
       _scanSessionDiscardDraft(this);
+      if (!mounted) return;
       if (widget.resumeSummary != null) {
         context.go('/sales-scans/${widget.resumeSummary!.sessionId}');
       } else {

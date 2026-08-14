@@ -28,6 +28,14 @@ const addWarning = (warnings, message) => {
   }
 }
 
+const INFORMATIONAL_RECONCILIATION_WARNINGS = new Set([
+  'Other Weight detected from QR reconciliation',
+  'Other Weight inferred to match QR net',
+])
+
+const hasReviewWarnings = (warnings = []) =>
+  warnings.some((warning) => !INFORMATIONAL_RECONCILIATION_WARNINGS.has(toText(warning)))
+
 const reconcileWeightEquation = ({
   grossWeight,
   stoneWeight,
@@ -116,7 +124,7 @@ const reconcileWeightEquation = ({
     addWarning(warnings, 'QR net weight differs from computed net weight beyond tolerance')
   }
 
-  const requiresReview = warnings.length > 0 || reconciliationStatus === 'review'
+  const requiresReview = reconciliationStatus === 'review' || hasReviewWarnings(warnings)
 
   return {
     grossWeight: gross,
@@ -245,7 +253,7 @@ const calculateSettlementSnapshot = ({
     ? null
     : roundWeight((reconciliation.selectedNetWeight ?? reconciliation.computedNetWeight ?? 0) * (settlementPercent / 100))
 
-  const requiresReview = warnings.length > 0 || reconciliation.requiresReview
+  const requiresReview = reconciliation.requiresReview || hasReviewWarnings(warnings)
 
   return {
     grossWeight: reconciliation.grossWeight,
@@ -340,7 +348,7 @@ const calculateYugWeightBreakdown = ({
     matchedUnmatchedValue: reconciliation.matchedUnmatchedValue,
     tolerance: effectiveTolerance,
     warnings: combinedWarnings,
-    requiresReview: combinedWarnings.length > 0 || reconciliation.requiresReview,
+    requiresReview: reconciliation.requiresReview || hasReviewWarnings(combinedWarnings),
     reconciliationStatus: reconciliation.reconciliationStatus,
     reconciliationProof: reconciliation.reconciliationProof,
     calculationExplanation: {
@@ -361,3 +369,4 @@ export {
   reconcileWeightEquation,
   validateQrNetWeight,
 }
+

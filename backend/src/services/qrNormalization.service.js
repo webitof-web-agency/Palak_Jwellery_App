@@ -200,10 +200,18 @@ const buildDisplayContract = ({
     amounts: amountsDisplay,
     calculation: calculationDisplay,
     warnings,
-    requiresReview: Boolean(calculationBreakdown?.requiresReview || warnings.length > 0),
+    requiresReview: Boolean(calculationBreakdown?.requiresReview || hasDisplayReviewWarnings(warnings)),
     rawQr: rawText,
   }
 }
+
+const INFORMATIONAL_RECONCILIATION_WARNINGS = new Set([
+  'Other Weight detected from QR reconciliation',
+  'Other Weight inferred to match QR net',
+])
+
+const hasDisplayReviewWarnings = (warnings = []) =>
+  warnings.some((warning) => !INFORMATIONAL_RECONCILIATION_WARNINGS.has(toText(warning)))
 
 const normalize = (parsedResult, supplier) => {
   const confidenceValue = normalizeConfidence(parsedResult?.confidence)
@@ -294,6 +302,7 @@ const normalize = (parsedResult, supplier) => {
 }
 
 export { normalize }
+
 
 
 

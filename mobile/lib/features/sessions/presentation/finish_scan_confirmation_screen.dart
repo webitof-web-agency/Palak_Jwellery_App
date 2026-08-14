@@ -7,6 +7,7 @@ import '../domain/scan_session_draft.dart';
 import '../domain/scan_session_summary.dart';
 import 'scan_session_summary_provider.dart';
 import 'saved_scan_sessions_provider.dart';
+import 'active_scan_session_draft_provider.dart';
 import '../../../shared/theme/app_theme.dart';
 import '../../../shared/theme/app_tokens.dart';
 import '../../../shared/widgets/app_action_button.dart';
@@ -94,6 +95,8 @@ class _FinishScanConfirmationScreenState
       final persistedSummary =
           await ref.read(savedScanSessionsProvider.notifier).syncSingleSession(summary);
       ref.read(scanSessionSummaryProvider.notifier).setSummary(persistedSummary);
+      await ref.read(activeScanSessionDraftStoreProvider).clear();
+      ref.invalidate(activeScanSessionDraftProvider);
       if (!mounted) {
         return;
       }
@@ -558,6 +561,7 @@ class _FinishScanConfirmationScreenState
     );
   }
 }
+
 
 
 

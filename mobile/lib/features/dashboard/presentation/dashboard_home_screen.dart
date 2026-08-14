@@ -1,9 +1,10 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_notifier.dart';
+import '../../sessions/presentation/active_scan_session_draft_provider.dart';
 import '../../sessions/presentation/saved_scan_sessions_provider.dart';
 import '../../../shared/constants/app_brand.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -179,6 +180,7 @@ class DashboardHomeScreen extends ConsumerWidget {
     ref.watch(themeControllerProvider);
     ref.watch(savedScanSessionsProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
+    final activeDraft = ref.watch(activeScanSessionDraftProvider).maybeWhen(data: (value) => value, orElse: () => null);
     final pendingCount = ref.read(savedScanSessionsProvider.notifier).pendingSyncCount();
 
     final allSessions = ref.watch(savedScanSessionsProvider).value ?? [];
@@ -317,6 +319,17 @@ class DashboardHomeScreen extends ConsumerWidget {
                     expanded: true,
                     height: 54,
                   ),
+                  if (activeDraft != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    AppActionButton(
+                      label: 'Continue Draft',
+                      onPressed: () => context.push('/scan-session'),
+                      icon: Icons.restore_rounded,
+                      variant: AppActionButtonVariant.secondary,
+                      expanded: true,
+                      height: 52,
+                    ),
+                  ],
                   const SizedBox(height: AppSpacing.sm),
                   AppActionButton(
                     label: 'My Sessions / Scans',
@@ -421,6 +434,9 @@ class DashboardHomeScreen extends ConsumerWidget {
     );
   }
 }
+
+
+
 
 
 

@@ -57,6 +57,41 @@ String _scanSessionDisplayWarningLabel(String label) {
   return '${compact.substring(0, 25).trimRight()}...';
 }
 
+List<String> _summarySplitDisplayWarningLabels(String? warningLabel) {
+  if (warningLabel == null || warningLabel.trim().isEmpty) {
+    return const <String>[];
+  }
+
+  final labels = <String>[];
+  for (final rawLabel in warningLabel.split(';')) {
+    final display = _scanSessionDisplayWarningLabel(rawLabel);
+    if (display.isEmpty || labels.contains(display)) {
+      continue;
+    }
+    labels.add(display);
+  }
+  return labels;
+}
+
+List<String> _summaryExplicitWarningLabels(ScannedSessionItem item) {
+  final labels = <String>[];
+  if (item.isDuplicate) labels.add('Duplicate item');
+  if (item.hasSupplierMismatch) labels.add('Supplier mismatch');
+  if (item.requiresReview) labels.add('Needs review');
+  if (item.hasKaratMismatch) labels.add('QR Karat Mismatch');
+  if (item.hasWeightMismatch) labels.add('Weight mismatch');
+  return labels;
+}
+
+List<String> _summaryAdditionalWarningLabels(ScannedSessionItem item) {
+  final explicit = _summaryExplicitWarningLabels(item)
+      .map((label) => label.trim().toLowerCase())
+      .toSet();
+  return _summarySplitDisplayWarningLabels(item.warningLabel)
+      .where((label) => !explicit.contains(label.trim().toLowerCase()))
+      .toList(growable: false);
+}
+
 
 class _SummaryItemRow extends StatelessWidget {
   const _SummaryItemRow({
@@ -87,6 +122,8 @@ class _SummaryItemRow extends StatelessWidget {
       if ((item.category ?? '').trim().isNotEmpty) (item.category ?? '').trim(),
       if ((item.jewelType ?? '').trim().isNotEmpty) (item.jewelType ?? '').trim(),
     ];
+
+    final extraWarningLabels = _summaryAdditionalWarningLabels(item);
 
     final badges = <Widget>[
 
@@ -139,13 +176,14 @@ class _SummaryItemRow extends StatelessWidget {
           icon: Icons.tune_rounded,
           compact: true,
         ),
-      if (item.warningLabel != null)
-        AppBadge(
-          label: _scanSessionDisplayWarningLabel(item.warningLabel!),
+      ...extraWarningLabels.map(
+        (label) => AppBadge(
+          label: label,
           tone: AppBadgeTone.warning,
           icon: Icons.warning_amber_rounded,
           compact: true,
         ),
+      ),
     ];
 
     final stoneAmount = item.totalStoneAmount ?? item.stoneAmount;
@@ -213,6 +251,7 @@ class _SummaryItemRow extends StatelessWidget {
     );
   }
 }
+
 
 
 
