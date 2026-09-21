@@ -38,6 +38,7 @@ const defaultSuppliers = [
       fieldMap: {
         grossWeight: 3,
         stoneWeight: { sumIndices: [4, 14] },
+        otherWeight: { sumIndices: [12] },
         netWeight: 5,
         category: 7,
       },

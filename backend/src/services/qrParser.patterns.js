@@ -22,12 +22,10 @@ const ADINATH_SEGMENT_MIN = 7
 const ADINATH_TOLERANCE = 0.02
 const ADINATH_NUMERIC_PATTERN = /^-?(?:\d+(?:\.\d+)?|\.\d+)$/i
 const ADINATH_PATTERN = /\//
-const VENZORA_PATTERN = /CH-[A-Z0-9]+/i
 const VENZORA_TOKEN_PATTERNS = {
   grossWeight: /^G\d+(\.\d+)?$/,
   netWeight: /^N\d+(\.\d+)?$/,
   diamondWeight: /^L\d+(\.\d+)?$/,
-  designCode: /^CH-[A-Z0-9]+$/,
 }
 
 const normalizeStrategy = (strategy) => {
@@ -199,6 +197,12 @@ const isLikelyUtsavRaw = (raw) => {
   return hasGwt && (hasUsv || hasFullFormat)
 }
 
+// Venzora is a fixed-position format: id/karat/G../L../N../Rs../<itemCode>.
+// The trailing item code has no fixed prefix across suppliers' own numbering
+// schemes (seen in the wild as CH-, LR-, ER-, or a bare code), so detection
+// keys off the positions that ARE structurally guaranteed (id, karat, and the
+// G/L/N/Rs-prefixed weight tokens) rather than requiring any particular code
+// prefix on the trailing token.
 const isLikelyVenzoraRaw = (raw) => {
   const text = normalizeRaw(raw)
   const tokens = text.split('/').map((part) => part.trim()).filter(Boolean)
@@ -212,9 +216,11 @@ const isLikelyVenzoraRaw = (raw) => {
   const hasLessPrefix = tokens.some((token) => /^L\d+(?:\.\d+)?$/i.test(token))
   const hasNetPrefix = tokens.some((token) => /^N\d+(?:\.\d+)?$/i.test(token))
   const hasStoneAmount = tokens.some((token) => /^RS(?:\.?\d+(?:\.\d+)?)?$/i.test(token))
-  const hasDesignCode = tokens.some((token) => /^CH-[A-Z0-9]+$/i.test(token))
+  // At least one trailing token after the Rs. amount that isn't itself one of
+  // the recognized weight/amount tokens — this is the item code, whatever it says.
+  const hasTrailingItemCode = tokens.length >= 7
 
-  return hasInternalId && hasKarat && hasGrossPrefix && hasLessPrefix && hasNetPrefix && hasStoneAmount && hasDesignCode
+  return hasInternalId && hasKarat && hasGrossPrefix && hasLessPrefix && hasNetPrefix && hasStoneAmount && hasTrailingItemCode
 }
 
 // ─── Aayra detection helpers ──────────────────────────────────────────────────
@@ -283,7 +289,6 @@ const isLikelyAayraTabRaw = (raw) => {
 
 export {
   ADINATH_PATTERN,
-  VENZORA_PATTERN,
   VENZORA_TOKEN_PATTERNS,
   YUG_FALLBACK_MAPPING,
   YUG_ITEM_PATTERN,

@@ -1,0 +1,5 @@
+# Valid YUG sample with one optional column missing before the other-weight
+# field, shifting it from its configured index (12) to index 11. Proves the
+# calculation-adjusted fallback in qrParser.calculation.js resolves the
+# correct other weight (10.59) instead of silently reading the wrong column.
+2570150/237245/18K/17.31/0/6.72/0/HGB - 433/2.8/R+W/2J0T0/10.59/WHITE/0/0/0/0/33/600/10.59

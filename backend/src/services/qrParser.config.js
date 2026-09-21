@@ -76,9 +76,18 @@ const buildParserConfig = (strategy, source = {}, supplier = null) => {
     return { strategy: 'venzora' }
   }
 
-  const fallbackMapping = supplier?.code ? getDefaultParserConfig(normalizeSupplierKey(supplier)) : null
+  // Supplier codes are stored uppercase (e.g. "YUG"), but getDefaultParserConfig
+  // switches on lowercase keys — this lookup silently missed every supplier
+  // until it was lowercased here.
+  const fallbackMapping = supplier?.code
+    ? getDefaultParserConfig(toText(normalizeSupplierKey(supplier))?.toLowerCase())
+    : null
   const delimiter = toText(source.delimiter) || toText(source.symbol) || source.delimiter || fallbackMapping?.delimiter || '|'
-  const fieldMap = source.fieldMap || fallbackMapping?.fieldMap || {}
+  // Merge onto the built-in default rather than replacing it outright, so a
+  // DB-stored supplier config that's missing a key (e.g. an older Yug record
+  // saved before `otherWeight` was added) still falls back to the code-level
+  // default for that key instead of silently dropping the field.
+  const fieldMap = { ...(fallbackMapping?.fieldMap || {}), ...(source.fieldMap || {}) }
 
   return {
     strategy: 'delimiter',

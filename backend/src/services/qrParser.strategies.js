@@ -166,7 +166,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       computedNetWeight: calculationSnapshot.computedNetWeight,
       selectedNetWeight: calculationSnapshot.selectedNetWeight,
       netFormula: calculationSnapshot.calculationExplanation?.netFormula || 'computedNetWeight = grossWeight - stone components',
-      fineFormula: calculationSnapshot.calculationExplanation?.fineFormula || 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      fineFormula: calculationSnapshot.calculationExplanation?.fineFormula || 'fineWeight = netWeight ï¿½ (purityPercent + wastagePercent) / 100',
       mismatch,
       tolerance,
       warnings: calculationSnapshot.warnings,
@@ -364,7 +364,7 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       reconciliationProof: snapshot.reconciliationProof,
       calculationExplanation: {
         netFormula: 'netWeight = grossWeight - stoneWeight - otherWeight',
-        fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+        fineFormula: 'fineWeight = netWeight ï¿½ (purityPercent + wastagePercent) / 100',
         reconciliationStatus: snapshot.reconciliationStatus,
       },
     }
@@ -508,12 +508,12 @@ const parseVenzoraStrategy = (raw) => {
   const addTokenError = (field, token, reason) => {
     const message = `${field}: ${reason}`
     errors.push(message)
-    parseErrors.push({ field, reason: `${reason} (${token})` })
+    parseErrors.push({ field, reason: `${reason} (${token || ''})` })
   }
 
-  const parseStrictNumber = (token, field, pattern) => {
+  const parseStrictNumber = (token, field, pattern, expectedPrefix) => {
     if (!pattern.test(token)) {
-      addTokenError(field, token, `Invalid ${field === 'diamondWeight' ? 'L' : field === 'netWeight' ? 'N' : 'G'} token`)
+      addTokenError(field, token, `Invalid ${expectedPrefix} token`)
       return null
     }
 
@@ -527,57 +527,62 @@ const parseVenzoraStrategy = (raw) => {
     return parsed
   }
 
-  for (let index = 1; index < tokens.length; index += 1) {
-    const token = tokens[index]
-    const normalizedToken = token.toUpperCase()
+  // Venzora's token order is fixed: id/karat/G../L../N../Rs../<itemCode>.
+  // We extract by POSITION rather than by scanning every token for a
+  // matching prefix. Scanning-by-prefix is what let item codes like
+  // "LR-5691" get misrouted into the diamond-weight ("L...") branch, and it
+  // also assumed every item code starts with "CH-", which real supplier
+  // numbering (LR-, ER-, or no prefix at all) doesn't follow.
+  const karatToken = (tokens[1] || '').toUpperCase()
+  if (karatToken === '18KT') {
+    purity = '18KT'
+  } else if (karatToken) {
+    addTokenError('purity', tokens[1], 'Expected karat token (e.g. 18KT)')
+  }
 
-    if (normalizedToken === '18KT') {
-      purity = '18KT'
-      continue
+  const grossToken = (tokens[2] || '').toUpperCase()
+  if (grossToken) {
+    const parsed = parseStrictNumber(grossToken, 'grossWeight', VENZORA_TOKEN_PATTERNS.grossWeight, 'G')
+    if (parsed !== null) grossWeight = parsed
+  } else {
+    addTokenError('grossWeight', null, 'G token is missing')
+  }
+
+  const lessToken = (tokens[3] || '').toUpperCase()
+  if (lessToken) {
+    const parsed = parseStrictNumber(lessToken, 'diamondWeight', VENZORA_TOKEN_PATTERNS.diamondWeight, 'L')
+    if (parsed !== null) diamondWeight = parsed
+  } else {
+    addTokenError('diamondWeight', null, 'L token is missing')
+  }
+
+  const netToken = (tokens[4] || '').toUpperCase()
+  if (netToken) {
+    const parsed = parseStrictNumber(netToken, 'netWeight', VENZORA_TOKEN_PATTERNS.netWeight, 'N')
+    if (parsed !== null) netWeight = parsed
+  } else {
+    addTokenError('netWeight', null, 'N token is missing')
+  }
+
+  const rsToken = (tokens[5] || '').toUpperCase()
+  if (rsToken.startsWith('RS')) {
+    const rawAmount = rsToken.slice(2).trim().replace(/^\./, '')
+    const parsedAmount = rawAmount === '' ? null : Number.parseFloat(rawAmount)
+    if (Number.isFinite(parsedAmount)) {
+      stoneAmount = parsedAmount
+    } else {
+      addTokenError('stoneAmount', tokens[5], 'Invalid Rs token')
     }
+  } else if (rsToken) {
+    addTokenError('stoneAmount', tokens[5], 'Expected Rs. token')
+  }
 
-    if (normalizedToken.startsWith('RS')) {
-      const rawAmount = token.slice(2).trim().replace(/^\./, '')
-      const parsedAmount = rawAmount === '' ? null : Number.parseFloat(rawAmount)
-      if (Number.isFinite(parsedAmount)) {
-        stoneAmount = parsedAmount
-      } else {
-        addTokenError('stoneAmount', token, 'Invalid Rs token')
-      }
-      continue
-    }
-
-    if (normalizedToken.startsWith('CH-')) {
-      if (!VENZORA_TOKEN_PATTERNS.designCode.test(normalizedToken)) {
-        addTokenError('designCode', token, 'Invalid CH token')
-      } else {
-        designCode = normalizedToken
-      }
-      continue
-    }
-
-    if (normalizedToken.startsWith('G')) {
-      const parsed = parseStrictNumber(normalizedToken, 'grossWeight', VENZORA_TOKEN_PATTERNS.grossWeight)
-      if (parsed !== null) {
-        grossWeight = parsed
-      }
-      continue
-    }
-
-    if (normalizedToken.startsWith('N')) {
-      const parsed = parseStrictNumber(normalizedToken, 'netWeight', VENZORA_TOKEN_PATTERNS.netWeight)
-      if (parsed !== null) {
-        netWeight = parsed
-      }
-      continue
-    }
-
-    if (normalizedToken.startsWith('L')) {
-      const parsed = parseStrictNumber(normalizedToken, 'diamondWeight', VENZORA_TOKEN_PATTERNS.diamondWeight)
-      if (parsed !== null) {
-        diamondWeight = parsed
-      }
-      continue
+  // Whatever remains after the Rs. token is the item/design code, verbatim â€”
+  // no prefix requirement. Suppliers use their own scheme (CH-, LR-, ER-, ...).
+  if (tokens.length > 6) {
+    const codeText = tokens.slice(6).join('/').trim()
+    if (codeText) {
+      designCode = codeText.toUpperCase()
     }
   }
 
@@ -605,14 +610,9 @@ const parseVenzoraStrategy = (raw) => {
     fields.meta.designCode = { value: designCode, parsed: true }
   }
 
-  if (grossWeight === null) {
-    errors.push('Gross weight is missing')
-    parseErrors.push({ field: 'grossWeight', reason: 'G is missing' })
-  }
-
   if (!designCode) {
-    errors.push('Design code is missing')
-    parseErrors.push({ field: 'designCode', reason: 'CH is missing' })
+    errors.push('Design/item code is missing')
+    parseErrors.push({ field: 'designCode', reason: 'No trailing item code token found' })
   }
 
   const tolerance = 0.02
@@ -651,14 +651,14 @@ const parseVenzoraStrategy = (raw) => {
     selectedNetWeight: computedNetWeight ?? netWeight,
     stoneAmount,
     netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-    fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+    fineFormula: 'fineWeight = netWeight ï¿½ (purityPercent + wastagePercent) / 100',
     mismatch,
     tolerance,
     warnings,
       requiresReview,
     calculationExplanation: {
       netFormula: 'computedNetWeight = grossWeight - stoneWeight',
-      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      fineFormula: 'fineWeight = netWeight ï¿½ (purityPercent + wastagePercent) / 100',
       explanation: 'Venzora net is validated from gross minus less/stone weight.',
     },
   }
@@ -834,7 +834,7 @@ const parseKeyValueStrategy = (raw) => {
 }
 
 /**
- * Aayra QR parser — handles both slash-token and tab-separated formats.
+ * Aayra QR parser ï¿½ handles both slash-token and tab-separated formats.
  *
  * Slash format (positional, 5 tokens):
  *   <itemCode>/<grossToken>/<stoneToken>/<netToken>/<optionalRef>
@@ -845,7 +845,7 @@ const parseKeyValueStrategy = (raw) => {
  *   e.g. 00002416\tNMLR18 B0019\t2.586\t0.000\t2.586
  *
  * Key rules:
- * - Parser never throws — errors accumulate, partial result always returned.
+ * - Parser never throws ï¿½ errors accumulate, partial result always returned.
  * - Token/field 4 (slash) or field 0 (tab) stored in meta only, not validated.
  * - computedNetWeight = grossWeight - stoneWeight; mismatch > 0.02g ? requiresReview.
  * - otherAmount is a separate amount bucket, not making charge.
@@ -900,7 +900,7 @@ const parseAayraStrategy = (raw) => {
       computedNetWeight: snapshot.computedNetWeight,
       selectedNetWeight: snapshot.selectedNetWeight,
       netFormula: 'computedNetWeight = grossWeight - stoneWeight - otherWeight',
-      fineFormula: 'fineWeight = netWeight × (purityPercent + wastagePercent) / 100',
+      fineFormula: 'fineWeight = netWeight ï¿½ (purityPercent + wastagePercent) / 100',
       mismatch,
       tolerance,
       warnings: snapshot.warnings,

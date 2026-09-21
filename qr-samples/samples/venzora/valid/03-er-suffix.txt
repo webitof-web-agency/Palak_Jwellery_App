@@ -1,0 +1,3 @@
+# Valid Venzora sample with an ER- item code instead of CH-
+# (real scanned sample — item codes are supplier-numbering, not a fixed CH- prefix)
+c01733/18KT/G3.540/L0.071/N3.469/Rs0.0/ER-673

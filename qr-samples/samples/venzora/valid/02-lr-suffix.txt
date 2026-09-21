@@ -1,0 +1,3 @@
+# Valid Venzora sample with an LR- item code instead of CH-
+# (real scanned sample — item codes are supplier-numbering, not a fixed CH- prefix)
+6888be/18KT/G1.700/L0.128/N1.572/Rs.1/LR-5691

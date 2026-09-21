@@ -13,6 +13,7 @@ import {
 } from './qrParser.patterns.js'
 import { calculateYugWeightBreakdown } from './settlementCalculation.service.js'
 import { getQrNetTolerance } from './supplierBusinessSettings.service.js'
+import { resolveYugWeightsByCalculation } from './qrParser.calculation.js'
 
 export { detectSupplier }
 
@@ -37,23 +38,23 @@ const resolveSupplierContext = (input = null) => {
   }
 }
 
-const createYugCalculationBreakdown = (raw, breakdown) => ({
+const createYugCalculationBreakdown = (raw, breakdown, resolvedWeights = null) => ({
   rawQr: raw,
   grossWeight: breakdown.grossWeight,
   stoneComponents: [
     {
-      sourceField: '[4]',
+      sourceField: `[${4 + (resolvedWeights?.offsets?.stoneComponent1 ?? 0)}]`,
       label: 'stone component 1',
       value: breakdown.ssWeight,
     },
     {
-      sourceField: '[14]',
+      sourceField: `[${14 + (resolvedWeights?.offsets?.stoneComponent2 ?? 0)}]`,
       label: 'stone component 2',
       value: breakdown.msWeight,
     },
   ],
   otherWeight: {
-    sourceField: '[12]',
+    sourceField: `[${12 + (resolvedWeights?.offsets?.otherWeight ?? 0)}]`,
     value: breakdown.otWeight,
   },
   qrNetWeight: breakdown.qrNetWeight,
@@ -62,6 +63,14 @@ const createYugCalculationBreakdown = (raw, breakdown) => ({
   netFormula: 'computedNetWeight = grossWeight - stone component 1 - stone component 2 - otherWeight',
   mismatch: breakdown.qrNetWeight === null ? null : Math.abs(Number((breakdown.computedNetWeight - breakdown.qrNetWeight).toFixed(3))),
   tolerance: breakdown.tolerance,
+  ...(resolvedWeights?.adjusted
+    ? {
+        calculationAdjusted: true,
+        calculationAdjustmentNote:
+          'Stone/other-weight columns did not reconcile against the QR net weight at their configured positions; ' +
+          `adjusted to nearby columns (offsets: ${JSON.stringify(resolvedWeights.offsets)}) that do.`,
+      }
+    : {}),
   warnings: breakdown.warnings,
   requiresReview: breakdown.requiresReview,
 })
@@ -78,19 +87,35 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   }
 
   const grossWeight = toNumeric(parts[3])
-  const stoneComponent1 = toNumeric(parts[4])
   const qrNetWeight = toNumeric(parts[5])
   const stoneAmount = toNumeric(parts[6])
   const itemCode = toText(parts[7])
   const size = toText(parts[8])
   const metalType = toText(parts[9])
   const lotCode = toText(parts[10])
-  const otherWeight = toNumeric(parts[12])
   const category = toText(parts[13])
-  const stoneComponent2 = toNumeric(parts[14])
   const karat = toText(parts[2])
   const structural = scoreYugStructuralSignature(raw)
   const tolerance = getQrNetTolerance(supplier)
+
+  // Gross/net weight are validated by the surrounding structural signature
+  // (karat/metal/color pattern positions) and never shifted. Stone/other
+  // weight columns can drift by one or two positions on item sub-types with
+  // a different optional-field count, so those are checked against the
+  // gross-minus-net identity and, only if the configured columns don't
+  // reconcile, adjusted to the nearest nearby columns that do.
+  const resolvedWeights = resolveYugWeightsByCalculation({
+    parts,
+    grossWeight,
+    netWeight: qrNetWeight,
+    stoneComponent1Index: 4,
+    stoneComponent2Index: 14,
+    otherWeightIndex: 12,
+    tolerance,
+  })
+  const stoneComponent1 = resolvedWeights.stoneComponent1
+  const stoneComponent2 = resolvedWeights.stoneComponent2
+  const otherWeight = resolvedWeights.otherWeight
 
   const breakdown = calculateYugWeightBreakdown({
     grossWeight,
@@ -126,7 +151,8 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   return {
     ...result,
     fields: mergedFields,
-    calculationBreakdown: createYugCalculationBreakdown(raw, breakdown),
+    calculationBreakdown: createYugCalculationBreakdown(raw, breakdown, resolvedWeights),
+    calculationAdjusted: resolvedWeights.adjusted,
   }
 }
 
@@ -187,7 +213,7 @@ export const parseQR = (rawQRString, supplierOrMapping) => {
       ...enrichedResult,
       pattern: {
         name: candidate?.name || null,
-        source: candidate?.source || null,
+        source: enrichedResult?.calculationAdjusted ? 'calculation-adjusted' : candidate?.source || null,
         supplier: normalizeSupplierKey(supplierForDetection),
         strategy,
       },
