@@ -475,8 +475,12 @@ const mobileSyncSession = async ({ payload = {}, actor = {} } = {}) => {
   if (existingSession && actor?.role === 'salesman' && resolveIdValue(existingSession.assignedSalesmanId) !== resolveIdValue(actor.id || actor._id)) {
     throw new MobileCaptureSessionSyncError('Insufficient permissions', 'FORBIDDEN', 403)
   }
-  if (existingSession && normalizeText(existingSession.status).toLowerCase() === 'cancelled') {
+  const existingStatus = normalizeText(existingSession?.status).toLowerCase()
+  if (existingSession && existingStatus === 'cancelled') {
     throw new MobileCaptureSessionSyncError('Cancelled sessions cannot be re-synced from mobile', 'SESSION_LOCKED', 409)
+  }
+  if (existingSession && existingStatus === 'finalized') {
+    throw new MobileCaptureSessionSyncError('Finalized sessions cannot be re-synced from mobile', 'SESSION_LOCKED', 409)
   }
 
   const salesman = await resolveSalesman(payload, actor)
@@ -559,8 +563,12 @@ const mobileSyncSession = async ({ payload = {}, actor = {} } = {}) => {
     if (actor?.role === 'salesman' && resolveIdValue(duplicateSession.assignedSalesmanId) !== resolveIdValue(actor.id || actor._id)) {
       throw new MobileCaptureSessionSyncError('Insufficient permissions', 'FORBIDDEN', 403)
     }
-    if (normalizeText(duplicateSession.status).toLowerCase() === 'cancelled') {
+    const duplicateStatus = normalizeText(duplicateSession.status).toLowerCase()
+    if (duplicateStatus === 'cancelled') {
       throw new MobileCaptureSessionSyncError('Cancelled sessions cannot be re-synced from mobile', 'SESSION_LOCKED', 409)
+    }
+    if (duplicateStatus === 'finalized') {
+      throw new MobileCaptureSessionSyncError('Finalized sessions cannot be re-synced from mobile', 'SESSION_LOCKED', 409)
     }
 
     duplicateSession.set(nextValues)

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/foundation.dart';
@@ -15,40 +17,109 @@ final savedScanSessionsStoreProvider = Provider<SavedScanSessionsStore>(
 
 final savedScanSessionsProvider =
     AsyncNotifierProvider<SavedScanSessionsNotifier, List<ScanSessionSummary>>(
-  SavedScanSessionsNotifier.new,
-);
+      SavedScanSessionsNotifier.new,
+    );
 
-final salesScansSessionsProvider = FutureProvider.autoDispose<List<ScanSessionSummary>>((ref) async {
-  final localSessions = await ref.watch(savedScanSessionsProvider.future);
-  final repository = ref.watch(captureSessionRepositoryProvider);
+final salesScansSessionsProvider =
+    FutureProvider.autoDispose<List<ScanSessionSummary>>((ref) async {
+      final localSessions = await ref.watch(savedScanSessionsProvider.future);
+      final repository = ref.watch(captureSessionRepositoryProvider);
 
-  try {
-    final remotePage = await repository.getMySessions(page: 1, limit: 100);
-    final remoteSessions = remotePage.sessions.map(_buildMergedSessionFromCaptureItem).toList(growable: false);
+      try {
+        final remotePage = await repository.getMySessions(page: 1, limit: 100);
+        final remoteById = {
+          for (final item in remotePage.sessions) item.id: item,
+        };
 
-    final localKeys = localSessions.map(_sessionMergeKey).toSet();
-    final mergedRemote = remoteSessions.where((session) => !localKeys.contains(_sessionMergeKey(session))).toList(growable: false);
+        // Sessions we already have locally: overlay the server's current status
+        // and totals rather than discarding the remote entry outright. A local
+        // row that's already synced is otherwise treated as permanently correct,
+        // so an admin-side cancel/finalize would never surface on this device.
+        final overlaidLocal = localSessions
+            .map((session) {
+              final backendId = session.backendSessionId;
+              if (backendId == null || backendId.isEmpty) return session;
+              final remote = remoteById.remove(backendId);
+              if (remote == null) return session;
+              return _overlayRemoteStatus(session, remote);
+            })
+            .toList(growable: false);
 
-    final allSessions = [...localSessions, ...mergedRemote];
-    allSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return allSessions;
-  } catch (error) {
-    debugPrint('Failed to load remote sessions for My Sales / Scans: $error');
+        final newRemoteSessions = remoteById.values
+            .map(_buildMergedSessionFromCaptureItem)
+            .toList(growable: false);
+
+        final allSessions = [...overlaidLocal, ...newRemoteSessions];
+        allSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return allSessions;
+      } catch (error) {
+        debugPrint(
+          'Failed to load remote sessions for My Sales / Scans: $error',
+        );
+      }
+
+      final fallback = [...localSessions];
+      fallback.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return fallback;
+    });
+
+/// Overlays a remote capture-session's current status/totals onto a locally
+/// cached [ScanSessionSummary], leaving item-level detail (which the list
+/// endpoint doesn't return) untouched.
+///
+/// Never overlays a session with a local edit that hasn't reached the server
+/// yet: a `pendingSync`/`syncFailed` row, or one whose `updatedAt` is newer
+/// than what the server last reported, is always more current than the list
+/// endpoint's snapshot — overlaying it would silently show stale totals next
+/// to the (correct, edited) item list until the next sync succeeds.
+ScanSessionSummary _overlayRemoteStatus(
+  ScanSessionSummary local,
+  CaptureSessionListItem remote,
+) {
+  if (local.syncStatus != ScanSessionSyncStatus.synced) {
+    return local;
+  }
+  final remoteUpdatedAt = remote.updatedAt;
+  if (remoteUpdatedAt != null && local.updatedAt.isAfter(remoteUpdatedAt)) {
+    return local;
   }
 
-  final fallback = [...localSessions];
-  fallback.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  return fallback;
-});
+  if (local.status == remote.status &&
+      local.totalItems == remote.itemCount &&
+      local.totalGrossWeight == remote.totals.grossWeight &&
+      local.totalNetWeight == remote.totals.netWeight) {
+    return local;
+  }
+
+  return local.copyWith(
+    status: remote.status,
+    totalItems: remote.itemCount,
+    totalGrossWeight: remote.totals.grossWeight,
+    totalStoneWeight: remote.totals.stoneWeight,
+    totalOtherWeight: remote.totals.otherWeight,
+    totalNetWeight: remote.totals.netWeight,
+    totalFineWeight: remote.totals.fineWeight,
+    totalStoneAmount: remote.totals.stoneAmount,
+    updatedAt: remote.updatedAt ?? local.updatedAt,
+  );
+}
 
 ScanSessionSummary _buildSummaryFromCaptureDetail(CaptureSessionDetail detail) {
-  final customerName = detail.customerName.trim().isNotEmpty ? detail.customerName.trim() : 'Unknown customer';
+  final customerName = detail.customerName.trim().isNotEmpty
+      ? detail.customerName.trim()
+      : 'Unknown customer';
   final customer = CustomerRecord(
-    id: detail.customerId?.trim().isNotEmpty == true ? detail.customerId!.trim() : '',
+    id: detail.customerId?.trim().isNotEmpty == true
+        ? detail.customerId!.trim()
+        : '',
     name: customerName,
     phone: detail.customerPhone.trim(),
-    area: detail.customerArea?.trim().isNotEmpty == true ? detail.customerArea!.trim() : '',
-    email: detail.customerEmail?.trim().isNotEmpty == true ? detail.customerEmail!.trim() : null,
+    area: detail.customerArea?.trim().isNotEmpty == true
+        ? detail.customerArea!.trim()
+        : '',
+    email: detail.customerEmail?.trim().isNotEmpty == true
+        ? detail.customerEmail!.trim()
+        : null,
     isRecent: true,
     lastSeenLabel: null,
     lastSessionAt: detail.createdAt,
@@ -77,7 +148,8 @@ ScanSessionSummary _buildSummaryFromCaptureDetail(CaptureSessionDetail detail) {
           category: item.category,
           jewelType: item.jewelType,
           qrKarat: item.qrKarat,
-          karat: item.appliedKarat ?? item.qrKarat ?? lockedSettings.karat ?? '',
+          karat:
+              item.appliedKarat ?? item.qrKarat ?? lockedSettings.karat ?? '',
           purityPercent: item.purityPercent,
           wastagePercent: item.wastagePercent,
           grossWeight: item.grossWeight,
@@ -138,61 +210,78 @@ ScanSessionSummary _buildSummaryFromCaptureDetail(CaptureSessionDetail detail) {
   );
 }
 
-final salesSessionSummaryByIdProvider = FutureProvider.autoDispose.family<ScanSessionSummary?, String>((ref, sessionId) async {
-  final localSessions = await ref.watch(savedScanSessionsProvider.future);
-  for (final session in localSessions) {
-    if (session.sessionId == sessionId || session.backendSessionId == sessionId) {
-      return session;
-    }
-  }
+final salesSessionSummaryByIdProvider = FutureProvider.autoDispose
+    .family<ScanSessionSummary?, String>((ref, sessionId) async {
+      final localSessions = await ref.watch(savedScanSessionsProvider.future);
+      for (final session in localSessions) {
+        if (session.sessionId == sessionId ||
+            session.backendSessionId == sessionId) {
+          return session;
+        }
+      }
 
-  try {
-    final detail = await ref.watch(captureSessionRepositoryProvider).getSessionDetail(sessionId);
-    return _buildSummaryFromCaptureDetail(detail);
-  } catch (error) {
-    debugPrint('Failed to load session detail for My Sales / Scans: $error');
-    return null;
-  }
-});
+      try {
+        final detail = await ref
+            .watch(captureSessionRepositoryProvider)
+            .getSessionDetail(sessionId);
+        return _buildSummaryFromCaptureDetail(detail);
+      } catch (error) {
+        debugPrint(
+          'Failed to load session detail for My Sales / Scans: $error',
+        );
+        return null;
+      }
+    });
 
-final customerScanSessionsProvider =
-    FutureProvider.autoDispose.family<List<ScanSessionSummary>, String>((ref, customerId) async {
-  final localSessionsAsync = await ref.watch(savedScanSessionsProvider.future);
-  final localSessions = localSessionsAsync.where((s) => s.customer?.id == customerId).toList();
-
-  final repository = ref.watch(captureSessionRepositoryProvider);
-  try {
-    final remotePage = await repository.getMySessions(customerId: customerId, page: 1, limit: 100);
-
-    final remoteSessions = remotePage.sessions.map((item) {
-      return _buildMergedSessionFromCaptureItem(
-        item,
-        customerId: customerId,
+final customerScanSessionsProvider = FutureProvider.autoDispose
+    .family<List<ScanSessionSummary>, String>((ref, customerId) async {
+      final localSessionsAsync = await ref.watch(
+        savedScanSessionsProvider.future,
       );
-    }).toList(growable: false);
+      final localSessions = localSessionsAsync
+          .where((s) => s.customer?.id == customerId)
+          .toList();
 
-    // Merge them, prioritizing local sessions to avoid duplicates
-    final localKeys = localSessions.map(_sessionMergeKey).toSet();
-    final uniqueRemoteSessions = remoteSessions.where((e) => !localKeys.contains(_sessionMergeKey(e))).toList();
+      final repository = ref.watch(captureSessionRepositoryProvider);
+      try {
+        final remotePage = await repository.getMySessions(
+          customerId: customerId,
+          page: 1,
+          limit: 100,
+        );
+        final remoteById = {
+          for (final item in remotePage.sessions) item.id: item,
+        };
 
-    final allSessions = [...localSessions, ...uniqueRemoteSessions];
-    allSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return allSessions;
-  } catch (e) {
-    debugPrint('Failed to load remote sessions for customer: $e');
-  }
+        final overlaidLocal = localSessions
+            .map((session) {
+              final backendId = session.backendSessionId;
+              if (backendId == null || backendId.isEmpty) return session;
+              final remote = remoteById.remove(backendId);
+              if (remote == null) return session;
+              return _overlayRemoteStatus(session, remote);
+            })
+            .toList(growable: false);
 
-  localSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-  return localSessions;
-});
+        final newRemoteSessions = remoteById.values
+            .map(
+              (item) => _buildMergedSessionFromCaptureItem(
+                item,
+                customerId: customerId,
+              ),
+            )
+            .toList(growable: false);
 
-String _sessionMergeKey(ScanSessionSummary summary) {
-  final backendId = summary.backendSessionId?.trim();
-  if (backendId != null && backendId.isNotEmpty) {
-    return 'backend:$backendId';
-  }
-  return 'local:${summary.sessionId.trim()}';
-}
+        final allSessions = [...overlaidLocal, ...newRemoteSessions];
+        allSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return allSessions;
+      } catch (e) {
+        debugPrint('Failed to load remote sessions for customer: $e');
+      }
+
+      localSessions.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return localSessions;
+    });
 
 CustomerRecord _buildCustomerRecordFromCaptureItem(
   CaptureSessionListItem item, {
@@ -200,7 +289,9 @@ CustomerRecord _buildCustomerRecordFromCaptureItem(
 }) {
   return CustomerRecord(
     id: customerId?.trim().isNotEmpty == true ? customerId!.trim() : '',
-    name: item.customerName.trim().isNotEmpty ? item.customerName.trim() : 'Unknown customer',
+    name: item.customerName.trim().isNotEmpty
+        ? item.customerName.trim()
+        : 'Unknown customer',
     phone: item.customerPhone.trim(),
     area: '',
     email: null,
@@ -257,15 +348,65 @@ ScanSessionSummary _buildMergedSessionFromCaptureItem(
   );
 }
 
-class SavedScanSessionsNotifier extends AsyncNotifier<List<ScanSessionSummary>> {
+class SavedScanSessionsNotifier
+    extends AsyncNotifier<List<ScanSessionSummary>> {
   @override
   Future<List<ScanSessionSummary>> build() async {
-    return ref.read(savedScanSessionsStoreProvider).loadAll();
+    final sessions = await ref.read(savedScanSessionsStoreProvider).loadAll();
+    // Fire-and-forget: don't block the initial paint on a network round trip.
+    // Once it lands, it persists any status/total changes and reloads state.
+    unawaited(reconcileWithRemote());
+    return sessions;
   }
 
   Future<void> reload() async {
     state = const AsyncLoading();
     state = AsyncData(await ref.read(savedScanSessionsStoreProvider).loadAll());
+  }
+
+  /// Re-checks server status for every locally cached session that's already
+  /// synced, and overlays any change (e.g. an admin cancelled or finalized it)
+  /// onto the local copy. Without this, a session already saved on-device is
+  /// never revisited, so admin-side changes never reach the phone.
+  Future<void> reconcileWithRemote() async {
+    final store = ref.read(savedScanSessionsStoreProvider);
+    final localSessions = await store.loadAll();
+    final syncedSessions = localSessions
+        .where((session) {
+          final backendId = session.backendSessionId;
+          return session.syncStatus == ScanSessionSyncStatus.synced &&
+              backendId != null &&
+              backendId.isNotEmpty;
+        })
+        .toList(growable: false);
+
+    if (syncedSessions.isEmpty) {
+      return;
+    }
+
+    try {
+      final repository = ref.read(captureSessionRepositoryProvider);
+      final remotePage = await repository.getMySessions(page: 1, limit: 100);
+      final remoteById = {
+        for (final item in remotePage.sessions) item.id: item,
+      };
+
+      var changed = false;
+      for (final local in syncedSessions) {
+        final remote = remoteById[local.backendSessionId];
+        if (remote == null) continue;
+        final updated = _overlayRemoteStatus(local, remote);
+        if (identical(updated, local)) continue;
+        await store.save(updated);
+        changed = true;
+      }
+
+      if (changed) {
+        await reload();
+      }
+    } catch (error) {
+      debugPrint('Failed to reconcile sessions with remote: $error');
+    }
   }
 
   Future<void> saveSession(ScanSessionSummary summary) async {
@@ -289,7 +430,9 @@ class SavedScanSessionsNotifier extends AsyncNotifier<List<ScanSessionSummary>> 
     await reload();
   }
 
-  Future<ScanSessionSummary> syncSingleSession(ScanSessionSummary summary) async {
+  Future<ScanSessionSummary> syncSingleSession(
+    ScanSessionSummary summary,
+  ) async {
     var updatedSummary = summary;
 
     try {
@@ -298,7 +441,8 @@ class SavedScanSessionsNotifier extends AsyncNotifier<List<ScanSessionSummary>> 
           .mobileSyncSession(summary);
 
       final syncedCustomerId = syncResult.customerId;
-      final updatedCustomer = syncedCustomerId != null &&
+      final updatedCustomer =
+          syncedCustomerId != null &&
               syncedCustomerId.isNotEmpty &&
               summary.customer != null
           ? CustomerRecord(
@@ -348,9 +492,13 @@ class SavedScanSessionsNotifier extends AsyncNotifier<List<ScanSessionSummary>> 
       orElse: () => const <ScanSessionSummary>[],
     );
 
-    final pendingSessions = sessions.where((s) =>
-        s.syncStatus == ScanSessionSyncStatus.pendingSync ||
-        s.syncStatus == ScanSessionSyncStatus.syncFailed).toList();
+    final pendingSessions = sessions
+        .where(
+          (s) =>
+              s.syncStatus == ScanSessionSyncStatus.pendingSync ||
+              s.syncStatus == ScanSessionSyncStatus.syncFailed,
+        )
+        .toList();
 
     int successCount = 0;
     int failCount = 0;
@@ -394,6 +542,3 @@ class SavedScanSessionsNotifier extends AsyncNotifier<List<ScanSessionSummary>> 
     return null;
   }
 }
-
-
-

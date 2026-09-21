@@ -16,11 +16,72 @@ import '../../../shared/widgets/app_banner.dart';
 import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/app_metric_card.dart';
 import '../../../shared/widgets/app_section_header.dart';
+import '../../../shared/widgets/app_update_dialog.dart';
 import '../../../shared/widgets/brand_doodle_background.dart';
 import '../../../shared/widgets/theme_toggle_button.dart';
 
-class DashboardHomeScreen extends ConsumerWidget {
+class DashboardHomeScreen extends ConsumerStatefulWidget {
   const DashboardHomeScreen({super.key});
+
+  @override
+  ConsumerState<DashboardHomeScreen> createState() =>
+      _DashboardHomeScreenState();
+}
+
+const _autoSyncInterval = Duration(minutes: 15);
+
+class _DashboardHomeScreenState extends ConsumerState<DashboardHomeScreen>
+    with WidgetsBindingObserver {
+  Timer? _autoSyncTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) checkForAppUpdate(context, ref, silent: true);
+    });
+    _scheduleAutoSync();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Foreground-only: pause while backgrounded so we're not syncing from a
+    // suspended app, and pick back up (with a fresh interval) on resume.
+    if (state == AppLifecycleState.resumed) {
+      _scheduleAutoSync();
+    } else {
+      _autoSyncTimer?.cancel();
+      _autoSyncTimer = null;
+    }
+  }
+
+  void _scheduleAutoSync() {
+    _autoSyncTimer?.cancel();
+    _autoSyncTimer = Timer.periodic(_autoSyncInterval, (_) => _runAutoSync());
+  }
+
+  /// Quiet, periodic version of the "Force Sync" action: pushes anything
+  /// pending, then pulls the server's current state for everything already
+  /// synced. Keeps admin-side cancels/finalizes and cross-device edits from
+  /// sitting unnoticed for longer than a coffee break.
+  Future<void> _runAutoSync() async {
+    if (!mounted) return;
+    try {
+      await ref.read(savedScanSessionsProvider.notifier).syncAllPending();
+      await ref.read(savedScanSessionsProvider.notifier).reconcileWithRemote();
+    } catch (_) {
+      // Silent by design — the user can always Force Sync manually, and the
+      // next timer tick will retry anyway.
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _autoSyncTimer?.cancel();
+    super.dispose();
+  }
 
   String _formatDateTime(DateTime value) {
     const monthNames = <String>[
@@ -107,9 +168,9 @@ class DashboardHomeScreen extends ConsumerWidget {
 
   void _startSyncWithDelay(BuildContext context, WidgetRef ref) {
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    
+
     bool cancelled = false;
-    
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: StatefulBuilder(
@@ -144,30 +205,39 @@ class DashboardHomeScreen extends ConsumerWidget {
     Future.delayed(const Duration(seconds: 5), () async {
       if (cancelled) return;
       if (!context.mounted) return;
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Syncing pending sessions...')),
-      );
-      
-      final result = await ref.read(savedScanSessionsProvider.notifier).syncAllPending();
-      
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Force syncing...')));
+
+      // Push any locally pending edits first, then pull the server's current
+      // state for everything already synced — a full bidirectional sync, so
+      // this is also the "fix a mismatch" action: whatever this device and
+      // the backend disagree on gets reconciled in one tap.
+      final result = await ref
+          .read(savedScanSessionsProvider.notifier)
+          .syncAllPending();
+      await ref.read(savedScanSessionsProvider.notifier).reconcileWithRemote();
+
       if (!context.mounted) return;
-      
+
       ScaffoldMessenger.of(context).hideCurrentSnackBar();
       final success = result['success'] ?? 0;
       final fail = result['fail'] ?? 0;
-      
+
       if (fail > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Synced $success sessions. $fail failed (Network error).'),
+            content: Text(
+              'Synced $success sessions. $fail failed (Network error).',
+            ),
             backgroundColor: AppColors.danger,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully synced $success sessions.'),
+            content: Text('Everything is up to date.'),
             backgroundColor: AppColors.success,
           ),
         );
@@ -176,23 +246,31 @@ class DashboardHomeScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     ref.watch(themeControllerProvider);
     ref.watch(savedScanSessionsProvider);
     final user = ref.watch(authSessionProvider).value?.user?.name ?? 'Salesman';
-    final activeDraft = ref.watch(activeScanSessionDraftProvider).maybeWhen(data: (value) => value, orElse: () => null);
-    final pendingCount = ref.read(savedScanSessionsProvider.notifier).pendingSyncCount();
+    final activeDraft = ref
+        .watch(activeScanSessionDraftProvider)
+        .maybeWhen(data: (value) => value, orElse: () => null);
+    final pendingCount = ref
+        .read(savedScanSessionsProvider.notifier)
+        .pendingSyncCount();
 
     final allSessions = ref.watch(savedScanSessionsProvider).value ?? [];
     final now = DateTime.now();
     final todaySessions = allSessions.where((s) {
       final created = s.createdAt.toLocal();
-      return created.year == now.year && created.month == now.month && created.day == now.day;
+      return created.year == now.year &&
+          created.month == now.month &&
+          created.day == now.day;
     }).toList();
-    
+
     final totalSessionsToday = todaySessions.length;
-    final latestSession = todaySessions.isNotEmpty 
-        ? todaySessions.reduce((a, b) => a.createdAt.isAfter(b.createdAt) ? a : b) 
+    final latestSession = todaySessions.isNotEmpty
+        ? todaySessions.reduce(
+            (a, b) => a.createdAt.isAfter(b.createdAt) ? a : b,
+          )
         : null;
 
     return Scaffold(
@@ -202,7 +280,12 @@ class DashboardHomeScreen extends ConsumerWidget {
           IconButton(
             onPressed: () => _startSyncWithDelay(context, ref),
             icon: const Icon(Icons.sync_rounded),
-            tooltip: 'Sync now',
+            tooltip: 'Force sync (push pending + pull latest from server)',
+          ),
+          IconButton(
+            onPressed: () => checkForAppUpdate(context, ref),
+            icon: const Icon(Icons.system_update_rounded),
+            tooltip: 'Check for updates',
           ),
           const Padding(
             padding: EdgeInsets.only(right: 8),
@@ -228,7 +311,12 @@ class DashboardHomeScreen extends ConsumerWidget {
           SafeArea(
             child: RefreshIndicator(
               onRefresh: () async {
-                await ref.read(savedScanSessionsProvider.notifier).syncAllPending();
+                await ref
+                    .read(savedScanSessionsProvider.notifier)
+                    .syncAllPending();
+                await ref
+                    .read(savedScanSessionsProvider.notifier)
+                    .reconcileWithRemote();
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -242,7 +330,8 @@ class DashboardHomeScreen extends ConsumerWidget {
                   if (pendingCount > 0) ...[
                     AppBanner(
                       title: '$pendingCount session(s) pending sync',
-                      message: 'Data is saved locally but not yet sent to the backend.',
+                      message:
+                          'Data is saved locally but not yet sent to the backend.',
                       tone: AppBannerTone.warning,
                       actionLabel: 'Sync Now',
                       onAction: () => _startSyncWithDelay(context, ref),
@@ -360,11 +449,13 @@ class DashboardHomeScreen extends ConsumerWidget {
                         children: [
                           AppSectionHeader(
                             title: 'Today\'s Summary',
-                            subtitle: 'A quick snapshot of your scan sessions today.',
+                            subtitle:
+                                'A quick snapshot of your scan sessions today.',
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                if (pendingCount == 0 && totalSessionsToday > 0) ...[
+                                if (pendingCount == 0 &&
+                                    totalSessionsToday > 0) ...[
                                   const AppBadge(
                                     label: 'Synced',
                                     tone: AppBadgeTone.success,
@@ -434,9 +525,3 @@ class DashboardHomeScreen extends ConsumerWidget {
     );
   }
 }
-
-
-
-
-
-

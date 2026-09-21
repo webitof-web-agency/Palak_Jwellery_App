@@ -32,7 +32,8 @@ class ScanSessionSummaryScreen extends ConsumerStatefulWidget {
       _ScanSessionSummaryScreenState();
 }
 
-class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScreen> {
+class _ScanSessionSummaryScreenState
+    extends ConsumerState<ScanSessionSummaryScreen> {
   final SalesReportPdfService _pdfService = const SalesReportPdfService();
   final ScrollController _scrollController = ScrollController();
   SalesReportMode _reportMode = SalesReportMode.itemWise;
@@ -114,13 +115,18 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
       if (share) {
         await _pdfService.sharePdf(summary: summary, mode: _reportMode);
       } else {
-        final savedFile = await _pdfService.downloadPdf(summary: summary, mode: _reportMode);
+        final savedFile = await _pdfService.downloadPdf(
+          summary: summary,
+          mode: _reportMode,
+        );
         if (!mounted) {
           return;
         }
         messenger.showSnackBar(
           SnackBar(
-            content: Text('Saved ${savedFile.fileName} to ${savedFile.storageLabel}.'),
+            content: Text(
+              'Saved ${savedFile.fileName} to ${savedFile.storageLabel}.',
+            ),
           ),
         );
       }
@@ -153,11 +159,10 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
       return ref.watch(scanSessionSummaryProvider);
     }
 
-    final sessionAsync = ref.watch(salesSessionSummaryByIdProvider(widget.sessionId!));
-    return sessionAsync.maybeWhen(
-      data: (value) => value,
-      orElse: () => null,
+    final sessionAsync = ref.watch(
+      salesSessionSummaryByIdProvider(widget.sessionId!),
     );
+    return sessionAsync.maybeWhen(data: (value) => value, orElse: () => null);
   }
 
   Widget _buildCustomerCard(ScanSessionSummary summary) {
@@ -193,12 +198,18 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
           Text(
             customer == null
                 ? 'No customer snapshot available.'
-                : [customer.phone, customer.area].where((e) => e.trim().isNotEmpty).join(' | '),
+                : [
+                    customer.phone,
+                    customer.area,
+                  ].where((e) => e.trim().isNotEmpty).join(' | '),
             style: TextStyle(color: AppColors.textSecondary),
           ),
           if ((customer?.email ?? '').isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
-            Text(customer!.email!, style: TextStyle(color: AppColors.textMuted)),
+            Text(
+              customer!.email!,
+              style: TextStyle(color: AppColors.textMuted),
+            ),
           ],
           const SizedBox(height: AppSpacing.md),
           DecoratedBox(
@@ -208,19 +219,28 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               border: Border.all(color: AppColors.border),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 6),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 6,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
                     'Session date/time: ${_formatDateTime(summary.createdAt)}',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                   if (summary.notes.trim().isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
                       'Notes: ${summary.notes}',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
                     ),
                   ],
                 ],
@@ -249,11 +269,26 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
             runSpacing: AppSpacing.xs,
             children: [
               _summaryMetricChip('Items', summary.totalItems.toString()),
-              _summaryMetricChip('Gross', '${_formatWeight(summary.totalGrossWeight)} g'),
-              _summaryMetricChip('Net', '${_formatWeight(summary.totalNetWeight)} g'),
-              _summaryMetricChip('Stone', '${_formatWeight(summary.totalStoneWeight)} g'),
-              _summaryMetricChip('Other', '${_formatWeight(summary.totalOtherWeight)} g'),
-              _summaryMetricChip('Fine', '${_formatWeight(summary.totalFineWeight)} g'),
+              _summaryMetricChip(
+                'Gross',
+                '${_formatWeight(summary.totalGrossWeight)} g',
+              ),
+              _summaryMetricChip(
+                'Net',
+                '${_formatWeight(summary.totalNetWeight)} g',
+              ),
+              _summaryMetricChip(
+                'Stone',
+                '${_formatWeight(summary.totalStoneWeight)} g',
+              ),
+              _summaryMetricChip(
+                'Other',
+                '${_formatWeight(summary.totalOtherWeight)} g',
+              ),
+              _summaryMetricChip(
+                'Fine',
+                '${_formatWeight(summary.totalFineWeight)} g',
+              ),
               _summaryMetricChip(
                 'Stone Amt',
                 _formatCurrency(summary.totalStoneAmount),
@@ -279,7 +314,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     if (!_canAmendToday(summary)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Only same-day sessions can be edited by salesman. Contact admin for changes.'),
+          content: Text(
+            'Only same-day sessions can be edited by salesman. Contact admin for changes.',
+          ),
         ),
       );
       return;
@@ -292,7 +329,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     if (!_canAmendToday(summary)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Only same-day sessions can be edited by salesman. Contact admin for changes.'),
+          content: Text(
+            'Only same-day sessions can be edited by salesman. Contact admin for changes.',
+          ),
         ),
       );
       return;
@@ -314,9 +353,18 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     final remaining = summary.items
         .where((item) => !selectedIds.contains(item.id))
         .toList(growable: false);
-    final removedGross = selected.fold<double>(0, (sum, item) => sum + item.grossWeight);
-    final removedNet = selected.fold<double>(0, (sum, item) => sum + item.netWeight);
-    final removedFine = selected.fold<double>(0, (sum, item) => sum + item.fineWeight);
+    final removedGross = selected.fold<double>(
+      0,
+      (sum, item) => sum + item.grossWeight,
+    );
+    final removedNet = selected.fold<double>(
+      0,
+      (sum, item) => sum + item.netWeight,
+    );
+    final removedFine = selected.fold<double>(
+      0,
+      (sum, item) => sum + item.fineWeight,
+    );
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -347,22 +395,54 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     }
 
     final now = DateTime.now();
+    final wasSynced = summary.syncStatus == ScanSessionSyncStatus.synced;
     final updatedSummary = summary.copyWith(
       items: remaining,
       removedItems: <ScannedSessionItem>[...summary.removedItems, ...selected],
       amendmentCount: summary.amendmentCount + 1,
       updatedAt: now,
       lastEditedAt: now,
+      // A session already on the backend must be re-pushed after a local
+      // edit — otherwise it keeps reporting `synced` while the backend still
+      // has the pre-edit item list, and a later reconcile pass would overlay
+      // that stale server state back onto this device's (correct) edit.
+      syncStatus: wasSynced
+          ? ScanSessionSyncStatus.pendingSync
+          : summary.syncStatus,
     );
 
-    await ref.read(savedScanSessionsProvider.notifier).saveSession(updatedSummary);
-    ref.read(scanSessionSummaryProvider.notifier).setSummary(updatedSummary);
+    await ref
+        .read(savedScanSessionsProvider.notifier)
+        .saveSession(updatedSummary);
+
+    var persistedSummary = updatedSummary;
+    if (wasSynced) {
+      persistedSummary = await ref
+          .read(savedScanSessionsProvider.notifier)
+          .syncSingleSession(updatedSummary);
+    }
+
+    ref.read(scanSessionSummaryProvider.notifier).setSummary(persistedSummary);
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${selected.length} items removed.')),
-    );
+
+    if (wasSynced &&
+        persistedSummary.syncStatus != ScanSessionSyncStatus.synced) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            persistedSummary.syncError?.trim().isNotEmpty == true
+                ? 'Items removed locally, but the update could not reach the server yet: ${persistedSummary.syncError}'
+                : 'Items removed locally. Backend sync is pending.',
+          ),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${selected.length} items removed.')),
+      );
+    }
   }
 
   Widget _buildAmendmentActions(ScanSessionSummary summary) {
@@ -379,13 +459,16 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               const Expanded(
                 child: AppSectionHeader(
                   title: 'Same-day edits',
-                  subtitle: 'Add or remove items only on the day the session was created.',
+                  subtitle:
+                      'Add or remove items only on the day the session was created.',
                   tight: true,
                 ),
               ),
               if (summary.hasAmendmentHistory)
                 AppBadge(
-                  label: summary.amendmentCount > 0 ? 'Edited ${summary.amendmentCount}x' : 'Edited today',
+                  label: summary.amendmentCount > 0
+                      ? 'Edited ${summary.amendmentCount}x'
+                      : 'Edited today',
                   tone: AppBadgeTone.neutral,
                   icon: Icons.edit_rounded,
                   compact: true,
@@ -396,7 +479,8 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
           if (!canEdit)
             const AppBanner(
               title: 'Editing locked',
-              message: 'Only same-day sessions can be edited by salesman. Contact admin for changes.',
+              message:
+                  'Only same-day sessions can be edited by salesman. Contact admin for changes.',
               tone: AppBannerTone.info,
             )
           else ...[
@@ -413,7 +497,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                 Expanded(
                   child: AppActionButton(
                     label: 'Remove Items',
-                    onPressed: canRemove ? () => _removeItemsFromSummary(summary) : null,
+                    onPressed: canRemove
+                        ? () => _removeItemsFromSummary(summary)
+                        : null,
                     variant: AppActionButtonVariant.secondary,
                     expanded: true,
                   ),
@@ -433,16 +519,16 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
         borderRadius: BorderRadius.circular(AppRadius.sm),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: AppSpacing.xs),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.sm,
+          vertical: AppSpacing.xs,
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
               '$label: ',
-              style: TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
             Text(
               value,
@@ -475,20 +561,18 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
           const SizedBox(height: AppSpacing.md),
           Row(
             children: [
-              Expanded(
-                child: _buildWhatsAppShareButton(
-                  context,
-                  summary,
-                ),
-              ),
+              Expanded(child: _buildWhatsAppShareButton(context, summary)),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: AppActionButton(
                   label: 'Download PDF',
                   onPressed: _isExportingPdf
                       ? null
-                      : () =>
-                          _handlePdfAction(context, summary: summary, share: false),
+                      : () => _handlePdfAction(
+                          context,
+                          summary: summary,
+                          share: false,
+                        ),
                   variant: AppActionButtonVariant.secondary,
                   expanded: true,
                 ),
@@ -508,7 +592,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     return SizedBox(
       height: 52,
       child: OutlinedButton(
-        onPressed: disabled ? null : () => _handlePdfAction(context, summary: summary, share: true),
+        onPressed: disabled
+            ? null
+            : () => _handlePdfAction(context, summary: summary, share: true),
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: Color(0xFF25D366)),
           foregroundColor: AppColors.textPrimary,
@@ -635,15 +721,16 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                   ),
                   Text(
                     sublabel,
-                    style: TextStyle(
-                      color: AppColors.textMuted,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 11),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded, color: AppColors.textMuted, size: 18),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.textMuted,
+              size: 18,
+            ),
           ],
         ),
       ),
@@ -685,7 +772,10 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     return buildSalesReportGroups(summary, _reportMode);
   }
 
-  Widget _buildGroupedSection(SalesReportGroup group, ScanSessionSummary summary) {
+  Widget _buildGroupedSection(
+    SalesReportGroup group,
+    ScanSessionSummary summary,
+  ) {
     return AppCard(
       margin: const EdgeInsets.only(bottom: AppSpacing.sm),
       padding: const EdgeInsets.all(AppSpacing.md),
@@ -721,14 +811,20 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
             const SizedBox(height: AppSpacing.xs),
             // otherAmount is a separate amount bucket, not making charge.
             if (group.stoneAmount > 0 && group.otherAmount > 0)
-              Text('Stone Amt ${_formatCurrency(group.stoneAmount)} | Other Amount ${_formatCurrency(group.otherAmount)}',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 11))
+              Text(
+                'Stone Amt ${_formatCurrency(group.stoneAmount)} | Other Amount ${_formatCurrency(group.otherAmount)}',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              )
             else if (group.stoneAmount > 0)
-              Text('Stone Amt ${_formatCurrency(group.stoneAmount)}',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 11))
+              Text(
+                'Stone Amt ${_formatCurrency(group.stoneAmount)}',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              )
             else if (group.otherAmount > 0)
-              Text('Other Amount ${_formatCurrency(group.otherAmount)}',
-                  style: TextStyle(color: AppColors.textMuted, fontSize: 11)),
+              Text(
+                'Other Amount ${_formatCurrency(group.otherAmount)}',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 11),
+              ),
           ],
           const SizedBox(height: AppSpacing.sm),
           for (final item in group.items) ...[
@@ -747,12 +843,12 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
   Widget build(BuildContext context) {
     final summary = _activeSummary(ref);
     if (widget.sessionId != null) {
-      final loading = ref.watch(salesSessionSummaryByIdProvider(widget.sessionId!)).isLoading;
+      final loading = ref
+          .watch(salesSessionSummaryByIdProvider(widget.sessionId!))
+          .isLoading;
       if (summary == null && loading) {
         return const Scaffold(
-          body: SafeArea(
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          body: SafeArea(child: Center(child: CircularProgressIndicator())),
         );
       }
     }
@@ -774,7 +870,8 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               children: [
                 const AppBanner(
                   title: 'No saved session yet',
-                  message: 'Finish and save a scan session to see its summary here.',
+                  message:
+                      'Finish and save a scan session to see its summary here.',
                   tone: AppBannerTone.info,
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -796,7 +893,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     final visibleCount = visibleItems.length;
     final visibleItemCount = _itemsExpanded
         ? visibleCount
-        : (visibleCount > _collapsedItemCount ? _collapsedItemCount : visibleCount);
+        : (visibleCount > _collapsedItemCount
+              ? _collapsedItemCount
+              : visibleCount);
     final showToggle = visibleCount > _collapsedItemCount;
 
     return Scaffold(
@@ -822,7 +921,9 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Delete Session?'),
-                    content: const Text('This will permanently delete this local session. Are you sure?'),
+                    content: const Text(
+                      'This will permanently delete this local session. Are you sure?',
+                    ),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context, false),
@@ -830,14 +931,18 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.danger),
+                        style: TextButton.styleFrom(
+                          foregroundColor: AppColors.danger,
+                        ),
                         child: const Text('Delete'),
                       ),
                     ],
                   ),
                 );
                 if (confirm == true && context.mounted) {
-                  await ref.read(savedScanSessionsProvider.notifier).deleteSession(summary.sessionId);
+                  await ref
+                      .read(savedScanSessionsProvider.notifier)
+                      .deleteSession(summary.sessionId);
                   if (context.mounted) {
                     context.go('/sales-scans');
                   }
@@ -903,40 +1008,70 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
               sliver: SliverToBoxAdapter(child: _buildCustomerCard(summary)),
             ),
             const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(height: AppSpacing.lg),
+              ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
               sliver: SliverToBoxAdapter(child: _buildTotalsCard(summary)),
             ),
             const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(height: AppSpacing.lg),
+              ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: _buildAmendmentActions(summary)),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _buildAmendmentActions(summary),
+              ),
             ),
             const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(height: AppSpacing.lg),
+              ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: _buildShareDownloadRow(context, summary)),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _buildShareDownloadRow(context, summary),
+              ),
             ),
             const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(height: AppSpacing.lg),
+              ),
             ),
             // ── Report options ──────────────────────────────────────────────────
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
               sliver: SliverToBoxAdapter(
                 child: AppCard(
                   padding: const EdgeInsets.all(AppSpacing.lg),
@@ -945,7 +1080,8 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                     children: [
                       const AppSectionHeader(
                         title: 'Report options',
-                        subtitle: 'Same saved session, different grouping modes.',
+                        subtitle:
+                            'Same saved session, different grouping modes.',
                         tight: true,
                       ),
                       const SizedBox(height: AppSpacing.md),
@@ -956,24 +1092,40 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               ),
             ),
             const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(height: AppSpacing.lg),
+              ),
             ),
             // ── Navigation actions ───────────────────────────────────────────────
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: _buildNavigationActions(summary)),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: _buildNavigationActions(summary),
+              ),
             ),
             const SliverPadding(
-              padding: EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
-              sliver: SliverToBoxAdapter(child: SizedBox(height: AppSpacing.lg)),
+              padding: EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: SizedBox(height: AppSpacing.lg),
+              ),
             ),
             // ── Item list header ─────────────────────────────────────────────────
             SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenPadding,
+              ),
               sliver: SliverToBoxAdapter(
                 child: AppSectionHeader(
-                  title: _reportMode == SalesReportMode.itemWise ? 'Item list' : 'Grouped report',
+                  title: _reportMode == SalesReportMode.itemWise
+                      ? 'Item list'
+                      : 'Grouped report',
                   subtitle: 'Invoice-style rows for compact review on mobile.',
                   trailing: Text(
                     'Total $totalItems',
@@ -993,33 +1145,29 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
               sliver: visibleItems.isEmpty
                   ? SliverToBoxAdapter(child: _buildEmptyState())
                   : _reportMode == SalesReportMode.itemWise
-                      ? SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final item = visibleItems[index];
-                              final serial = summary.items.indexOf(item) + 1;
-                              return _SummaryItemRow(
-                                item: item,
-                                serialNumber: serial,
-                              );
-                            },
-                            childCount: visibleItemCount,
-                          ),
-                        )
-                      : SliverList(
-                          delegate: SliverChildBuilderDelegate(
-                            (context, index) {
-                              final group = reportGroups[index];
-                              return _buildGroupedSection(group, summary);
-                            },
-                            childCount: reportGroups.length,
-                          ),
-                        ),
+                  ? SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = visibleItems[index];
+                        final serial = summary.items.indexOf(item) + 1;
+                        return _SummaryItemRow(
+                          item: item,
+                          serialNumber: serial,
+                        );
+                      }, childCount: visibleItemCount),
+                    )
+                  : SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final group = reportGroups[index];
+                        return _buildGroupedSection(group, summary);
+                      }, childCount: reportGroups.length),
+                    ),
             ),
             // ── View more / show less toggle ─────────────────────────────────────
             if (showToggle && _reportMode == SalesReportMode.itemWise)
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screenPadding),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.screenPadding,
+                ),
                 sliver: SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: AppSpacing.xs),
@@ -1027,7 +1175,8 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
                       label: _itemsExpanded
                           ? 'Show less'
                           : 'View all $visibleCount items',
-                      onPressed: () => setState(() => _itemsExpanded = !_itemsExpanded),
+                      onPressed: () =>
+                          setState(() => _itemsExpanded = !_itemsExpanded),
                       variant: AppActionButtonVariant.secondary,
                       icon: _itemsExpanded
                           ? Icons.expand_less_rounded
@@ -1045,25 +1194,3 @@ class _ScanSessionSummaryScreenState extends ConsumerState<ScanSessionSummaryScr
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

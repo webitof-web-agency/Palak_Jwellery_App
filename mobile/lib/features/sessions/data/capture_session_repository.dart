@@ -383,7 +383,7 @@ class CaptureSessionRepository {
         return 'You do not have access to this session.';
       case 'SESSION_LOCKED':
         if (operation == 'mobileSyncSession') {
-          return 'This session was cancelled by admin. Create a fresh session.';
+          return 'This session was locked by admin (cancelled or finalized) and can no longer be edited from this device.';
         }
         return 'This session is read-only.';
       case 'SESSION_SUPPLIER_EXISTS':
