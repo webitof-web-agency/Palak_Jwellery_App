@@ -21,6 +21,10 @@ on:
         description: "Optional release notes for this build"
         required: false
         type: string
+      api_base_url:
+        description: "Backend API base URL to bake into this build, e.g. https://api.example.com (leave blank to use the repo's API_BASE_URL variable, or the app's compiled-in default if that's unset too)"
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -100,13 +104,21 @@ jobs:
         run: flutter pub get
 
       - name: Build release APK
+        id: build_apk
         env:
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          # workflow_dispatch input wins when given; otherwise fall back to
+          # the repo-level variable (Settings > Actions > Variables).
+          API_BASE_URL: ${{ inputs.api_base_url || vars.API_BASE_URL }}
         shell: bash
         run: |
           extra_args=()
           if [ -n "$API_BASE_URL" ]; then
+            echo "Using API_BASE_URL=$API_BASE_URL"
             extra_args+=(--dart-define=API_BASE_URL="$API_BASE_URL")
+            echo "api_base_url_used=$API_BASE_URL" >> "$GITHUB_OUTPUT"
+          else
+            echo "No API_BASE_URL given — using the app's compiled-in default."
+            echo "api_base_url_used=(app default)" >> "$GITHUB_OUTPUT"
           fi
           flutter build apk --release \
             --build-name=${{ steps.resolve_version.outputs.new_version }} \
@@ -140,7 +152,7 @@ jobs:
         with:
           tag_name: "v${{ steps.resolve_version.outputs.new_version }}"
           name: "v${{ steps.resolve_version.outputs.new_version }}"
-          body: ${{ inputs.release_notes || format('Automated build of PALAK Jewellers Sales Management, build {0}.', steps.resolve_version.outputs.build_number) }}
+          body: "${{ format('{0}{1}Backend: `{2}`', inputs.release_notes || format('Automated build of PALAK Jewellers Sales Management, build {0}.', steps.resolve_version.outputs.build_number), '\n\n', steps.build_apk.outputs.api_base_url_used) }}"
           files: dist/PalakJewellers-v${{ steps.resolve_version.outputs.new_version }}.apk
           draft: false
           prerelease: false
