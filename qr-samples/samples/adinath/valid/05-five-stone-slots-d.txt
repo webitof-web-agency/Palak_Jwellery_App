@@ -1,0 +1,3 @@
+# Valid Adinath sample with 5 stone-component slots (one blank).
+# Confirmed real sample.
+6.26/0.12/0.43//0.18/0.09/5.44/CS-2048

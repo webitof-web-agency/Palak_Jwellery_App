@@ -1,0 +1,4 @@
+# Valid Adinath sample with 5 stone-component slots (one blank).
+# Confirmed real sample; previously misclassified as unknown supplier
+# because the structural detector capped meaningful-token count at 6.
+6.7/0.18/0.26//0.16/0.23/5.87/CS-2013

@@ -63,8 +63,14 @@ const scoreAdinathStructuralSignature = (raw) => {
     return { score: 0, matches: 0, parts }
   }
 
+  // Adinath's format is gross/…stone components…/net/itemCode — the number
+  // of stone-component slots varies per item (some QRs carry up to 5+ blank
+  // or filled slots between gross and net), so this range only needs to
+  // reject implausibly short/long token lists, not pin down an exact count.
+  // The real discriminator is the calculation identity checked below
+  // (gross - stoneComponents ≈ net), not the token count.
   const meaningful = parts.filter((part) => part.length > 0)
-  if (meaningful.length < 4 || meaningful.length > 6) {
+  if (meaningful.length < 4 || meaningful.length > 12) {
     return { score: 0, matches: 0, parts, stoneComponents: [] }
   }
   const isNumeric = (value) => {
