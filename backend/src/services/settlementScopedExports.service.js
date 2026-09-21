@@ -16,6 +16,23 @@ const serviceDir = path.dirname(fileURLToPath(import.meta.url))
 const repoRoot = path.resolve(serviceDir, '../../..')
 // brandLogoPath removed
 
+// Preferred display order for supplier sections in the session PDF/CSV/HTML
+// export. Suppliers not listed here keep their existing (scan-order) position
+// after all listed ones. Matched against both supplier name and code.
+const SUPPLIER_SECTION_ORDER = ['YUG', 'UTSAV']
+
+const supplierSortKey = (batch) => {
+  const supplier = batch?.supplierId
+  const identifier = normalizeText(supplier?.name || supplier?.code).toUpperCase()
+  const priority = SUPPLIER_SECTION_ORDER.indexOf(identifier)
+  return priority === -1 ? SUPPLIER_SECTION_ORDER.length : priority
+}
+
+// Array#sort is stable in Node, so batches sharing a priority (including all
+// "everything else" suppliers) keep their original scan-chronological order.
+const sortBatchesBySupplierPreference = (batches) =>
+  [...batches].sort((left, right) => supplierSortKey(left) - supplierSortKey(right))
+
 const brandColors = {
   bg: '#fbf6f0',
   surface: '#fffaf5',
@@ -635,8 +652,9 @@ const buildSessionExportData = async (sessionId, options = {}) => {
 
   const settings = options.settings || await loadSettlementSettings()
   const sections = []
+  const orderedChildren = sortBatchesBySupplierPreference(finalizedChildren)
 
-  for (const batch of finalizedChildren) {
+  for (const batch of orderedChildren) {
     const sectionData = await buildSupplierSectionExportData(resolveIdValue(batch._id), null, {
       batch,
       settings,
@@ -1940,4 +1958,5 @@ export {
   renderSupplierSectionPdf,
   buildSupplierSectionPdfHtml,
   buildSessionPdfHtml,
+  sortBatchesBySupplierPreference,
 }
