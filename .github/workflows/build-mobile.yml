@@ -1,0 +1,146 @@
+name: Build & Release Mobile APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+          - specific
+      version:
+        description: "Exact version (only used when bump = specific), e.g. 1.4.0"
+        required: false
+        type: string
+      release_notes:
+        description: "Optional release notes for this build"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve new version
+        id: resolve_version
+        shell: bash
+        run: |
+          current=$(grep '^version:' pubspec.yaml | head -1 | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
+          echo "Current version: $current"
+
+          if [ "${{ inputs.bump }}" = "specific" ]; then
+            new_version="${{ inputs.version }}"
+            if [ -z "$new_version" ]; then
+              echo "::error::'version' input is required when bump = specific"
+              exit 1
+            fi
+            if ! [[ "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::version must look like MAJOR.MINOR.PATCH, e.g. 1.4.0"
+              exit 1
+            fi
+          else
+            IFS='.' read -r major minor patch <<< "$current"
+            case "${{ inputs.bump }}" in
+              major)
+                new_version="$((major + 1)).0.0"
+                ;;
+              minor)
+                new_version="${major}.$((minor + 1)).0"
+                ;;
+              patch)
+                new_version="${major}.${minor}.$((patch + 1))"
+                ;;
+            esac
+          fi
+
+          build_number="${{ github.run_number }}"
+
+          echo "new_version=$new_version" >> "$GITHUB_OUTPUT"
+          echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
+          echo "full_version=${new_version}+${build_number}" >> "$GITHUB_OUTPUT"
+          echo "Resolved version: ${new_version}+${build_number}"
+
+      - name: Update pubspec.yaml version
+        shell: bash
+        run: |
+          sed -i "s/^version: .*/version: ${{ steps.resolve_version.outputs.full_version }}/" pubspec.yaml
+          grep '^version:' pubspec.yaml
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.4
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build release APK
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+        shell: bash
+        run: |
+          extra_args=()
+          if [ -n "$API_BASE_URL" ]; then
+            extra_args+=(--dart-define=API_BASE_URL="$API_BASE_URL")
+          fi
+          flutter build apk --release \
+            --build-name=${{ steps.resolve_version.outputs.new_version }} \
+            --build-number=${{ steps.resolve_version.outputs.build_number }} \
+            "${extra_args[@]}"
+
+      - name: Rename APK
+        shell: bash
+        run: |
+          mkdir -p ../dist
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "../dist/PalakJewellers-v${{ steps.resolve_version.outputs.new_version }}.apk"
+
+      - name: Commit version bump
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore(mobile): bump version to ${{ steps.resolve_version.outputs.full_version }}"
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Tag release
+        shell: bash
+        run: |
+          git tag "v${{ steps.resolve_version.outputs.new_version }}"
+          git push origin "v${{ steps.resolve_version.outputs.new_version }}"
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ steps.resolve_version.outputs.new_version }}"
+          name: "v${{ steps.resolve_version.outputs.new_version }}"
+          body: ${{ inputs.release_notes || format('Automated build of PALAK Jewellers Sales Management, build {0}.', steps.resolve_version.outputs.build_number) }}
+          files: dist/PalakJewellers-v${{ steps.resolve_version.outputs.new_version }}.apk
+          draft: false
+          prerelease: false

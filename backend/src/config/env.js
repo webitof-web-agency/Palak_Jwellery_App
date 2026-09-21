@@ -15,6 +15,10 @@ export const config = {
   defaultStoneRate: Number.isFinite(Number.parseFloat(process.env.DEFAULT_STONE_RATE))
     ? Number.parseFloat(process.env.DEFAULT_STONE_RATE)
     : 0,
+  githubOwner: process.env.GITHUB_REPO_OWNER || 'webitof-web-agency',
+  githubRepo: process.env.GITHUB_REPO_NAME || 'Palak_Jwellery_App',
+  // Only required if the repo is private. Fine-grained PAT, read-only "Contents" scope.
+  githubToken: process.env.GITHUB_TOKEN || '',
 }
 
 if (!config.jwtSecret) {

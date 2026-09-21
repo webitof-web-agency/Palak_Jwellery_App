@@ -17,6 +17,7 @@ import bullionSalesRoutes from './routes/bullionSales.routes.js'
 import bullionInventoryRoutes from './routes/bullionInventory.routes.js'
 import bullionPurchaseOrdersRoutes from './routes/bullionPurchaseOrders.routes.js'
 import systemRoutes from './routes/system.routes.js'
+import appVersionRoutes from './routes/appVersion.routes.js'
 
 const app = express()
 
@@ -68,6 +69,7 @@ app.use('/api/v1/qr', qrRoutes)
 app.use('/api/v1/bullion-sales', bullionSalesRoutes)
 app.use('/api/v1/bullion-inventory', bullionInventoryRoutes)
 app.use('/api/v1/bullion-purchase-orders', bullionPurchaseOrdersRoutes)
+app.use('/api/v1/app-version', appVersionRoutes)
 
 // 404
 app.use((req, res) => {
