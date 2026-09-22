@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PALAK Jewellers — Sales Management</title>
+    <meta
+      name="description"
+      content="Download the PALAK Jewellers Sales Management app for Android, or sign in to the admin console."
+    />
+    <link rel="icon" type="image/png" href="/assets/favicon.png" />
+    <meta name="theme-color" content="#fbf6f0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #fbf6f0;
+        --bg-gradient-a: rgba(200, 115, 104, 0.12);
+        --bg-gradient-b: rgba(185, 92, 88, 0.08);
+        --surface: #fffaf5;
+        --panel-bg: rgba(255, 250, 245, 0.92);
+        --panel-border: rgba(92, 70, 56, 0.14);
+        --panel-border-strong: rgba(92, 70, 56, 0.22);
+        --text: #261c18;
+        --text-muted: rgba(38, 28, 24, 0.66);
+        --text-faint: rgba(38, 28, 24, 0.46);
+        --heading: #b95c58;
+        --gold-500: #c87368;
+        --gold-600: #b95c58;
+        --gold-700: #9f4a49;
+        --on-accent: #fffaf5;
+        --shadow-premium: 0 24px 64px rgba(76, 53, 43, 0.14);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #030811;
+          --bg-gradient-a: rgba(229, 180, 99, 0.1);
+          --bg-gradient-b: rgba(185, 92, 88, 0.1);
+          --surface: #07111f;
+          --panel-bg: rgba(9, 15, 27, 0.86);
+          --panel-border: rgba(255, 255, 255, 0.1);
+          --panel-border-strong: rgba(255, 255, 255, 0.16);
+          --text: #f4f0ea;
+          --text-muted: rgba(244, 240, 234, 0.66);
+          --text-faint: rgba(244, 240, 234, 0.42);
+          --heading: #e5b463;
+          --gold-500: #e5b463;
+          --gold-600: #cf9a4c;
+          --gold-700: #b17f3a;
+          --on-accent: #1a1208;
+          --shadow-premium: 0 24px 64px rgba(0, 0, 0, 0.5);
+        }
+      }
+
+      :root[data-theme="dark"] {
+        --bg: #030811;
+        --bg-gradient-a: rgba(229, 180, 99, 0.1);
+        --bg-gradient-b: rgba(185, 92, 88, 0.1);
+        --surface: #07111f;
+        --panel-bg: rgba(9, 15, 27, 0.86);
+        --panel-border: rgba(255, 255, 255, 0.1);
+        --panel-border-strong: rgba(255, 255, 255, 0.16);
+        --text: #f4f0ea;
+        --text-muted: rgba(244, 240, 234, 0.66);
+        --text-faint: rgba(244, 240, 234, 0.42);
+        --heading: #e5b463;
+        --gold-500: #e5b463;
+        --gold-600: #cf9a4c;
+        --gold-700: #b17f3a;
+        --on-accent: #1a1208;
+        --shadow-premium: 0 24px 64px rgba(0, 0, 0, 0.5);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        min-height: 100vh;
+        background: var(--bg);
+        background-image:
+          radial-gradient(circle at 0% 0%, var(--bg-gradient-a) 0%, transparent 46%),
+          radial-gradient(circle at 100% 0%, var(--bg-gradient-b) 0%, transparent 42%);
+        color: var(--text);
+        font-family: "Inter", system-ui, sans-serif;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 560px;
+        background: var(--panel-bg);
+        border: 1px solid var(--panel-border);
+        border-radius: 32px;
+        box-shadow: var(--shadow-premium);
+        padding: 48px 40px;
+        backdrop-filter: blur(18px);
+        text-align: center;
+      }
+
+      .logo {
+        width: 84px;
+        height: 84px;
+        border-radius: 24px;
+        object-fit: cover;
+        margin: 0 auto 22px;
+        display: block;
+        border: 1px solid var(--panel-border-strong);
+        background: var(--surface);
+      }
+
+      .eyebrow {
+        font-family: "Outfit", "Inter", sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+        color: var(--heading);
+        margin: 0 0 12px;
+      }
+
+      h1 {
+        font-family: "Outfit", "Inter", sans-serif;
+        font-weight: 800;
+        font-size: clamp(28px, 5vw, 38px);
+        line-height: 1.1;
+        margin: 0 0 10px;
+        color: var(--text);
+      }
+
+      p.lede {
+        margin: 0 0 32px;
+        color: var(--text-muted);
+        font-size: 15px;
+        line-height: 1.6;
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 16px 24px;
+        border-radius: 16px;
+        font-family: "Outfit", "Inter", sans-serif;
+        font-weight: 700;
+        font-size: 15px;
+        text-decoration: none;
+        border: 1px solid transparent;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+      }
+
+      .btn:active {
+        transform: scale(0.98);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--gold-500), var(--gold-700));
+        color: var(--on-accent);
+        box-shadow: 0 12px 28px rgba(185, 92, 88, 0.32);
+      }
+
+      .btn-primary:hover {
+        opacity: 0.92;
+      }
+
+      .btn-secondary {
+        background: transparent;
+        color: var(--text);
+        border-color: var(--panel-border-strong);
+      }
+
+      .btn-secondary:hover {
+        border-color: var(--gold-600);
+        color: var(--gold-600);
+      }
+
+      .icon {
+        width: 18px;
+        height: 18px;
+        flex: none;
+      }
+
+      .version-badge {
+        margin-top: 22px;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-faint);
+        letter-spacing: 0.02em;
+      }
+
+      .version-badge .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        background: var(--gold-600);
+      }
+
+      .version-badge[hidden] {
+        display: none;
+      }
+
+      footer {
+        margin-top: 28px;
+        font-size: 12px;
+        color: var(--text-faint);
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <img
+        class="logo"
+        src="/assets/logo.png"
+        alt="PALAK Jewellers"
+        width="84"
+        height="84"
+      />
+      <p class="eyebrow">PALAK Jewellers</p>
+      <h1>Sales Management System</h1>
+      <p class="lede">
+        Get the Android app for scanning and recording sales, or sign in to
+        the admin console to manage suppliers, reports, and settlements.
+      </p>
+
+      <div class="actions">
+        <a class="btn btn-primary" href="https://api.palakjewellers.co.in/download">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+          Download the App (Android)
+        </a>
+        <a class="btn btn-secondary" href="https://admin.palakjewellers.co.in">
+          Admin Login →
+        </a>
+      </div>
+
+      <div class="version-badge" id="versionBadge" hidden>
+        <span class="dot"></span>
+        <span id="versionText"></span>
+      </div>
+
+      <footer>&copy; <span id="year"></span> PALAK Jewellers</footer>
+    </main>
+
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+
+      // Best-effort: shows the current release version if the backend's
+      // CORS_ORIGIN allows this domain. Fails silently (badge stays hidden)
+      // otherwise — the download button above never depends on this.
+      fetch("https://api.palakjewellers.co.in/api/v1/app-version/latest")
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((payload) => {
+          const version = payload?.data?.version;
+          if (!version) return;
+          document.getElementById("versionText").textContent =
+            "Version " + version;
+          document.getElementById("versionBadge").hidden = false;
+        })
+        .catch(() => {
+          /* CORS not configured for this origin yet, or offline — ignore. */
+        });
+    </script>
+  </body>
+</html>
