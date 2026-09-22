@@ -116,6 +116,10 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   const stoneComponent1 = resolvedWeights.stoneComponent1
   const stoneComponent2 = resolvedWeights.stoneComponent2
   const otherWeight = resolvedWeights.otherWeight
+  // The "other weight" amount/rate sits one column before the other-weight
+  // column itself (index 11, immediately before index 12) — it shifts by the
+  // same offset as otherWeight when the calculation-adjustment above moves it.
+  const otherAmount = toNumeric(parts[11 + (resolvedWeights.offsets?.otherWeight ?? 0)])
 
   const breakdown = calculateYugWeightBreakdown({
     grossWeight,
@@ -133,6 +137,7 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   mergedFields.otherWeight = { value: breakdown.otherWeight, parsed: otherWeight !== null }
   mergedFields.netWeight = { value: qrNetWeight, parsed: qrNetWeight !== null }
   mergedFields.stoneAmount = { value: stoneAmount, parsed: stoneAmount !== null }
+  mergedFields.otherAmount = { value: otherAmount, parsed: otherAmount !== null }
   mergedFields.category = { value: category, parsed: category !== null }
   mergedFields.colorCategory = { value: category, parsed: category !== null }
   mergedFields.size = { value: size, parsed: size !== null }
