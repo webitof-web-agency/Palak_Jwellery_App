@@ -4,6 +4,17 @@ String _scanSessionNormalizeText(String? value) {
   return (value ?? '').trim().toLowerCase();
 }
 
+/// Karat strings vary by supplier format — Venzora's QR literally encodes
+/// "18KT", while the mobile session's locked karat is stored as "18K" (and
+/// other suppliers may write "18 K", "18k", etc.). Comparing those as plain
+/// text always mismatches even when they mean the same karat, so this pulls
+/// out just the leading numeric value ("18") for comparison instead.
+String _scanSessionNormalizeKarat(String? value) {
+  final text = (value ?? '').trim();
+  final match = RegExp(r'(\d{1,2}(?:\.\d+)?)').firstMatch(text);
+  return match?.group(1) ?? _scanSessionNormalizeText(text);
+}
+
 String _scanSessionDisplayWarningLabel(String label) {
   final trimmed = label.trim();
   if (trimmed.isEmpty) {
@@ -35,7 +46,11 @@ String _scanSessionDisplayWarningLabel(String label) {
     return 'QR Karat Mismatch';
   }
 
-  final compact = trimmed.split(';').first.trim().replaceAll(RegExp(r'\s+'), ' ');
+  final compact = trimmed
+      .split(';')
+      .first
+      .trim()
+      .replaceAll(RegExp(r'\s+'), ' ');
   if (compact.length <= 28) {
     return compact;
   }
@@ -83,14 +98,16 @@ List<String> _scanSessionDedupeWarningLabels(Iterable<String> labels) {
 }
 
 List<String> _scanSessionAdditionalWarningLabels(ScannedSessionItem item) {
-  final explicit = _scanSessionExplicitWarningLabels(item)
-      .map(_scanSessionNormalizeText)
-      .toSet();
+  final explicit = _scanSessionExplicitWarningLabels(
+    item,
+  ).map(_scanSessionNormalizeText).toSet();
   return _scanSessionDedupeWarningLabels(
-    _scanSessionSplitDisplayWarningLabels(item.warningLabel)
-        .where((label) => !explicit.contains(_scanSessionNormalizeText(label))),
+    _scanSessionSplitDisplayWarningLabels(
+      item.warningLabel,
+    ).where((label) => !explicit.contains(_scanSessionNormalizeText(label))),
   );
 }
+
 SupplierModel? _scanSessionSupplierModelFor(
   _ScanSessionScreenState state,
   String? supplier,
@@ -110,7 +127,9 @@ SupplierModel? _scanSessionSupplierModelFor(
       if (name.isEmpty) {
         continue;
       }
-      if (name == normalized || name.contains(normalized) || normalized.contains(name)) {
+      if (name == normalized ||
+          name.contains(normalized) ||
+          normalized.contains(name)) {
         return candidate;
       }
     }
@@ -141,7 +160,8 @@ double? _scanSessionProviderPurityForKarat(
     return resolved;
   }
 
-  for (final option in karatOptions.isEmpty ? KaratOption.defaults() : karatOptions) {
+  for (final option
+      in karatOptions.isEmpty ? KaratOption.defaults() : karatOptions) {
     if (option.name.trim().toUpperCase() == normalized.toUpperCase()) {
       return option.purityPercent;
     }
@@ -150,21 +170,26 @@ double? _scanSessionProviderPurityForKarat(
   return null;
 }
 
-double? _scanSessionCategoryDefaultWastageFor(_ScanSessionScreenState state, String? supplier, String? category) {
+double? _scanSessionCategoryDefaultWastageFor(
+  _ScanSessionScreenState state,
+  String? supplier,
+  String? category,
+) {
   final normalized = (category ?? '').trim().toLowerCase();
   if (normalized.isEmpty) {
     return null;
   }
-  
+
   final supplierModel = _scanSessionSupplierModelFor(state, supplier);
   if (supplierModel == null) return null;
-  
+
   final categories = supplierModel.businessSettings['categories'];
   if (categories is! List) return null;
-  
+
   for (final item in categories) {
-    if (item is Map<String, dynamic> && 
-        (item['name']?.toString().toLowerCase() == normalized || item['code']?.toString().toLowerCase() == normalized) && 
+    if (item is Map<String, dynamic> &&
+        (item['name']?.toString().toLowerCase() == normalized ||
+            item['code']?.toString().toLowerCase() == normalized) &&
         item['isActive'] != false) {
       final val = item['wastagePercent'];
       if (val is num) return val.toDouble();
@@ -174,17 +199,21 @@ double? _scanSessionCategoryDefaultWastageFor(_ScanSessionScreenState state, Str
   return null;
 }
 
-double? _scanSessionSupplierDefaultWastageFor(SupplierModel? supplierModel, String? karatLabel) {
+double? _scanSessionSupplierDefaultWastageFor(
+  SupplierModel? supplierModel,
+  String? karatLabel,
+) {
   if (supplierModel == null || karatLabel == null) return null;
   final normalized = karatLabel.trim().toUpperCase();
   if (normalized.isEmpty) return null;
-  
+
   final karats = supplierModel.businessSettings['karats'];
   if (karats is! List) return null;
-  
+
   for (final item in karats) {
-    if (item is Map<String, dynamic> && 
-        (item['name']?.toString().toUpperCase() == normalized || item['code']?.toString().toUpperCase() == normalized) && 
+    if (item is Map<String, dynamic> &&
+        (item['name']?.toString().toUpperCase() == normalized ||
+            item['code']?.toString().toUpperCase() == normalized) &&
         item['isActive'] != false) {
       final val = item['wastagePercent'];
       if (val is num) return val.toDouble();
@@ -193,6 +222,7 @@ double? _scanSessionSupplierDefaultWastageFor(SupplierModel? supplierModel, Stri
   }
   return null;
 }
+
 double? _scanSessionSupplierDefaultStonePriceFor(SupplierModel? supplierModel) {
   if (supplierModel == null) return null;
   final value = supplierModel.businessSettings['defaultStoneRate'];
@@ -200,17 +230,20 @@ double? _scanSessionSupplierDefaultStonePriceFor(SupplierModel? supplierModel) {
   if (value is String) return double.tryParse(value);
   return null;
 }
-double? _scanSessionBusinessDefaultStonePriceFor(_ScanSessionScreenState state) {
-  final overview = state.ref.read(businessOverviewProvider).maybeWhen(
-        data: (value) => value,
-        orElse: () => null,
-      );
+
+double? _scanSessionBusinessDefaultStonePriceFor(
+  _ScanSessionScreenState state,
+) {
+  final overview = state.ref
+      .read(businessOverviewProvider)
+      .maybeWhen(data: (value) => value, orElse: () => null);
   final settings = overview?.settings ?? const <String, dynamic>{};
   final value = settings['default_stone_rate'] ?? settings['defaultStoneRate'];
   if (value is num) return value.toDouble();
   if (value is String) return double.tryParse(value);
   return null;
 }
+
 ({double purity, double wastage})? _scanSessionDefaultsFor(
   _ScanSessionScreenState state,
   String? supplier,
@@ -223,13 +256,24 @@ double? _scanSessionBusinessDefaultStonePriceFor(_ScanSessionScreenState state) 
   }
 
   final supplierModel = _scanSessionSupplierModelFor(state, supplier);
-  final karatPurity = _scanSessionProviderPurityForKarat(state, supplier, karatLabel);
+  final karatPurity = _scanSessionProviderPurityForKarat(
+    state,
+    supplier,
+    karatLabel,
+  );
   if (karatPurity == null) {
     return null;
   }
 
-  final categoryDefaultWastage = _scanSessionCategoryDefaultWastageFor(state, supplier, category);
-  final supplierDefaultWastage = _scanSessionSupplierDefaultWastageFor(supplierModel, karatLabel);
+  final categoryDefaultWastage = _scanSessionCategoryDefaultWastageFor(
+    state,
+    supplier,
+    category,
+  );
+  final supplierDefaultWastage = _scanSessionSupplierDefaultWastageFor(
+    supplierModel,
+    karatLabel,
+  );
 
   return (
     purity: karatPurity,
@@ -244,11 +288,21 @@ void _scanSessionApplyDefaultsForSelection(_ScanSessionScreenState state) {
     state._draft.selectedCategory,
     state._draft.karat,
   );
-  
-  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
-  final catWastage = _scanSessionCategoryDefaultWastageFor(state, state._draft.supplier, state._draft.selectedCategory);
-  final suppWastage = _scanSessionSupplierDefaultWastageFor(supplierModel, state._draft.karat);
-  
+
+  final supplierModel = _scanSessionSupplierModelFor(
+    state,
+    state._draft.supplier,
+  );
+  final catWastage = _scanSessionCategoryDefaultWastageFor(
+    state,
+    state._draft.supplier,
+    state._draft.selectedCategory,
+  );
+  final suppWastage = _scanSessionSupplierDefaultWastageFor(
+    supplierModel,
+    state._draft.karat,
+  );
+
   state._draft = state._draft.copyWith(
     purityOriginal: defaults?.purity,
     puritySelected: defaults?.purity,
@@ -262,10 +316,12 @@ void _scanSessionApplyDefaultsForSelection(_ScanSessionScreenState state) {
     clearSupplierDefaultWastage: suppWastage == null,
     clearValidationMessage: true,
   );
-  state._purityController.text =
-      defaults == null ? '' : defaults.purity.toStringAsFixed(2);
-  state._wastageController.text =
-      defaults == null ? '' : defaults.wastage.toStringAsFixed(2);
+  state._purityController.text = defaults == null
+      ? ''
+      : defaults.purity.toStringAsFixed(2);
+  state._wastageController.text = defaults == null
+      ? ''
+      : defaults.wastage.toStringAsFixed(2);
   state._localValidationMessage = null;
 }
 
@@ -285,8 +341,9 @@ void _scanSessionSetSupplier(_ScanSessionScreenState state, String? supplier) {
       clearStonePrice: defaultStonePrice == null,
     );
     _scanSessionApplyDefaultsForSelection(state);
-    state._stonePriceController.text =
-        defaultStonePrice == null ? '' : defaultStonePrice.toStringAsFixed(2);
+    state._stonePriceController.text = defaultStonePrice == null
+        ? ''
+        : defaultStonePrice.toStringAsFixed(2);
   });
 }
 
@@ -366,7 +423,8 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
 
   if (!state.mounted) return;
 
-  final RenderBox? renderBox = state._supplierKey.currentContext?.findRenderObject() as RenderBox?;
+  final RenderBox? renderBox =
+      state._supplierKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) return;
   final position = renderBox.localToGlobal(Offset.zero);
   final size = renderBox.size;
@@ -392,7 +450,7 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
   if (!state.mounted || chosen == null) {
     return;
   }
-  
+
   if (chosen == _clearSelectionSentinel) {
     _scanSessionSetSupplier(state, null);
     return;
@@ -415,13 +473,18 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
   if (selectedSupplierName != null) {
     try {
       final suppliers = await state.ref.read(suppliersProvider.future);
-      final selectedSupplier = _scanSessionSupplierModelFor(state, selectedSupplierName);
+      final selectedSupplier = _scanSessionSupplierModelFor(
+        state,
+        selectedSupplierName,
+      );
       final targetSuppliers = selectedSupplier != null
           ? suppliers.where((s) => s.id == selectedSupplier.id).toList()
           : <SupplierModel>[];
 
       for (final supplier in targetSuppliers) {
-        supplierCategories.addAll(supplier.categories.where((c) => c.trim().isNotEmpty));
+        supplierCategories.addAll(
+          supplier.categories.where((c) => c.trim().isNotEmpty),
+        );
 
         final settingsCategories = supplier.businessSettings['categories'];
         if (settingsCategories is List) {
@@ -445,7 +508,8 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
 
   if (!state.mounted) return;
 
-  final RenderBox? renderBox = state._categoryKey.currentContext?.findRenderObject() as RenderBox?;
+  final RenderBox? renderBox =
+      state._categoryKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) return;
   final position = renderBox.localToGlobal(Offset.zero);
   final size = renderBox.size;
@@ -468,7 +532,10 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
       const PopupMenuDivider(),
       PopupMenuItem(
         value: '__custom__',
-        child: Text('Custom Category...', style: TextStyle(color: AppColors.accent)),
+        child: Text(
+          'Custom Category...',
+          style: TextStyle(color: AppColors.accent),
+        ),
       ),
     ],
   );
@@ -476,26 +543,44 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
   if (!state.mounted || chosen == null) {
     return;
   }
-  
+
   if (chosen == '__custom__') {
-    final custom = await _showCustomTextInput(state, 'Custom Category', 'Enter category name');
+    final custom = await _showCustomTextInput(
+      state,
+      'Custom Category',
+      'Enter category name',
+    );
     if (custom != null && custom.trim().isNotEmpty) {
       _scanSessionSetCategory(state, custom.trim());
     }
     return;
   }
-  
-  _scanSessionSetCategory(state, chosen == _clearSelectionSentinel ? null : chosen);
+
+  _scanSessionSetCategory(
+    state,
+    chosen == _clearSelectionSentinel ? null : chosen,
+  );
 }
 
-Future<String?> _showCustomTextInput(_ScanSessionScreenState state, String title, String hint) async {
+Future<String?> _showCustomTextInput(
+  _ScanSessionScreenState state,
+  String title,
+  String hint,
+) async {
   final controller = TextEditingController();
   return showDialog<String>(
     context: state.context,
     builder: (context) {
       return AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text(title, style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+        title: Text(
+          title,
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -504,7 +589,10 @@ Future<String?> _showCustomTextInput(_ScanSessionScreenState state, String title
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(controller.text),
@@ -537,7 +625,8 @@ Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
 
   if (!state.mounted) return;
 
-  final RenderBox? renderBox = state._karatKey.currentContext?.findRenderObject() as RenderBox?;
+  final RenderBox? renderBox =
+      state._karatKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) return;
   final position = renderBox.localToGlobal(Offset.zero);
   final size = renderBox.size;
@@ -572,11 +661,16 @@ Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
 
 Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
   final values = <double>{};
-  final selectedSupplier = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  final selectedSupplier = _scanSessionSupplierModelFor(
+    state,
+    state._draft.supplier,
+  );
   try {
     final suppliers = await state.ref.read(suppliersProvider.future);
     final pool = selectedSupplier != null
-        ? suppliers.where((supplier) => supplier.id == selectedSupplier.id).toList(growable: false)
+        ? suppliers
+              .where((supplier) => supplier.id == selectedSupplier.id)
+              .toList(growable: false)
         : suppliers;
     final targetSuppliers = pool.isEmpty && selectedSupplier != null
         ? <SupplierModel>[selectedSupplier]
@@ -590,7 +684,9 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
           if (item['isActive'] == false) continue;
           final val = item['wastagePercent'];
           if (val is num) values.add(val.toDouble());
-          if (val is String && double.tryParse(val) != null) values.add(double.parse(val));
+          if (val is String && double.tryParse(val) != null) {
+            values.add(double.parse(val));
+          }
         }
       }
 
@@ -601,7 +697,9 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
           if (item['isActive'] == false) continue;
           final val = item['wastagePercent'];
           if (val is num) values.add(val.toDouble());
-          if (val is String && double.tryParse(val) != null) values.add(double.parse(val));
+          if (val is String && double.tryParse(val) != null) {
+            values.add(double.parse(val));
+          }
         }
       }
     }
@@ -623,7 +721,9 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
     values.add(fallback);
   }
 
-  final list = values.map((value) => value.toStringAsFixed(2)).toList(growable: false);
+  final list = values
+      .map((value) => value.toStringAsFixed(2))
+      .toList(growable: false);
   list.sort((a, b) {
     final aValue = double.tryParse(a) ?? 0;
     final bValue = double.tryParse(b) ?? 0;
@@ -632,20 +732,23 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
 
   if (!state.mounted) return;
 
-  final RenderBox? renderBox = state._wastageIconKey.currentContext?.findRenderObject() as RenderBox?;
+  final RenderBox? renderBox =
+      state._wastageIconKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) return;
   final position = renderBox.localToGlobal(Offset.zero);
   final size = renderBox.size;
-  
+
   final chosen = await showMenu<String>(
     context: state.context,
     position: RelativeRect.fromLTRB(
-      position.dx, 
-      position.dy + size.height, 
-      position.dx + size.width, 
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
       position.dy + size.height * 2,
     ),
-    items: list.map((e) => PopupMenuItem(value: e, child: Text('$e %'))).toList(),
+    items: list
+        .map((e) => PopupMenuItem(value: e, child: Text('$e %')))
+        .toList(),
   );
 
   if (!state.mounted || chosen == null) {
@@ -658,8 +761,13 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
 
 Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
   final values = <double>{};
-  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
-  final supplierDefault = _scanSessionSupplierDefaultStonePriceFor(supplierModel);
+  final supplierModel = _scanSessionSupplierModelFor(
+    state,
+    state._draft.supplier,
+  );
+  final supplierDefault = _scanSessionSupplierDefaultStonePriceFor(
+    supplierModel,
+  );
   final businessDefault = _scanSessionBusinessDefaultStonePriceFor(state);
   final selected = state._draft.selectedStonePrice;
 
@@ -676,10 +784,10 @@ Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
     values.addAll(<double>{800, 1000, 1200, 1400, 1500, 2000});
   }
 
-  final list = values.toList(growable: false)
-    ..sort((a, b) => a.compareTo(b));
+  final list = values.toList(growable: false)..sort((a, b) => a.compareTo(b));
 
-  final RenderBox? renderBox = state._stonePriceIconKey.currentContext?.findRenderObject() as RenderBox?;
+  final RenderBox? renderBox =
+      state._stonePriceIconKey.currentContext?.findRenderObject() as RenderBox?;
   if (renderBox == null) return;
   final position = renderBox.localToGlobal(Offset.zero);
   final size = renderBox.size;
@@ -700,7 +808,10 @@ Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
         ),
       ),
       const PopupMenuDivider(),
-      const PopupMenuItem(value: _clearSelectionSentinel, child: Text('Clear Price')),
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Price'),
+      ),
     ],
   );
 
@@ -762,30 +873,37 @@ Future<void> _scanSessionStartScanner(_ScanSessionScreenState state) async {
     extra: ScannerLaunchArgs(
       sessionKey: 'scan-session-${DateTime.now().microsecondsSinceEpoch}',
       mode: ScannerLaunchMode.scanSession,
-      onContinuousScan: state._draft.continuousScan ? (qr) => _processScannedQr(state, qr) : null,
+      onContinuousScan: state._draft.continuousScan
+          ? (qr) => _processScannedQr(state, qr)
+          : null,
     ),
   );
   if (rawQr == null || rawQr.trim().isEmpty) {
     return;
   }
-  
+
   if (!state._draft.continuousScan) {
     await _processScannedQr(state, rawQr);
   }
 }
 
-Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) async {
+Future<void> _processScannedQr(
+  _ScanSessionScreenState state,
+  String rawQr,
+) async {
   if (!state.mounted) {
     return;
   }
 
-  final supplierModel = _scanSessionSupplierModelFor(state, state._draft.supplier);
+  final supplierModel = _scanSessionSupplierModelFor(
+    state,
+    state._draft.supplier,
+  );
   ParseQrResult parsed;
   try {
-    parsed = await state.ref.read(saleRepositoryProvider).parseQr(
-          rawQr,
-          supplierId: supplierModel?.id,
-        );
+    parsed = await state.ref
+        .read(saleRepositoryProvider)
+        .parseQr(rawQr, supplierId: supplierModel?.id);
   } catch (_) {
     parsed = ParseQrResult.empty(rawQr);
   }
@@ -807,7 +925,6 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
   final isDuplicateWarning = item.isDuplicate;
   final shouldWarn = warningLabels.isNotEmpty;
   if (shouldWarn) {
-
     final keepItem = await showDialog<bool>(
       context: state.context,
       barrierDismissible: false,
@@ -818,7 +935,9 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('This scan has warnings. Choose whether to keep it in the session.'),
+              const Text(
+                'This scan has warnings. Choose whether to keep it in the session.',
+              ),
               const SizedBox(height: 12),
               ...warningLabels.map(
                 (warning) => Padding(
@@ -827,7 +946,10 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                 ),
               ),
               const SizedBox(height: 16),
-              const Text('Raw QR:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Text(
+                'Raw QR:',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 4),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -837,9 +959,7 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                       : AppColors.surfaceAlt,
                   borderRadius: BorderRadius.circular(4),
                   border: isDuplicateWarning
-                      ? Border.all(
-                          color: Colors.amber.shade800,
-                        )
+                      ? Border.all(color: Colors.amber.shade800)
                       : null,
                 ),
                 child: Row(
@@ -860,7 +980,9 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
                     const SizedBox(width: 8),
                     InkWell(
                       onTap: () {
-                        Clipboard.setData(ClipboardData(text: item.rawQr ?? ''));
+                        Clipboard.setData(
+                          ClipboardData(text: item.rawQr ?? ''),
+                        );
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
                             content: Text('Raw QR copied'),
@@ -908,10 +1030,7 @@ Future<void> _processScannedQr(_ScanSessionScreenState state, String rawQr) asyn
 
   state._updateDraftState(() {
     state._draft = state._draft.copyWith(
-      scannedItems: <ScannedSessionItem>[
-        ...state._draft.scannedItems,
-        item,
-      ],
+      scannedItems: <ScannedSessionItem>[...state._draft.scannedItems, item],
     );
   });
   await state._playSuccessTone();
@@ -963,25 +1082,33 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
       lockedKarat != null &&
       lockedKarat.isNotEmpty &&
       parsedKarat != null &&
-      _scanSessionNormalizeText(parsedKarat) != _scanSessionNormalizeText(lockedKarat);
-  final displayRequiresReview = parseResult.displaySnapshot?['requiresReview'] == true;
+      _scanSessionNormalizeKarat(parsedKarat) !=
+          _scanSessionNormalizeKarat(lockedKarat);
+  final displayRequiresReview =
+      parseResult.displaySnapshot?['requiresReview'] == true;
   final supplierName = (parsedSupplier != null && parsedSupplier.isNotEmpty)
       ? parsedSupplier
       : (selectedSupplier != null && selectedSupplier.isNotEmpty)
-          ? selectedSupplier
-          : 'Selected supplier';
+      ? selectedSupplier
+      : 'Selected supplier';
   final itemCode = pickText(parseResult.itemCode) ?? rawQr.trim();
   // If a category is locked in the session setup, ALWAYS use it — ignore what the QR says.
   // This ensures that if the user picked "Purple" and the QR has "White" or "/", we use "Purple".
-  final category = state._draft.selectedCategory ?? pickText(parseResult.category);
-  final purity = state._draft.selectedPurity ?? state._draft.originalPurity ?? 75.0;
-  final wastage = state._draft.selectedWastage ?? state._draft.resolvedWastageDefault;
+  final category =
+      state._draft.selectedCategory ?? pickText(parseResult.category);
+  final purity =
+      state._draft.selectedPurity ?? state._draft.originalPurity ?? 75.0;
+  final wastage =
+      state._draft.selectedWastage ?? state._draft.resolvedWastageDefault;
   final displaySnapshot = parseResult.displaySnapshot;
   final grossWeight = roundToPrecision(pickDouble(parseResult.grossWeight, 0));
   final stoneWeight = roundToPrecision(pickDouble(parseResult.stoneWeight, 0));
   final otherWeight = roundToPrecision(pickDouble(parseResult.otherWeight, 0));
 
-  var computedStoneAmount = readNestedDouble(displaySnapshot, ['amounts', 'stoneAmount']);
+  var computedStoneAmount = readNestedDouble(displaySnapshot, [
+    'amounts',
+    'stoneAmount',
+  ]);
   final lockedStonePrice = state._draft.stonePriceSelected;
   final fallbackAmountWeight = roundToPrecision(stoneWeight + otherWeight);
   if ((computedStoneAmount == null || computedStoneAmount == 0) &&
@@ -990,21 +1117,26 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
       fallbackAmountWeight > 0) {
     computedStoneAmount = fallbackAmountWeight * lockedStonePrice;
   }
-  
-  final otherAmount = readNestedDouble(displaySnapshot, ['amounts', 'otherAmount']);
-  
+
+  final otherAmount = readNestedDouble(displaySnapshot, [
+    'amounts',
+    'otherAmount',
+  ]);
+
   // Duplicate = the exact same physical QR tag scanned again (same raw QR content).
   // Items from the same supplier with the same item code prefix (e.g. LRG-001) but
   // different weights/fine values have different raw QR strings and are NOT duplicates.
   final normalizedRawQr = rawQr.trim();
-  final isDuplicate = normalizedRawQr.isNotEmpty &&
+  final isDuplicate =
+      normalizedRawQr.isNotEmpty &&
       state._draft.scannedItems.any(
         (item) => (item.rawQr ?? '').trim() == normalizedRawQr,
       );
   final hasSupplierMismatch =
       selectedSupplier != null &&
       parsedSupplier != null &&
-      _scanSessionNormalizeText(parsedSupplier) != _scanSessionNormalizeText(selectedSupplier);
+      _scanSessionNormalizeText(parsedSupplier) !=
+          _scanSessionNormalizeText(selectedSupplier);
   final warnings = <String>[];
   if (parseResult.hasErrors) {
     warnings.add(parseResult.errors.first.reason);
@@ -1036,11 +1168,17 @@ ScannedSessionItem _scanSessionBuildScannedItemFromParse({
     grossWeight: grossWeight,
     stoneWeight: stoneWeight,
     otherWeight: otherWeight,
-    stoneAmount: computedStoneAmount == null ? null : roundToPrecision(computedStoneAmount, digits: 2),
-    otherAmount: otherAmount == null ? null : roundToPrecision(otherAmount, digits: 2),
+    stoneAmount: computedStoneAmount == null
+        ? null
+        : roundToPrecision(computedStoneAmount, digits: 2),
+    otherAmount: otherAmount == null
+        ? null
+        : roundToPrecision(otherAmount, digits: 2),
     msAmount: null,
     ssAmount: null,
-    totalStoneAmount: computedStoneAmount == null ? null : roundToPrecision(computedStoneAmount, digits: 2),
+    totalStoneAmount: computedStoneAmount == null
+        ? null
+        : roundToPrecision(computedStoneAmount, digits: 2),
     addedAt: DateTime.now(),
     status: 'active',
     isDuplicate: isDuplicate,
@@ -1062,15 +1200,16 @@ List<ScannedSessionItem> _scanSessionVisibleScannedItems(
   final query = state._itemSearchController.text.trim().toLowerCase();
   final items = query.isEmpty
       ? state._draft.scannedItems
-      : state._draft.scannedItems.where((item) {
-          return item.itemCode.toLowerCase().contains(query) ||
-              item.supplier.toLowerCase().contains(query) ||
-              (item.category ?? '').toLowerCase().contains(query) ||
-              (item.jewelType ?? '').toLowerCase().contains(query);
-        }).toList(growable: false);
+      : state._draft.scannedItems
+            .where((item) {
+              return item.itemCode.toLowerCase().contains(query) ||
+                  item.supplier.toLowerCase().contains(query) ||
+                  (item.category ?? '').toLowerCase().contains(query) ||
+                  (item.jewelType ?? '').toLowerCase().contains(query);
+            })
+            .toList(growable: false);
   return items.reversed.toList(growable: false);
 }
-
 
 void _scanSessionDiscardDraft(_ScanSessionScreenState state) {
   state._updateDraftState(() {
@@ -1084,7 +1223,9 @@ void _scanSessionDiscardDraft(_ScanSessionScreenState state) {
 
 void _scanSessionClearItems(_ScanSessionScreenState state) {
   state._updateDraftState(() {
-    state._draft = state._draft.copyWith(scannedItems: const <ScannedSessionItem>[]);
+    state._draft = state._draft.copyWith(
+      scannedItems: const <ScannedSessionItem>[],
+    );
   });
 }
 
@@ -1137,11 +1278,15 @@ void _scanSessionRemoveSelectedItems(
   state._updateDraftState(() {
     state._draft = state._draft.copyWith(
       scannedItems: remaining,
-      removedItems: <ScannedSessionItem>[...state._draft.removedItems, ...removedItems],
+      removedItems: <ScannedSessionItem>[
+        ...state._draft.removedItems,
+        ...removedItems,
+      ],
       amendmentCount: state._draft.amendmentCount + 1,
     );
   });
 }
+
 Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
   if (!state._draft.isLocked) {
     return;
@@ -1163,23 +1308,7 @@ Future<void> _scanSessionManualEntry(_ScanSessionScreenState state) async {
 
   state._updateDraftState(() {
     state._draft = state._draft.copyWith(
-      scannedItems: <ScannedSessionItem>[
-        ...state._draft.scannedItems,
-        item,
-      ],
+      scannedItems: <ScannedSessionItem>[...state._draft.scannedItems, item],
     );
   });
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
