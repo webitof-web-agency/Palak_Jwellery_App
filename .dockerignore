@@ -1,0 +1,38 @@
+# Applies whenever a Docker build's context is the repo root (e.g. Nixpacks/
+# buildpack builds for backend and admin-panel that don't scope down to their
+# own subfolder). Keeps build-context transfer small regardless of how each
+# service's Build Path/Docker Context Path is configured in Dokploy.
+#
+# Deliberately excludes only whole directories/files no service needs, never
+# broad extension patterns — safer against accidentally stripping an asset
+# a service actually depends on (e.g. landing/assets/*.png).
+
+.git/
+.github/
+.agents/
+.codex/
+.vscode/
+
+# Not needed by any deployed service's build
+mobile/
+docs/
+qr-samples/
+app logos/
+README.md
+color-used.md
+prompt.md
+502343394_17843970039499162_6070394078534669840_n.jpg
+
+# Dependency/build artifacts (already gitignored, excluded here too in case
+# a build ever runs against an unclean local checkout)
+**/node_modules/
+**/dist/
+**/build/
+**/.dart_tool/
+**/.env
+**/.env.*
+!**/.env.example
+
+# OS/editor cruft
+**/.DS_Store
+**/Thumbs.db
