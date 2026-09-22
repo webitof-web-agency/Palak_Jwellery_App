@@ -45,5 +45,11 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Trigger Dokploy redeploy
+        env:
+          WEBHOOK: ${{ secrets.DOKPLOY_ADMIN_WEBHOOK }}
         run: |
-          curl -fsS -X POST "${{ secrets.DOKPLOY_ADMIN_WEBHOOK }}"
+          if [ -z "$WEBHOOK" ]; then
+            echo "::warning::DOKPLOY_ADMIN_WEBHOOK secret not set — image was still built and pushed to ${{ env.IMAGE }}:latest. Deploy it manually in Dokploy for now, or add the secret to automate this step."
+            exit 0
+          fi
+          curl -fsS -X POST "$WEBHOOK"
