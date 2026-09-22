@@ -231,6 +231,34 @@ double? _scanSessionSupplierDefaultStonePriceFor(SupplierModel? supplierModel) {
   return null;
 }
 
+/// Supplier-level flat wastage default (`businessSettings.defaultWastagePercent`,
+/// set on the supplier form in the admin panel). More specific than the
+/// global default, less specific than a per-karat/per-category override.
+double? _scanSessionSupplierFlatDefaultWastageFor(
+  SupplierModel? supplierModel,
+) {
+  if (supplierModel == null) return null;
+  final value = supplierModel.businessSettings['defaultWastagePercent'];
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
+/// Business-wide wastage default (Business Settings page in the admin
+/// panel, `settings.default_wastage_percent` from `/business/overview`).
+/// Least specific — used only when nothing supplier-level applies.
+double? _scanSessionBusinessDefaultWastageFor(_ScanSessionScreenState state) {
+  final overview = state.ref
+      .read(businessOverviewProvider)
+      .maybeWhen(data: (value) => value, orElse: () => null);
+  final settings = overview?.settings ?? const <String, dynamic>{};
+  final value =
+      settings['default_wastage_percent'] ?? settings['defaultWastagePercent'];
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value);
+  return null;
+}
+
 double? _scanSessionBusinessDefaultStonePriceFor(
   _ScanSessionScreenState state,
 ) {
@@ -270,14 +298,27 @@ double? _scanSessionBusinessDefaultStonePriceFor(
     supplier,
     category,
   );
-  final supplierDefaultWastage = _scanSessionSupplierDefaultWastageFor(
+  final supplierKaratWastage = _scanSessionSupplierDefaultWastageFor(
     supplierModel,
     karatLabel,
   );
+  final supplierFlatWastage = _scanSessionSupplierFlatDefaultWastageFor(
+    supplierModel,
+  );
+  final businessDefaultWastage = _scanSessionBusinessDefaultWastageFor(state);
 
   return (
     purity: karatPurity,
-    wastage: categoryDefaultWastage ?? supplierDefaultWastage ?? 10.0,
+    // Most to least specific: supplier's per-category override, then its
+    // per-karat override, then its own flat default, then the business-wide
+    // default from Business Settings. 10.0 is a last-resort literal only
+    // when none of those are configured anywhere.
+    wastage:
+        categoryDefaultWastage ??
+        supplierKaratWastage ??
+        supplierFlatWastage ??
+        businessDefaultWastage ??
+        10.0,
   );
 }
 
@@ -298,10 +339,18 @@ void _scanSessionApplyDefaultsForSelection(_ScanSessionScreenState state) {
     state._draft.supplier,
     state._draft.selectedCategory,
   );
-  final suppWastage = _scanSessionSupplierDefaultWastageFor(
-    supplierModel,
-    state._draft.karat,
-  );
+  // Folds the same fallback chain as _scanSessionDefaultsFor (supplier
+  // per-karat -> supplier flat default -> business-wide default) into the
+  // single field the draft's own `resolvedWastageDefault` getter reads —
+  // that getter has no access to providers, so the full cascade has to be
+  // resolved here rather than in the domain model.
+  final suppWastage =
+      _scanSessionSupplierDefaultWastageFor(
+        supplierModel,
+        state._draft.karat,
+      ) ??
+      _scanSessionSupplierFlatDefaultWastageFor(supplierModel) ??
+      _scanSessionBusinessDefaultWastageFor(state);
 
   state._draft = state._draft.copyWith(
     purityOriginal: defaults?.purity,

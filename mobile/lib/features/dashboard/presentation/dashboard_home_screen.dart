@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../auth/presentation/auth_notifier.dart';
+import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../../sessions/presentation/active_scan_session_draft_provider.dart';
 import '../../sessions/presentation/saved_scan_sessions_provider.dart';
 import '../../../shared/constants/app_brand.dart';
@@ -70,6 +71,7 @@ class _DashboardHomeScreenState extends ConsumerState<DashboardHomeScreen>
     try {
       await ref.read(savedScanSessionsProvider.notifier).syncAllPending();
       await ref.read(savedScanSessionsProvider.notifier).reconcileWithRemote();
+      refreshBusinessConfig(ref);
     } catch (_) {
       // Silent by design — the user can always Force Sync manually, and the
       // next timer tick will retry anyway.
@@ -218,6 +220,7 @@ class _DashboardHomeScreenState extends ConsumerState<DashboardHomeScreen>
           .read(savedScanSessionsProvider.notifier)
           .syncAllPending();
       await ref.read(savedScanSessionsProvider.notifier).reconcileWithRemote();
+      refreshBusinessConfig(ref);
 
       if (!context.mounted) return;
 

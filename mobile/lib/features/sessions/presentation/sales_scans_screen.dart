@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../customers/domain/customer_record.dart';
+import '../../sale_entry/presentation/sale_entry_provider.dart';
 import '../domain/scan_session_summary.dart';
 import 'saved_scan_sessions_provider.dart';
 import '../../../shared/theme/app_theme.dart';
@@ -303,6 +304,7 @@ class _SalesScansScreenState extends ConsumerState<SalesScansScreen> {
             await ref
                 .read(savedScanSessionsProvider.notifier)
                 .reconcileWithRemote();
+            refreshBusinessConfig(ref);
             ref.invalidate(salesScansSessionsProvider);
           },
           child: Stack(
