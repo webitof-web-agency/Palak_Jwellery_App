@@ -86,6 +86,16 @@ const AdminRoute = ({ children }) => {
 
 function App() {
   const { status, error, retry } = useBackendBootStatus()
+  const hasHydrated = useAuthStore((state) => state.hasHydrated)
+
+  // Every route decision below (HomeRedirect, PublicRoute, ProtectedRoute,
+  // AdminRoute) reads token/user from this store. Rendering them before
+  // persist has rehydrated from localStorage means a logged-in user hitting
+  // "/" briefly reads as logged-out, gets sent to /login, then bounced back
+  // to /dashboard a moment later — a visible blank/flash on load.
+  if (!hasHydrated) {
+    return <FullScreenLoader label="Restoring session" />
+  }
 
   if (status === 'checking') {
     return <FullScreenLoader label="Checking backend status" />
