@@ -18,6 +18,7 @@ import bullionInventoryRoutes from './routes/bullionInventory.routes.js'
 import bullionPurchaseOrdersRoutes from './routes/bullionPurchaseOrders.routes.js'
 import systemRoutes from './routes/system.routes.js'
 import appVersionRoutes from './routes/appVersion.routes.js'
+import { downloadLatestApk } from './controllers/appVersion.controller.js'
 
 const app = express()
 
@@ -54,6 +55,10 @@ app.use('/api/v1/auth/login', rateLimit({
   max: 10,
   message: { success: false, error: 'Too many login attempts', code: 'RATE_LIMITED' },
 }))
+
+// Short, shareable alias for the latest APK download — same handler as
+// /api/v1/app-version/download, just a friendlier link to hand out.
+app.get('/download', downloadLatestApk)
 
 // Routes
 app.use('/api/v1/auth', authRoutes)

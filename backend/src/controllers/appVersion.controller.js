@@ -49,7 +49,7 @@ export const getLatestVersion = async (req, res) => {
         version,
         releaseNotes: (body.body || '').trim(),
         apkSizeBytes: apkAsset.size || 0,
-        downloadUrl: `${req.protocol}://${req.get('host')}/api/v1/app-version/download`,
+        downloadUrl: `${req.protocol}://${req.get('host')}/download`,
       },
     })
   } catch (error) {
