@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       bump:
-        description: "Version bump type"
+        description: "Version bump type (ignored if 'version' below is filled in)"
         required: true
         type: choice
         default: patch
@@ -12,9 +12,8 @@ on:
           - patch
           - minor
           - major
-          - specific
       version:
-        description: "Exact version (only used when bump = specific), e.g. 1.4.0"
+        description: "Exact version override, e.g. 1.4.0 — if filled in, this ALWAYS wins over the bump type above, no need to change the dropdown"
         required: false
         type: string
       release_notes:
@@ -25,6 +24,11 @@ on:
         description: "Backend API base URL to bake into this build, e.g. https://api.example.com (leave blank to use the repo's API_BASE_URL variable, or the app's compiled-in default if that's unset too)"
         required: false
         type: string
+      overwrite_existing:
+        description: "If v<version> was already released, replace it (moves the tag + re-uploads the APK) instead of failing"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -49,16 +53,16 @@ jobs:
           current=$(grep '^version:' pubspec.yaml | head -1 | sed 's/version:[[:space:]]*//' | cut -d'+' -f1)
           echo "Current version: $current"
 
-          if [ "${{ inputs.bump }}" = "specific" ]; then
+          # An explicit 'version' input always wins, regardless of the bump
+          # dropdown — typing a version and forgetting to also flip the
+          # dropdown used to silently fall back to a bump instead.
+          if [ -n "${{ inputs.version }}" ]; then
             new_version="${{ inputs.version }}"
-            if [ -z "$new_version" ]; then
-              echo "::error::'version' input is required when bump = specific"
-              exit 1
-            fi
             if ! [[ "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "::error::version must look like MAJOR.MINOR.PATCH, e.g. 1.4.0"
               exit 1
             fi
+            echo "Using explicit version override: $new_version"
           else
             IFS='.' read -r major minor patch <<< "$current"
             case "${{ inputs.bump }}" in
@@ -80,6 +84,22 @@ jobs:
           echo "build_number=$build_number" >> "$GITHUB_OUTPUT"
           echo "full_version=${new_version}+${build_number}" >> "$GITHUB_OUTPUT"
           echo "Resolved version: ${new_version}+${build_number}"
+
+      - name: Check for an existing release at this version
+        id: check_existing
+        shell: bash
+        run: |
+          tag="v${{ steps.resolve_version.outputs.new_version }}"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            if [ "${{ inputs.overwrite_existing }}" != "true" ]; then
+              echo "::error::$tag already has a release. Enable 'overwrite_existing' to replace it, or pick a different version."
+              exit 1
+            fi
+            echo "$tag already exists — will overwrite it (tag + release + APK) since overwrite_existing is enabled."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Update pubspec.yaml version
         shell: bash
@@ -144,8 +164,14 @@ jobs:
       - name: Tag release
         shell: bash
         run: |
-          git tag "v${{ steps.resolve_version.outputs.new_version }}"
-          git push origin "v${{ steps.resolve_version.outputs.new_version }}"
+          tag="v${{ steps.resolve_version.outputs.new_version }}"
+          if [ "${{ steps.check_existing.outputs.exists }}" = "true" ]; then
+            git tag -f "$tag"
+            git push origin "$tag" --force
+          else
+            git tag "$tag"
+            git push origin "$tag"
+          fi
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
