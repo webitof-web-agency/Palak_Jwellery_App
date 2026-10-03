@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,7 @@ import '../../../shared/widgets/app_banner.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_section_header.dart';
 import '../services/scan_session_feedback_service.dart';
+import 'active_scan_session_draft_provider.dart';
 import 'scan_session_manual_entry_sheet.dart';
 import '../domain/scan_session_draft.dart';
 import '../domain/scan_session_summary.dart';
@@ -29,7 +32,11 @@ part 'scan_session_screen_pickers.dart';
 const String _clearSelectionSentinel = '__clear_selection__';
 
 class ScanSessionScreen extends ConsumerStatefulWidget {
-  const ScanSessionScreen({super.key, this.selectedCustomer, this.resumeSummary});
+  const ScanSessionScreen({
+    super.key,
+    this.selectedCustomer,
+    this.resumeSummary,
+  });
 
   final CustomerRecord? selectedCustomer;
   final ScanSessionSummary? resumeSummary;
@@ -54,6 +61,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   final GlobalKey _categoryKey = GlobalKey();
   final GlobalKey _karatKey = GlobalKey();
   bool _isNotesExpanded = false;
+  Timer? _autoSaveDebounce;
 
   @override
   void initState() {
@@ -71,10 +79,55 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     _stonePriceController.text =
         _draft.selectedStonePrice?.toStringAsFixed(2) ?? '';
     _notesController.text = _draft.notes;
+
+    // Reached with no customer/summary passed in — either the dashboard's
+    // "Continue Draft" button, or the app cold-starting back into this route
+    // after being fully killed (go_router's saved initialLocation carries
+    // the path but not the in-memory `extra`). Recover whatever was last
+    // auto-saved instead of silently showing a blank session.
+    if (widget.resumeSummary == null && widget.selectedCustomer == null) {
+      unawaited(_restorePersistedDraftIfAny());
+    }
+  }
+
+  Future<void> _restorePersistedDraftIfAny() async {
+    ScanSessionDraft? stored;
+    try {
+      stored = await ref.read(activeScanSessionDraftProvider.future);
+    } catch (_) {
+      return;
+    }
+    if (!mounted || stored == null) return;
+    // Something already happened on screen since init (e.g. the user tapped
+    // in fast) — don't clobber it.
+    if (_draft.customer != null || _draft.scannedItems.isNotEmpty) return;
+
+    setState(() {
+      _draft = stored!;
+      _purityController.text = stored.selectedPurity?.toStringAsFixed(2) ?? '';
+      _wastageController.text =
+          stored.selectedWastage?.toStringAsFixed(2) ?? '';
+      _stonePriceController.text =
+          stored.selectedStonePrice?.toStringAsFixed(2) ?? '';
+      _notesController.text = stored.notes;
+    });
+  }
+
+  void _scheduleAutoSaveDraft() {
+    _autoSaveDebounce?.cancel();
+    _autoSaveDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      // No point persisting a session with nothing to resume yet.
+      if (_draft.customer == null && _draft.scannedItems.isEmpty) return;
+      ref.read(activeScanSessionDraftStoreProvider).save(_draft).then((_) {
+        if (mounted) ref.invalidate(activeScanSessionDraftProvider);
+      });
+    });
   }
 
   @override
   void dispose() {
+    _autoSaveDebounce?.cancel();
     _purityController.dispose();
     _wastageController.dispose();
     _stonePriceController.dispose();
@@ -84,7 +137,10 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     super.dispose();
   }
 
-  void _updateDraftState(VoidCallback update) => setState(update);
+  void _updateDraftState(VoidCallback update) {
+    setState(update);
+    _scheduleAutoSaveDraft();
+  }
 
   void _refreshItemFilter() => setState(() {});
 
@@ -94,7 +150,8 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
     });
   }
 
-  void _applyDefaultsForSelection() => _scanSessionApplyDefaultsForSelection(this);
+  void _applyDefaultsForSelection() =>
+      _scanSessionApplyDefaultsForSelection(this);
 
   void _setPurity(String value) => _scanSessionSetPurity(this, value);
 
@@ -118,7 +175,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
   Future<void> _pickKarat() => _scanSessionPickKarat(this);
 
   Future<void> _pickWastage() => _scanSessionPickWastage(this);
-  
+
   void _setStonePrice(String value) => _scanSessionSetStonePrice(this, value);
   Future<void> _pickStonePrice() => _scanSessionPickStonePrice(this);
 
@@ -135,7 +192,9 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Discard Session?'),
-        content: const Text('This will clear all details, settings, and scanned items. Are you sure?'),
+        content: const Text(
+          'This will clear all details, settings, and scanned items. Are you sure?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -167,7 +226,9 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Exit Session?'),
-        content: Text('You have scanned ${_draft.scannedItems.length} items. If you exit now, your unsaved progress will be lost.\n\nAre you sure you want to go back?'),
+        content: Text(
+          'You have scanned ${_draft.scannedItems.length} items. If you exit now, your unsaved progress will be lost.\n\nAre you sure you want to go back?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -234,10 +295,21 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
       return;
     }
     final selectedIds = selected.map((item) => item.id).toSet();
-    final remaining = _draft.scannedItems.where((item) => !selectedIds.contains(item.id)).toList(growable: false);
-    final selectedGross = selected.fold<double>(0, (sum, item) => sum + item.grossWeight);
-    final selectedNet = selected.fold<double>(0, (sum, item) => sum + item.netWeight);
-    final selectedFine = selected.fold<double>(0, (sum, item) => sum + item.fineWeight);
+    final remaining = _draft.scannedItems
+        .where((item) => !selectedIds.contains(item.id))
+        .toList(growable: false);
+    final selectedGross = selected.fold<double>(
+      0,
+      (sum, item) => sum + item.grossWeight,
+    );
+    final selectedNet = selected.fold<double>(
+      0,
+      (sum, item) => sum + item.netWeight,
+    );
+    final selectedFine = selected.fold<double>(
+      0,
+      (sum, item) => sum + item.fineWeight,
+    );
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -275,14 +347,16 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
 
   Widget _buildUnlockedSetupCard() => _scanSessionBuildUnlockedSetupCard(this);
 
-  Widget _buildLockedActiveSection() => _scanSessionBuildLockedActiveSection(this);
+  Widget _buildLockedActiveSection() =>
+      _scanSessionBuildLockedActiveSection(this);
 
   Widget _buildScrollToTopButton() => _scanSessionBuildScrollToTopButton(this);
 
   @override
   Widget build(BuildContext context) {
     final customer = _draft.customer;
-    final validationMessage = _draft.validationMessage ?? _localValidationMessage;
+    final validationMessage =
+        _draft.validationMessage ?? _localValidationMessage;
 
     return PopScope(
       canPop: false,
@@ -305,48 +379,50 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
             },
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-        actions: [
-          if (_draft.hasCustomer || _draft.supplier != null || _draft.hasScannedItems)
-            IconButton(
-              onPressed: _confirmDiscardDraft,
-              icon: const Icon(Icons.delete_outline_rounded),
-              tooltip: 'Discard Draft',
-            ),
-        ],
-      ),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.screenPadding,
-            AppSpacing.lg,
-            AppSpacing.screenPadding,
-            AppSpacing.xxl,
-          ),
-          children: [
-            const AppSectionHeader(
-              title: 'Scan Session Setup',
-              subtitle: 'Set the customer and lock the sale details before scanning starts.',
-            ),
-            if (validationMessage != null) ...[
-              const SizedBox(height: AppSpacing.md),
-              AppBanner(
-                title: 'Fix required',
-                message: validationMessage,
-                tone: AppBannerTone.warning,
+          actions: [
+            if (_draft.hasCustomer ||
+                _draft.supplier != null ||
+                _draft.hasScannedItems)
+              IconButton(
+                onPressed: _confirmDiscardDraft,
+                icon: const Icon(Icons.delete_outline_rounded),
+                tooltip: 'Discard Draft',
               ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-            _buildCustomerCard(customer),
-            const SizedBox(height: AppSpacing.lg),
-            if (!_draft.isLocked)
-              _buildUnlockedSetupCard()
-            else
-              _buildLockedActiveSection(),
           ],
         ),
+        body: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenPadding,
+              AppSpacing.lg,
+              AppSpacing.screenPadding,
+              AppSpacing.xxl,
+            ),
+            children: [
+              const AppSectionHeader(
+                title: 'Scan Session Setup',
+                subtitle:
+                    'Set the customer and lock the sale details before scanning starts.',
+              ),
+              if (validationMessage != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                AppBanner(
+                  title: 'Fix required',
+                  message: validationMessage,
+                  tone: AppBannerTone.warning,
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+              _buildCustomerCard(customer),
+              const SizedBox(height: AppSpacing.lg),
+              if (!_draft.isLocked)
+                _buildUnlockedSetupCard()
+              else
+                _buildLockedActiveSection(),
+            ],
+          ),
+        ),
       ),
-    ),
     );
   }
 }
-
