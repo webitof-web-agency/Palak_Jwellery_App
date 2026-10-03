@@ -19,10 +19,12 @@ class CustomerSelectionScreen extends ConsumerStatefulWidget {
   const CustomerSelectionScreen({super.key});
 
   @override
-  ConsumerState<CustomerSelectionScreen> createState() => _CustomerSelectionScreenState();
+  ConsumerState<CustomerSelectionScreen> createState() =>
+      _CustomerSelectionScreenState();
 }
 
-class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScreen> {
+class _CustomerSelectionScreenState
+    extends ConsumerState<CustomerSelectionScreen> {
   final TextEditingController _searchController = TextEditingController();
   final List<CustomerRecord> _localCustomers = <CustomerRecord>[];
   Timer? _debounce;
@@ -47,23 +49,34 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     super.dispose();
   }
 
+  // Hits the backend's own search endpoint (matches by name/phone across the
+  // whole customer base) instead of filtering a 100-row local page — a
+  // customer outside the first 100 (e.g. sorted past it, or just created)
+  // previously could never be found no matter what was typed.
+  bool get _isSearching =>
+      ref.watch(customerSearchProvider(_searchTerm.trim())).isLoading;
+
   List<CustomerRecord> get _searchResults {
     final query = _searchTerm.trim().toLowerCase();
     if (query.isEmpty) return const [];
 
-    final apiCustomers = ref.watch(customersListProvider).value ?? <CustomerRecord>[];
+    final apiCustomers =
+        ref.watch(customerSearchProvider(_searchTerm.trim())).value ??
+        <CustomerRecord>[];
     final Map<String, CustomerRecord> combined = {};
     for (final c in apiCustomers) {
       combined[c.id] = c;
     }
+    // Still merge in anything added this session (e.g. just-created) so it
+    // shows immediately even if the backend search hasn't caught up.
     for (final c in _localCustomers) {
-      combined[c.id] = c;
+      if (c.name.toLowerCase().contains(query) ||
+          c.phone.toLowerCase().contains(query)) {
+        combined[c.id] = c;
+      }
     }
 
-    return combined.values.where((customer) {
-      return customer.name.toLowerCase().contains(query) ||
-          customer.phone.toLowerCase().contains(query);
-    }).toList(growable: false);
+    return combined.values.toList(growable: false);
   }
 
   void _selectCustomer(CustomerRecord customer) {
@@ -97,7 +110,9 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
 
     if (!mounted || created == null) return;
 
-    final saved = await ref.read(customerRepositoryProvider).createCustomer(created);
+    final saved = await ref
+        .read(customerRepositoryProvider)
+        .createCustomer(created);
     final finalCustomer = saved ?? created;
 
     if (!mounted) return;
@@ -130,6 +145,7 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     final selected = _selectedCustomer;
     final query = _searchTerm.trim();
     final results = _searchResults;
+    final isSearching = _isSearching;
 
     return Scaffold(
       appBar: AppBar(
@@ -156,7 +172,8 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
           children: [
             const AppSectionHeader(
               title: 'Choose a customer',
-              subtitle: 'Search by name or phone to find and select a customer.',
+              subtitle:
+                  'Search by name or phone to find and select a customer.',
             ),
             const SizedBox(height: AppSpacing.md),
 
@@ -214,7 +231,9 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
               const SizedBox(height: AppSpacing.md),
               AppCard(
                 padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
+                ),
                 borderColor: AppColors.accent.withValues(alpha: 0.5),
                 backgroundColor: AppColors.accentSoft.withValues(alpha: 0.10),
                 child: Row(
@@ -234,15 +253,20 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                                 ),
                               ),
                               const SizedBox(width: AppSpacing.sm),
-                              Icon(Icons.check_circle_rounded,
-                                  color: AppColors.accent, size: 16),
+                              Icon(
+                                Icons.check_circle_rounded,
+                                color: AppColors.accent,
+                                size: 16,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             _customerContactLine(selected),
                             style: TextStyle(
-                                color: AppColors.textSecondary, fontSize: 13),
+                              color: AppColors.textSecondary,
+                              fontSize: 13,
+                            ),
                           ),
                         ],
                       ),
@@ -261,10 +285,22 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
             // ── Search results (only while actively searching) ─────────────
             if (query.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
-              if (results.isEmpty)
+              if (isSearching && results.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    ),
+                  ),
+                )
+              else if (results.isEmpty)
                 AppBanner(
                   title: 'No match found',
-                  message: 'No customer with that name or phone. Add a new one?',
+                  message:
+                      'No customer with that name or phone. Add a new one?',
                   tone: AppBannerTone.warning,
                   actionLabel: 'Add New Customer',
                   onAction: _openAddCustomerSheet,
@@ -277,8 +313,9 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                     child: AppCard(
                       onTap: () => _selectCustomer(customer),
                       padding: const EdgeInsets.all(AppSpacing.md),
-                      borderColor:
-                          isSelected ? AppColors.accent : AppColors.border,
+                      borderColor: isSelected
+                          ? AppColors.accent
+                          : AppColors.border,
                       backgroundColor: isSelected
                           ? AppColors.accentSoft.withValues(alpha: 0.08)
                           : AppColors.surface,
@@ -300,15 +337,19 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
                                 Text(
                                   _customerContactLine(customer),
                                   style: TextStyle(
-                                      color: AppColors.textSecondary,
-                                      fontSize: 13),
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           if (isSelected)
-                            Icon(Icons.check_circle_rounded,
-                                color: AppColors.accent, size: 20),
+                            Icon(
+                              Icons.check_circle_rounded,
+                              color: AppColors.accent,
+                              size: 20,
+                            ),
                         ],
                       ),
                     ),
@@ -334,5 +375,3 @@ class _CustomerSelectionScreenState extends ConsumerState<CustomerSelectionScree
     );
   }
 }
-
-
