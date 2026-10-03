@@ -6,7 +6,8 @@ class _SupplierPickerSheet extends ConsumerStatefulWidget {
   final String? selectedValue;
 
   @override
-  ConsumerState<_SupplierPickerSheet> createState() => _SupplierPickerSheetState();
+  ConsumerState<_SupplierPickerSheet> createState() =>
+      _SupplierPickerSheetState();
 }
 
 class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
@@ -25,7 +26,9 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xl),
+        ),
         border: Border.all(color: AppColors.border),
       ),
       child: SafeArea(
@@ -40,165 +43,184 @@ class _SupplierPickerSheetState extends ConsumerState<_SupplierPickerSheet> {
               AppSpacing.screenPadding,
             ),
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderStrong,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderStrong,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const AppSectionHeader(
-                title: 'Choose supplier',
-                subtitle: 'Loaded from live admin supplier settings.',
-              ),
-              if ((widget.selectedValue ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(_clearSelectionSentinel),
-                    icon: const Icon(Icons.clear_rounded, size: 18),
-                    label: const Text('Clear selection'),
+                const SizedBox(height: AppSpacing.md),
+                const AppSectionHeader(
+                  title: 'Choose supplier',
+                  subtitle: 'Loaded from live admin supplier settings.',
+                ),
+                if ((widget.selectedValue ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_clearSelectionSentinel),
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      label: const Text('Clear selection'),
+                    ),
                   ),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              suppliersState.when(
-                loading: () => const _PickerStateCard(
-                  icon: Icons.sync_rounded,
-                  title: 'Loading suppliers',
-                  message: 'Pulling the live supplier list from the backend.',
-                ),
-                error: (_, _) => _PickerStateCard(
-                  icon: Icons.cloud_off_rounded,
-                  title: 'Supplier list unavailable',
-                  message: 'Could not load live suppliers right now.',
-                  actionLabel: 'Retry',
-                  onAction: () => ref.invalidate(suppliersProvider),
-                ),
-                data: (suppliers) {
-                  if (suppliers.isEmpty) {
-                    return const _PickerStateCard(
-                      icon: Icons.storefront_outlined,
-                      title: 'No active suppliers',
-                      message: 'Ask an admin to publish suppliers before starting this scan.',
-                    );
-                  }
+                ],
+                const SizedBox(height: AppSpacing.md),
+                suppliersState.when(
+                  loading: () => const _PickerStateCard(
+                    icon: Icons.sync_rounded,
+                    title: 'Loading suppliers',
+                    message: 'Pulling the live supplier list from the backend.',
+                  ),
+                  error: (_, _) => _PickerStateCard(
+                    icon: Icons.cloud_off_rounded,
+                    title: 'Supplier list unavailable',
+                    message: 'Could not load live suppliers right now.',
+                    actionLabel: 'Retry',
+                    onAction: () => ref.invalidate(suppliersProvider),
+                  ),
+                  data: (suppliers) {
+                    if (suppliers.isEmpty) {
+                      return const _PickerStateCard(
+                        icon: Icons.storefront_outlined,
+                        title: 'No active suppliers',
+                        message:
+                            'Ask an admin to publish suppliers before starting this scan.',
+                      );
+                    }
 
-                  final query = _searchController.text.trim().toLowerCase();
-                  final filtered = suppliers.where((supplier) {
-                    if (query.isEmpty) return true;
-                    return supplier.name.toLowerCase().contains(query) ||
-                        supplier.code.toLowerCase().contains(query);
-                  }).toList(growable: false);
+                    final query = _searchController.text.trim().toLowerCase();
+                    final filtered = suppliers
+                        .where((supplier) {
+                          if (query.isEmpty) return true;
+                          return supplier.name.toLowerCase().contains(query) ||
+                              supplier.code.toLowerCase().contains(query);
+                        })
+                        .toList(growable: false);
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          labelText: 'Search supplier',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _searchController.text.trim().isEmpty
-                              ? null
-                              : IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                    });
-                                  },
-                                  icon: const Icon(Icons.clear_rounded),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      if (filtered.isEmpty)
-                        const _PickerStateCard(
-                          icon: Icons.search_off_rounded,
-                          title: 'No match found',
-                          message: 'Try a different supplier name or clear the search.',
-                        )
-                      else
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 420),
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            itemCount: filtered.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: AppSpacing.sm),
-                            itemBuilder: (context, index) {
-                              final supplier = filtered[index];
-                              final selected = supplier.name == widget.selectedValue;
-                              return AppCard(
-                                onTap: () => Navigator.of(context).pop(supplier.name),
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                borderColor: selected ? AppColors.accent : AppColors.border,
-                                backgroundColor: selected
-                                    ? AppColors.accentSoft.withValues(alpha: 0.08)
-                                    : AppColors.surface,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceAlt,
-                                        borderRadius: BorderRadius.circular(AppRadius.md),
-                                      ),
-                                      child: Icon(Icons.storefront_rounded, color: AppColors.accent),
-                                    ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            supplier.name,
-                                            style: TextStyle(
-                                              color: AppColors.textPrimary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: AppSpacing.xs),
-                                          Text(
-                                            supplier.code.isNotEmpty
-                                                ? 'Code: ${supplier.code}'
-                                                : 'Live backend supplier',
-                                            style: TextStyle(
-                                              color: AppColors.textSecondary,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (selected)
-                                      const AppBadge(
-                                        label: 'Selected',
-                                        tone: AppBadgeTone.accent,
-                                        icon: Icons.check_rounded,
-                                        compact: true,
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            labelText: 'Search supplier',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon: _searchController.text.trim().isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController.clear();
+                                      });
+                                    },
+                                    icon: const Icon(Icons.clear_rounded),
+                                  ),
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-            ],
+                        const SizedBox(height: AppSpacing.md),
+                        if (filtered.isEmpty)
+                          const _PickerStateCard(
+                            icon: Icons.search_off_rounded,
+                            title: 'No match found',
+                            message:
+                                'Try a different supplier name or clear the search.',
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 420),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: AppSpacing.sm),
+                              itemBuilder: (context, index) {
+                                final supplier = filtered[index];
+                                final selected =
+                                    supplier.name == widget.selectedValue;
+                                return AppCard(
+                                  onTap: () =>
+                                      Navigator.of(context).pop(supplier.name),
+                                  padding: const EdgeInsets.all(AppSpacing.lg),
+                                  borderColor: selected
+                                      ? AppColors.accent
+                                      : AppColors.border,
+                                  backgroundColor: selected
+                                      ? AppColors.accentSoft.withValues(
+                                          alpha: 0.08,
+                                        )
+                                      : AppColors.surface,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceAlt,
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadius.md,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.storefront_rounded,
+                                          color: AppColors.accent,
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.md),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              supplier.name,
+                                              style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(
+                                              height: AppSpacing.xs,
+                                            ),
+                                            Text(
+                                              supplier.code.isNotEmpty
+                                                  ? 'Code: ${supplier.code}'
+                                                  : 'Live backend supplier',
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (selected)
+                                        const AppBadge(
+                                          label: 'Selected',
+                                          tone: AppBadgeTone.accent,
+                                          icon: Icons.check_rounded,
+                                          compact: true,
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
           ),
         ),
@@ -250,7 +272,9 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xl),
+        ),
         border: Border.all(color: AppColors.border),
       ),
       child: SafeArea(
@@ -265,167 +289,348 @@ class _KaratPickerSheetState extends ConsumerState<_KaratPickerSheet> {
               AppSpacing.screenPadding,
             ),
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 44,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppColors.borderStrong,
-                    borderRadius: BorderRadius.circular(AppRadius.pill),
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderStrong,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              const AppSectionHeader(
-                title: 'Choose karat',
-                subtitle: 'Loaded from live admin karat settings.',
-              ),
-              if ((widget.selectedValue ?? '').trim().isNotEmpty) ...[
-                const SizedBox(height: AppSpacing.sm),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(_clearSelectionSentinel),
-                    icon: const Icon(Icons.clear_rounded, size: 18),
-                    label: const Text('Clear selection'),
+                const SizedBox(height: AppSpacing.md),
+                const AppSectionHeader(
+                  title: 'Choose karat',
+                  subtitle: 'Loaded from live admin karat settings.',
+                ),
+                if ((widget.selectedValue ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_clearSelectionSentinel),
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      label: const Text('Clear selection'),
+                    ),
                   ),
-                ),
-              ],
-              const SizedBox(height: AppSpacing.md),
-              karatState.when(
-                loading: () => const _PickerStateCard(
-                  icon: Icons.hourglass_empty_rounded,
-                  title: 'Loading karats',
-                  message: 'Pulling live karat settings from the backend.',
-                ),
-                error: (_, _) => _PickerStateCard(
-                  icon: Icons.warning_amber_rounded,
-                  title: 'Karat list unavailable',
-                  message: 'Using the live karat list with a fallback default.',
-                  actionLabel: 'Retry',
-                  onAction: () => ref.invalidate(karatOptionsProvider),
-                ),
-                data: (options) {
-                  final karatOptions = options.isEmpty ? KaratOption.defaults() : options;
-                  final sortedOptions = List<KaratOption>.from(karatOptions)
-                    ..sort((a, b) {
-                      final aOrder = a.sortOrder ?? 0;
-                      final bOrder = b.sortOrder ?? 0;
-                      if (aOrder != bOrder) return aOrder.compareTo(bOrder);
-                      return a.name.compareTo(b.name);
-                    });
-                  final query = _searchController.text.trim().toLowerCase();
-                  final filtered = sortedOptions.where((option) {
-                    if (query.isEmpty) return true;
-                    return option.name.toLowerCase().contains(query) ||
-                        _previewLabel(option, sortedOptions).toLowerCase().contains(query);
-                  }).toList(growable: false);
+                ],
+                const SizedBox(height: AppSpacing.md),
+                karatState.when(
+                  loading: () => const _PickerStateCard(
+                    icon: Icons.hourglass_empty_rounded,
+                    title: 'Loading karats',
+                    message: 'Pulling live karat settings from the backend.',
+                  ),
+                  error: (_, _) => _PickerStateCard(
+                    icon: Icons.warning_amber_rounded,
+                    title: 'Karat list unavailable',
+                    message:
+                        'Using the live karat list with a fallback default.',
+                    actionLabel: 'Retry',
+                    onAction: () => ref.invalidate(karatOptionsProvider),
+                  ),
+                  data: (options) {
+                    final karatOptions = options.isEmpty
+                        ? KaratOption.defaults()
+                        : options;
+                    final sortedOptions = List<KaratOption>.from(karatOptions)
+                      ..sort((a, b) {
+                        final aOrder = a.sortOrder ?? 0;
+                        final bOrder = b.sortOrder ?? 0;
+                        if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+                        return a.name.compareTo(b.name);
+                      });
+                    final query = _searchController.text.trim().toLowerCase();
+                    final filtered = sortedOptions
+                        .where((option) {
+                          if (query.isEmpty) return true;
+                          return option.name.toLowerCase().contains(query) ||
+                              _previewLabel(
+                                option,
+                                sortedOptions,
+                              ).toLowerCase().contains(query);
+                        })
+                        .toList(growable: false);
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          labelText: 'Search karat',
-                          prefixIcon: const Icon(Icons.search_rounded),
-                          suffixIcon: _searchController.text.trim().isEmpty
-                              ? null
-                              : IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _searchController.clear();
-                                    });
-                                  },
-                                  icon: const Icon(Icons.clear_rounded),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      if (filtered.isEmpty)
-                        const _PickerStateCard(
-                          icon: Icons.search_off_rounded,
-                          title: 'No karat matched',
-                          message: 'Try another karat name or clear the search.',
-                        )
-                      else
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxHeight: 420),
-                          child: ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: filtered.length,
-                            separatorBuilder: (context, index) =>
-                                const SizedBox(height: AppSpacing.sm),
-                            itemBuilder: (context, index) {
-                              final option = filtered[index];
-                              final preview = _previewLabel(option, sortedOptions);
-                              final selected = option.name == widget.selectedValue;
-                              return AppCard(
-                                onTap: () => Navigator.of(context).pop(option.name),
-                                padding: const EdgeInsets.all(AppSpacing.lg),
-                                borderColor: selected ? AppColors.accent : AppColors.border,
-                                backgroundColor: selected
-                                    ? AppColors.accentSoft.withValues(alpha: 0.08)
-                                    : AppColors.surface,
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 40,
-                                      height: 40,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surfaceAlt,
-                                        borderRadius: BorderRadius.circular(AppRadius.md),
-                                      ),
-                                      child: Icon(Icons.diamond_rounded, color: AppColors.accent),
-                                    ),
-                                    const SizedBox(width: AppSpacing.md),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            preview,
-                                            style: TextStyle(
-                                              color: AppColors.textPrimary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          const SizedBox(height: AppSpacing.xs),
-                                          Text(
-                                            option.purityPercent == null
-                                                ? 'Purity preview unavailable'
-                                                : 'Default purity from live admin settings',
-                                            style: TextStyle(
-                                              color: AppColors.textSecondary,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (selected)
-                                      const AppBadge(
-                                        label: 'Selected',
-                                        tone: AppBadgeTone.accent,
-                                        icon: Icons.check_rounded,
-                                        compact: true,
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _searchController,
+                          onChanged: (_) => setState(() {}),
+                          decoration: InputDecoration(
+                            labelText: 'Search karat',
+                            prefixIcon: const Icon(Icons.search_rounded),
+                            suffixIcon: _searchController.text.trim().isEmpty
+                                ? null
+                                : IconButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _searchController.clear();
+                                      });
+                                    },
+                                    icon: const Icon(Icons.clear_rounded),
+                                  ),
                           ),
                         ),
-                    ],
-                  );
-                },
-              ),
-            ],
+                        const SizedBox(height: AppSpacing.md),
+                        if (filtered.isEmpty)
+                          const _PickerStateCard(
+                            icon: Icons.search_off_rounded,
+                            title: 'No karat matched',
+                            message:
+                                'Try another karat name or clear the search.',
+                          )
+                        else
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 420),
+                            child: ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: filtered.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: AppSpacing.sm),
+                              itemBuilder: (context, index) {
+                                final option = filtered[index];
+                                final preview = _previewLabel(
+                                  option,
+                                  sortedOptions,
+                                );
+                                final selected =
+                                    option.name == widget.selectedValue;
+                                return AppCard(
+                                  onTap: () =>
+                                      Navigator.of(context).pop(option.name),
+                                  padding: const EdgeInsets.all(AppSpacing.lg),
+                                  borderColor: selected
+                                      ? AppColors.accent
+                                      : AppColors.border,
+                                  backgroundColor: selected
+                                      ? AppColors.accentSoft.withValues(
+                                          alpha: 0.08,
+                                        )
+                                      : AppColors.surface,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 40,
+                                        height: 40,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.surfaceAlt,
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadius.md,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.diamond_rounded,
+                                          color: AppColors.accent,
+                                        ),
+                                      ),
+                                      const SizedBox(width: AppSpacing.md),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              preview,
+                                              style: TextStyle(
+                                                color: AppColors.textPrimary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            const SizedBox(
+                                              height: AppSpacing.xs,
+                                            ),
+                                            Text(
+                                              option.purityPercent == null
+                                                  ? 'Purity preview unavailable'
+                                                  : 'Default purity from live admin settings',
+                                              style: TextStyle(
+                                                color: AppColors.textSecondary,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (selected)
+                                        const AppBadge(
+                                          label: 'Selected',
+                                          tone: AppBadgeTone.accent,
+                                          icon: Icons.check_rounded,
+                                          compact: true,
+                                        ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A single entry in a [_SimpleListPickerSheet]: `value` is what's returned
+/// when tapped, `label` is what's shown (they differ for e.g. wastage, where
+/// the returned value is a bare number but the label adds a "%" suffix).
+typedef SimplePickerOption = ({String value, String label});
+
+/// Shared bottom sheet for plain value-list pickers (category, wastage,
+/// stone price) that previously used an unbounded `showMenu` popup — capped
+/// at the same 420px max height + internal scroll as the supplier/karat
+/// sheets above, instead of growing to fit however many options exist.
+class _SimpleListPickerSheet extends StatelessWidget {
+  const _SimpleListPickerSheet({
+    required this.title,
+    required this.subtitle,
+    required this.options,
+    this.selectedValue,
+    this.clearLabel,
+    this.customEntryLabel,
+    this.customEntryValue,
+    this.emptyTitle = 'No options available',
+    this.emptyMessage = 'Nothing configured yet for this selection.',
+  });
+
+  final String title;
+  final String subtitle;
+  final List<SimplePickerOption> options;
+  final String? selectedValue;
+  final String? clearLabel;
+  final String? customEntryLabel;
+  final String? customEntryValue;
+  final String emptyTitle;
+  final String emptyMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: const BorderRadius.vertical(
+          top: Radius.circular(AppRadius.xl),
+        ),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.screenPadding,
+              AppSpacing.lg,
+              AppSpacing.screenPadding,
+              AppSpacing.screenPadding,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderStrong,
+                      borderRadius: BorderRadius.circular(AppRadius.pill),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                AppSectionHeader(title: title, subtitle: subtitle),
+                if (clearLabel != null &&
+                    (selectedValue ?? '').trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(_clearSelectionSentinel),
+                      icon: const Icon(Icons.clear_rounded, size: 18),
+                      label: Text(clearLabel!),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                if (options.isEmpty)
+                  _PickerStateCard(
+                    icon: Icons.inbox_outlined,
+                    title: emptyTitle,
+                    message: emptyMessage,
+                  )
+                else
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 420),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: options.length,
+                      separatorBuilder: (context, index) =>
+                          const SizedBox(height: AppSpacing.sm),
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final selected = option.value == selectedValue;
+                        return AppCard(
+                          onTap: () => Navigator.of(context).pop(option.value),
+                          padding: const EdgeInsets.all(AppSpacing.lg),
+                          borderColor: selected
+                              ? AppColors.accent
+                              : AppColors.border,
+                          backgroundColor: selected
+                              ? AppColors.accentSoft.withValues(alpha: 0.08)
+                              : AppColors.surface,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  option.label,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (selected)
+                                Icon(
+                                  Icons.check_circle_rounded,
+                                  color: AppColors.accent,
+                                  size: 20,
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                if (customEntryLabel != null && customEntryValue != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          Navigator.of(context).pop(customEntryValue),
+                      icon: const Icon(Icons.edit_rounded, size: 18),
+                      label: Text(customEntryLabel!),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
