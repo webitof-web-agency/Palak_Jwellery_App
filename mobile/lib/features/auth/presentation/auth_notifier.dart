@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/dio_client.dart';
 import '../../../core/auth/token_storage.dart';
 import '../../auth/data/auth_repository.dart';
-import '../../../shared/navigation/app_route_resume_store.dart';
 
 final tokenStorageProvider = Provider<TokenStorage>(
   (ref) => TokenStorage(FlutterSecureStorage()),
@@ -54,7 +53,6 @@ class AuthSessionNotifier extends AsyncNotifier<AuthSession?> {
 
   Future<void> clearSession() async {
     await ref.read(tokenStorageProvider).deleteToken();
-    await AppRouteResumeStore(const FlutterSecureStorage()).clear();
     state = const AsyncData(null);
   }
 }

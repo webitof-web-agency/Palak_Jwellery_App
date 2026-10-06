@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/system/backend_status.dart';
@@ -31,13 +30,11 @@ import 'features/sessions/presentation/sales_scans_screen.dart';
 import 'features/sessions/presentation/scan_session_screen.dart';
 import 'features/sessions/presentation/scan_session_summary_screen.dart';
 import 'shared/navigation/app_route_observer.dart';
-import 'shared/navigation/app_route_resume_store.dart';
 import 'shared/theme/app_theme.dart';
 import 'shared/widgets/backend_fallback_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppRouteResumeStore(const FlutterSecureStorage()).load();
   final savedPreset = await ThemePreferences.loadPreset();
   if (savedPreset != null) {
     activePreset = savedPreset;
@@ -47,11 +44,16 @@ Future<void> main() async {
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authSession = ref.watch(authSessionProvider);
-  final routeResumeStore = AppRouteResumeStore(const FlutterSecureStorage());
 
   final router = GoRouter(
     observers: [appRouteObserver],
-    initialLocation: AppRouteResumeStore.currentRoute ?? '/login',
+    // Always starts at /login (redirected below to /dashboard when already
+    // signed in) — a cold start after the app was killed from Recent Apps
+    // should land on the start screen, not jump back into whatever screen
+    // was open before. Minimizing without killing the process already
+    // resumes exactly where you left off for free, since Flutter just keeps
+    // running in the background; nothing here needs to handle that case.
+    initialLocation: '/login',
     routes: [
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
@@ -201,22 +203,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isLoginRoute || location == '/') {
-        return AppRouteResumeStore.currentRoute ?? '/dashboard';
+        return '/dashboard';
       }
 
       return null;
     },
   );
-
-  void persistCurrentRoute() {
-    final location = router.routeInformationProvider.value.uri.toString();
-    unawaited(routeResumeStore.save(location));
-  }
-
-  router.routeInformationProvider.addListener(persistCurrentRoute);
-  ref.onDispose(() {
-    router.routeInformationProvider.removeListener(persistCurrentRoute);
-  });
 
   return router;
 });
