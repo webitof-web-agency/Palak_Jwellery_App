@@ -123,6 +123,21 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Set up release signing
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 secret is not set — release APK would be signed with an ephemeral debug key, breaking in-place updates for users. Add the keystore secrets (see mobile/android/key.properties.example) before running this workflow."
+            exit 1
+          fi
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/palak-jewellers-release.jks
+          cat > android/key.properties <<EOF
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          storeFile=palak-jewellers-release.jks
+          EOF
+
       - name: Build release APK
         id: build_apk
         env:
