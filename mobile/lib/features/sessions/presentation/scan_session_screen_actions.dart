@@ -462,14 +462,38 @@ void _scanSessionChangeCustomer(_ScanSessionScreenState state) {
 }
 
 Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
+  List<SupplierModel> suppliers = [];
+  try {
+    suppliers = await state.ref.read(suppliersProvider.future);
+  } catch (_) {}
+
+  final list = suppliers.map((s) => s.name).toList(growable: false);
+  list.sort((a, b) => a.compareTo(b));
+
   if (!state.mounted) return;
 
-  final chosen = await showModalBottomSheet<String>(
+  final RenderBox? renderBox =
+      state._supplierKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+
+  final chosen = await showMenu<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _SupplierPickerSheet(selectedValue: state._draft.supplier),
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
+    ),
+    items: [
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Selection', style: TextStyle(color: Colors.red)),
+      ),
+      if (list.isNotEmpty) const PopupMenuDivider(),
+      ...list.map((e) => PopupMenuItem(value: e, child: Text(e))),
+    ],
   );
 
   if (!state.mounted || chosen == null) {
@@ -533,23 +557,36 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
 
   if (!state.mounted) return;
 
-  final chosen = await showModalBottomSheet<String>(
+  final RenderBox? renderBox =
+      state._categoryKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+
+  final chosen = await showMenu<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _SimpleListPickerSheet(
-      title: 'Choose category',
-      subtitle: 'Loaded from live admin + supplier category settings.',
-      options: [for (final e in list) (value: e, label: e)],
-      selectedValue: state._draft.selectedCategory,
-      clearLabel: 'Clear Selection',
-      customEntryLabel: 'Custom Category...',
-      customEntryValue: '__custom__',
-      emptyTitle: 'No categories yet',
-      emptyMessage:
-          'Ask an admin to set up categories, or add a custom one below.',
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
     ),
+    items: [
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Selection', style: TextStyle(color: Colors.red)),
+      ),
+      if (list.isNotEmpty) const PopupMenuDivider(),
+      ...list.map((e) => PopupMenuItem(value: e, child: Text(e))),
+      const PopupMenuDivider(),
+      PopupMenuItem(
+        value: '__custom__',
+        child: Text(
+          'Custom Category...',
+          style: TextStyle(color: AppColors.accent),
+        ),
+      ),
+    ],
   );
 
   if (!state.mounted || chosen == null) {
@@ -617,23 +654,48 @@ Future<String?> _showCustomTextInput(
 }
 
 Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
+  List<KaratOption> options = KaratOption.defaults();
+  try {
+    final liveOptions = await state.ref.read(karatOptionsProvider.future);
+    if (liveOptions.isNotEmpty) {
+      options = liveOptions;
+    }
+  } catch (_) {}
+
+  final sortedOptions = List<KaratOption>.from(options)
+    ..sort((a, b) {
+      final aOrder = a.sortOrder ?? 0;
+      final bOrder = b.sortOrder ?? 0;
+      if (aOrder != bOrder) return aOrder.compareTo(bOrder);
+      return a.name.compareTo(b.name);
+    });
+
+  final list = sortedOptions.map((o) => o.name).toList();
+
   if (!state.mounted) return;
 
-  final supplierModel = _scanSessionSupplierModelFor(
-    state,
-    state._draft.supplier,
-  );
+  final RenderBox? renderBox =
+      state._karatKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
 
-  final chosen = await showModalBottomSheet<String>(
+  final chosen = await showMenu<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _KaratPickerSheet(
-      selectedValue: state._draft.karat,
-      supplierName: state._draft.supplier,
-      supplierModel: supplierModel,
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
     ),
+    items: [
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Selection', style: TextStyle(color: Colors.red)),
+      ),
+      if (list.isNotEmpty) const PopupMenuDivider(),
+      ...list.map((e) => PopupMenuItem(value: e, child: Text(e))),
+    ],
   );
 
   if (!state.mounted || chosen == null) {
@@ -719,20 +781,23 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
 
   if (!state.mounted) return;
 
-  final chosen = await showModalBottomSheet<String>(
+  final RenderBox? renderBox =
+      state._wastageIconKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
+
+  final chosen = await showMenu<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _SimpleListPickerSheet(
-      title: 'Choose wastage',
-      subtitle:
-          'From this supplier/karat/category\'s configured wastage, plus business defaults.',
-      options: [for (final e in list) (value: e, label: '$e %')],
-      selectedValue: state._draft.selectedWastage?.toStringAsFixed(2),
-      emptyTitle: 'No wastage options',
-      emptyMessage: 'Nothing configured yet for this supplier.',
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
     ),
+    items: list
+        .map((e) => PopupMenuItem(value: e, child: Text('$e %')))
+        .toList(),
   );
 
   if (!state.mounted || chosen == null) {
@@ -770,27 +835,33 @@ Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
 
   final list = values.toList(growable: false)..sort((a, b) => a.compareTo(b));
 
-  if (!state.mounted) return;
+  final RenderBox? renderBox =
+      state._stonePriceIconKey.currentContext?.findRenderObject() as RenderBox?;
+  if (renderBox == null) return;
+  final position = renderBox.localToGlobal(Offset.zero);
+  final size = renderBox.size;
 
-  final chosen = await showModalBottomSheet<String>(
+  final chosen = await showMenu<String>(
     context: state.context,
-    isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Colors.transparent,
-    builder: (_) => _SimpleListPickerSheet(
-      title: 'Choose stone price',
-      subtitle:
-          'From this supplier\'s and the business\'s configured defaults.',
-      options: [
-        for (final e in list)
-          (
-            value: e.toStringAsFixed(2),
-            label: 'Rs. ${e.toStringAsFixed(2)}/gm',
-          ),
-      ],
-      selectedValue: state._draft.selectedStonePrice?.toStringAsFixed(2),
-      clearLabel: 'Clear Price',
+    position: RelativeRect.fromLTRB(
+      position.dx,
+      position.dy + size.height,
+      position.dx + size.width,
+      position.dy + size.height * 2,
     ),
+    items: [
+      ...list.map(
+        (e) => PopupMenuItem(
+          value: e.toStringAsFixed(2),
+          child: Text('Rs. ${e.toStringAsFixed(2)}/gm'),
+        ),
+      ),
+      const PopupMenuDivider(),
+      const PopupMenuItem(
+        value: _clearSelectionSentinel,
+        child: Text('Clear Price'),
+      ),
+    ],
   );
 
   if (!state.mounted || chosen == null) {
@@ -1190,12 +1261,19 @@ List<ScannedSessionItem> _scanSessionVisibleScannedItems(
 }
 
 void _scanSessionDiscardDraft(_ScanSessionScreenState state) {
+  // Discarding only reset the in-memory draft before — the persisted copy
+  // in secure storage was left untouched, so it would reappear via
+  // "Continue Draft" on the dashboard even after being explicitly discarded.
+  state._autoSaveDebounce?.cancel();
   state._updateDraftState(() {
     state._draft = const ScanSessionDraft(customer: null);
     state._purityController.clear();
     state._wastageController.clear();
     state._itemSearchController.clear();
     state._localValidationMessage = null;
+  });
+  state.ref.read(activeScanSessionDraftStoreProvider).clear().then((_) {
+    if (state.mounted) state.ref.invalidate(activeScanSessionDraftProvider);
   });
 }
 
