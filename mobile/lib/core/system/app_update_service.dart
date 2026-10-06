@@ -110,6 +110,19 @@ class AppUpdateService {
     final dir = await getTemporaryDirectory();
     final filePath =
         '${dir.path}/palak-jewellers-${info.latestVersion}.apk';
+    final existing = File(filePath);
+
+    // Backing out before installing (e.g. cancelling the Android installer
+    // screen) used to re-download the same APK from scratch next time, since
+    // nothing ever checked for a file already sitting here. Reuse it when
+    // its size matches what the server reports for this release — a cheap
+    // but reliable proxy for "this download actually finished".
+    if (await existing.exists() &&
+        info.apkSizeBytes > 0 &&
+        await existing.length() == info.apkSizeBytes) {
+      onProgress?.call(1.0);
+      return filePath;
+    }
 
     try {
       await _dio.download(
