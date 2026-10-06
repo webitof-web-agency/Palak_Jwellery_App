@@ -197,8 +197,25 @@ List<SalesReportGroup> buildSalesReportGroups(
     grouped.putIfAbsent(groupKeyForItem(item), () => <ScannedSessionItem>[]).add(item);
   }
 
+  // Supplier-wise packing lists always lead with Yug, then Utsav, before
+  // falling back to alphabetical for everyone else - mirrors
+  // SUPPLIER_SECTION_ORDER in the backend's session PDF export so both
+  // match. Only applies to the supplier grouping; other modes (karat,
+  // category, etc.) stay plain alphabetical.
+  const supplierOrder = ['YUG', 'UTSAV'];
+  int supplierSortKey(String key) {
+    final index = supplierOrder.indexOf(key.toUpperCase());
+    return index == -1 ? supplierOrder.length : index;
+  }
+
   final entries = grouped.entries.toList(growable: false)
-    ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
+    ..sort((a, b) {
+      if (mode == SalesReportMode.supplierWise) {
+        final priority = supplierSortKey(a.key) - supplierSortKey(b.key);
+        if (priority != 0) return priority;
+      }
+      return a.key.toLowerCase().compareTo(b.key.toLowerCase());
+    });
 
   return entries.map((entry) {
     final groupItems = List<ScannedSessionItem>.unmodifiable(entry.value);

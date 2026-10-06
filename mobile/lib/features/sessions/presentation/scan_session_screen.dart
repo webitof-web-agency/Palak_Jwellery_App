@@ -187,6 +187,18 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
 
   Future<void> _playSuccessTone() => playScanSessionSuccessTone();
 
+  // context.pop() silently does nothing if this screen has nothing beneath
+  // it in the navigation stack (e.g. reached via a deep link, or a stale
+  // build that cold-started straight onto this route) - leaving the user
+  // stuck with no way back. Always fall back to the dashboard instead.
+  void _popOrGoToDashboard() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/dashboard');
+    }
+  }
+
   Future<void> _confirmDiscardDraft() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -214,7 +226,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
       if (widget.resumeSummary != null) {
         context.go('/sales-scans/${widget.resumeSummary!.sessionId}');
       } else {
-        context.pop();
+        _popOrGoToDashboard();
       }
     }
   }
@@ -364,7 +376,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
         if (didPop) return;
         final shouldPop = await _onWillPop();
         if (shouldPop && context.mounted) {
-          context.pop();
+          _popOrGoToDashboard();
         }
       },
       child: Scaffold(
@@ -374,7 +386,7 @@ class _ScanSessionScreenState extends ConsumerState<ScanSessionScreen> {
             onPressed: () async {
               final shouldPop = await _onWillPop();
               if (shouldPop && context.mounted) {
-                context.pop();
+                _popOrGoToDashboard();
               }
             },
             icon: const Icon(Icons.arrow_back_rounded),
