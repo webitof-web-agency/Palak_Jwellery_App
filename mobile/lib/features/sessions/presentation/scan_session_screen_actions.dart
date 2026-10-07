@@ -486,6 +486,10 @@ Future<void> _scanSessionPickSupplier(_ScanSessionScreenState state) async {
       position.dx + size.width,
       position.dy + size.height * 2,
     ),
+    // Caps the dropdown to a fixed height instead of growing to fit every
+    // option (some lists, like wastage %, run long enough to fill the
+    // whole screen) - showMenu scrolls internally once content exceeds this.
+    constraints: const BoxConstraints(maxHeight: 320),
     items: [
       const PopupMenuItem(
         value: _clearSelectionSentinel,
@@ -571,6 +575,10 @@ Future<void> _scanSessionPickCategory(_ScanSessionScreenState state) async {
       position.dx + size.width,
       position.dy + size.height * 2,
     ),
+    // Caps the dropdown to a fixed height instead of growing to fit every
+    // option (some lists, like wastage %, run long enough to fill the
+    // whole screen) - showMenu scrolls internally once content exceeds this.
+    constraints: const BoxConstraints(maxHeight: 320),
     items: [
       const PopupMenuItem(
         value: _clearSelectionSentinel,
@@ -688,6 +696,10 @@ Future<void> _scanSessionPickKarat(_ScanSessionScreenState state) async {
       position.dx + size.width,
       position.dy + size.height * 2,
     ),
+    // Caps the dropdown to a fixed height instead of growing to fit every
+    // option (some lists, like wastage %, run long enough to fill the
+    // whole screen) - showMenu scrolls internally once content exceeds this.
+    constraints: const BoxConstraints(maxHeight: 320),
     items: [
       const PopupMenuItem(
         value: _clearSelectionSentinel,
@@ -795,6 +807,10 @@ Future<void> _scanSessionPickWastage(_ScanSessionScreenState state) async {
       position.dx + size.width,
       position.dy + size.height * 2,
     ),
+    // Caps the dropdown to a fixed height instead of growing to fit every
+    // option (some lists, like wastage %, run long enough to fill the
+    // whole screen) - showMenu scrolls internally once content exceeds this.
+    constraints: const BoxConstraints(maxHeight: 320),
     items: list
         .map((e) => PopupMenuItem(value: e, child: Text('$e %')))
         .toList(),
@@ -849,6 +865,10 @@ Future<void> _scanSessionPickStonePrice(_ScanSessionScreenState state) async {
       position.dx + size.width,
       position.dy + size.height * 2,
     ),
+    // Caps the dropdown to a fixed height instead of growing to fit every
+    // option (some lists, like wastage %, run long enough to fill the
+    // whole screen) - showMenu scrolls internally once content exceeds this.
+    constraints: const BoxConstraints(maxHeight: 320),
     items: [
       ...list.map(
         (e) => PopupMenuItem(
