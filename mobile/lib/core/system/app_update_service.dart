@@ -112,6 +112,13 @@ class AppUpdateService {
         '${dir.path}/palak-jewellers-${info.latestVersion}.apk';
     final existing = File(filePath);
 
+    // Each version downloads to its own file, so an old APK left behind by
+    // a prior update the user downloaded but never installed (or installed
+    // and then a newer one shipped before they got to it) just sits in the
+    // cache forever - nothing ever cleaned it up. Clear out anything that
+    // isn't today's target before proceeding.
+    await _deleteStaleApks(dir, keep: filePath);
+
     // Backing out before installing (e.g. cancelling the Android installer
     // screen) used to re-download the same APK from scratch next time, since
     // nothing ever checked for a file already sitting here. Reuse it when
@@ -141,6 +148,26 @@ class AppUpdateService {
     }
 
     return filePath;
+  }
+
+  Future<void> _deleteStaleApks(Directory dir, {required String keep}) async {
+    try {
+      await for (final entry in dir.list()) {
+        if (entry is! File) continue;
+        final name = entry.uri.pathSegments.last;
+        if (!name.startsWith('palak-jewellers-') || !name.endsWith('.apk')) {
+          continue;
+        }
+        if (entry.path == keep) continue;
+        try {
+          await entry.delete();
+        } catch (_) {
+          // Best-effort - a locked/in-use file shouldn't block the download.
+        }
+      }
+    } catch (_) {
+      // Listing the cache dir failing shouldn't block the download either.
+    }
   }
 
   /// Hands the downloaded APK to the Android package installer.
