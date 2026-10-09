@@ -144,6 +144,26 @@ String buildSalesReportGroupDetail(
   }
 }
 
+// Packing lists (and the default item list, and category-wise lists) always
+// lead with Yug - in a specific category order within Yug itself - then
+// Utsav, then Aadinath, before falling back to scan order/alphabetical for
+// everyone else. Mirrors SUPPLIER_SECTION_ORDER in the backend's session
+// PDF export, extended with the category-level sub-order the business asked
+// for on top of it.
+const _supplierPriorityOrder = ['YUG', 'UTSAV', 'ADINATH'];
+const _yugCategoryPriorityOrder = ['PURPLE / ORANGE', 'WHITE', 'SKYBLUE', 'GREEN'];
+
+int _supplierSortKey(String supplier) {
+  final index = _supplierPriorityOrder.indexOf(supplier.trim().toUpperCase());
+  return index == -1 ? _supplierPriorityOrder.length : index;
+}
+
+int _categorySortKeyWithinSupplier(String supplier, String category) {
+  if (supplier.trim().toUpperCase() != 'YUG') return 0;
+  final index = _yugCategoryPriorityOrder.indexOf(category.trim().toUpperCase());
+  return index == -1 ? _yugCategoryPriorityOrder.length : index;
+}
+
 List<SalesReportGroup> buildSalesReportGroups(
   ScanSessionSummary summary,
   SalesReportMode mode,
@@ -151,11 +171,27 @@ List<SalesReportGroup> buildSalesReportGroups(
   final items = summary.items;
 
   if (mode == SalesReportMode.itemWise) {
-    return items.asMap().entries.map((entry) {
-      final index = entry.key;
-      final item = entry.value;
+    final indexed = items.asMap().entries.toList(growable: false);
+    final sorted = List<MapEntry<int, ScannedSessionItem>>.from(indexed)
+      ..sort((a, b) {
+        final supplierDiff =
+            _supplierSortKey(a.value.supplier) - _supplierSortKey(b.value.supplier);
+        if (supplierDiff != 0) return supplierDiff;
+        final categoryDiff = _categorySortKeyWithinSupplier(
+              a.value.supplier,
+              a.value.category ?? '',
+            ) -
+            _categorySortKeyWithinSupplier(b.value.supplier, b.value.category ?? '');
+        if (categoryDiff != 0) return categoryDiff;
+        // Keep original scan order for everything else tied on priority.
+        return a.key.compareTo(b.key);
+      });
+
+    return sorted.asMap().entries.map((entry) {
+      final displayIndex = entry.key;
+      final item = entry.value.value;
       return SalesReportGroup(
-        groupLabel: '#${index + 1}',
+        groupLabel: '#${displayIndex + 1}',
         detailLabel: buildSalesReportGroupLabel(item),
         items: <ScannedSessionItem>[item],
         itemCount: 1,
@@ -197,22 +233,23 @@ List<SalesReportGroup> buildSalesReportGroups(
     grouped.putIfAbsent(groupKeyForItem(item), () => <ScannedSessionItem>[]).add(item);
   }
 
-  // Supplier-wise packing lists always lead with Yug, then Utsav, before
-  // falling back to alphabetical for everyone else - mirrors
-  // SUPPLIER_SECTION_ORDER in the backend's session PDF export so both
-  // match. Only applies to the supplier grouping; other modes (karat,
-  // category, etc.) stay plain alphabetical.
-  const supplierOrder = ['YUG', 'UTSAV'];
-  int supplierSortKey(String key) {
-    final index = supplierOrder.indexOf(key.toUpperCase());
-    return index == -1 ? supplierOrder.length : index;
-  }
-
   final entries = grouped.entries.toList(growable: false)
     ..sort((a, b) {
       if (mode == SalesReportMode.supplierWise) {
-        final priority = supplierSortKey(a.key) - supplierSortKey(b.key);
+        final priority = _supplierSortKey(a.key) - _supplierSortKey(b.key);
         if (priority != 0) return priority;
+      } else if (mode == SalesReportMode.categoryWise) {
+        final aFirst = a.value.first;
+        final bFirst = b.value.first;
+        final supplierDiff =
+            _supplierSortKey(aFirst.supplier) - _supplierSortKey(bFirst.supplier);
+        if (supplierDiff != 0) return supplierDiff;
+        final categoryDiff = _categorySortKeyWithinSupplier(
+              aFirst.supplier,
+              aFirst.category ?? '',
+            ) -
+            _categorySortKeyWithinSupplier(bFirst.supplier, bFirst.category ?? '');
+        if (categoryDiff != 0) return categoryDiff;
       }
       return a.key.toLowerCase().compareTo(b.key.toLowerCase());
     });
