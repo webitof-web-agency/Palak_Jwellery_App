@@ -88,7 +88,6 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
 
   const grossWeight = toNumeric(parts[3])
   const qrNetWeight = toNumeric(parts[5])
-  const stoneAmount = toNumeric(parts[6])
   const itemCode = toText(parts[7])
   const size = toText(parts[8])
   const metalType = toText(parts[9])
@@ -120,6 +119,11 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   // column itself (index 11, immediately before index 12) — it shifts by the
   // same offset as otherWeight when the calculation-adjustment above moves it.
   const otherAmount = toNumeric(parts[11 + (resolvedWeights.offsets?.otherWeight ?? 0)])
+  // The main stone (MS) amount/rate sits one column after its own weight
+  // column (index 15, immediately after index 14) - was previously read from
+  // index 6, which is always 0 in real QRs and never actually held this
+  // value. Shifts by the same offset as stoneComponent2 when adjusted.
+  const stoneAmount = toNumeric(parts[15 + (resolvedWeights.offsets?.stoneComponent2 ?? 0)])
 
   const breakdown = calculateYugWeightBreakdown({
     grossWeight,
