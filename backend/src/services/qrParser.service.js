@@ -119,11 +119,21 @@ const enrichYugParseResult = (result, raw, supplier = null) => {
   // column itself (index 11, immediately before index 12) — it shifts by the
   // same offset as otherWeight when the calculation-adjustment above moves it.
   const otherAmount = toNumeric(parts[11 + (resolvedWeights.offsets?.otherWeight ?? 0)])
-  // The main stone (MS) amount/rate sits one column after its own weight
-  // column (index 15, immediately after index 14) - was previously read from
-  // index 6, which is always 0 in real QRs and never actually held this
-  // value. Shifts by the same offset as stoneComponent2 when adjusted.
-  const stoneAmount = toNumeric(parts[15 + (resolvedWeights.offsets?.stoneComponent2 ?? 0)])
+  // Yug QRs can carry a small-stone (SS) rate, a main-stone (MS) rate, or
+  // both, depending on which stone type the item actually has - whichever
+  // one isn't used reads back as a plain 0, never missing. The SS rate sits
+  // two columns after its own weight column (index 6, after net weight at
+  // index 5 in between); the MS rate sits one column after its own weight
+  // column (index 15). Both shift along with their respective stone
+  // component's offset when calculation-adjustment moves it. The real
+  // "stone amount" for the item is whichever is populated - or the sum, on
+  // the (currently unseen but structurally possible) items that carry both.
+  const ssAmount = toNumeric(parts[6 + (resolvedWeights.offsets?.stoneComponent1 ?? 0)])
+  const msAmount = toNumeric(parts[15 + (resolvedWeights.offsets?.stoneComponent2 ?? 0)])
+  const stoneAmount =
+    ssAmount === null && msAmount === null
+      ? null
+      : Math.round(((ssAmount ?? 0) + (msAmount ?? 0)) * 100) / 100
 
   const breakdown = calculateYugWeightBreakdown({
     grossWeight,
