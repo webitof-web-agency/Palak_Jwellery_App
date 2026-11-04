@@ -77,10 +77,25 @@ const scoreAdinathStructuralSignature = (raw) => {
     const text = toText(value)
     return text !== null && ADINATH_NUMERIC_PATTERN.test(text)
   }
+  // Item code is always alphanumeric (every real sample has a letter in it),
+  // so it's found by scanning back from the end for the last non-numeric
+  // token - not just assumed to be the literal last token. Some QR variants
+  // carry extra numeric fields (e.g. purity%, a rate) after the item code,
+  // which would otherwise get misread as the net weight/item code themselves.
+  let itemCodeIndex = -1
+  for (let i = meaningful.length - 1; i >= 0; i -= 1) {
+    if (!isNumeric(meaningful[i])) {
+      itemCodeIndex = i
+      break
+    }
+  }
   const first = meaningful[0] || ''
-  const netCandidate = meaningful[meaningful.length - 2] || ''
-  const itemCandidate = meaningful[meaningful.length - 1] || ''
-  const stoneComponents = meaningful.slice(1, -2).filter((value) => isNumeric(value)).map((value) => Number.parseFloat(value))
+  const netCandidate = itemCodeIndex > 0 ? meaningful[itemCodeIndex - 1] || '' : ''
+  const itemCandidate = itemCodeIndex >= 0 ? meaningful[itemCodeIndex] || '' : ''
+  const trailingFields = itemCodeIndex >= 0 ? meaningful.slice(itemCodeIndex + 1) : []
+  const stoneComponents = (itemCodeIndex > 0 ? meaningful.slice(1, itemCodeIndex - 1) : [])
+    .filter((value) => isNumeric(value))
+    .map((value) => Number.parseFloat(value))
   const computedNetWeight =
     isNumeric(first) && isNumeric(netCandidate) && stoneComponents.length > 0
       ? Math.round((Number.parseFloat(first) - stoneComponents.reduce((sum, value) => sum + value, 0)) * 1000) / 1000
@@ -111,6 +126,10 @@ const scoreAdinathStructuralSignature = (raw) => {
     computedNetWeight,
     mismatch,
     tolerance: ADINATH_TOLERANCE,
+    // Any numeric fields found after the item code (e.g. a purity% or rate
+    // on some QR variants) - not yet confirmed what they represent, so
+    // they're surfaced for visibility rather than guessed at.
+    trailingFields,
   }
 }
 

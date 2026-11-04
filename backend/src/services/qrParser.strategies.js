@@ -73,18 +73,34 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
   if (delimiter === '/' && isLikelyAdinathRaw(raw)) {
     const tokens = parts.map((part) => String(part).trim())
     const meaningfulTokens = tokens.filter((part) => part.length > 0)
-    const stoneTokens = meaningfulTokens.slice(1, -2)
-    const stoneValues = []
-    const stoneComponentFields = {}
 
     const parseNumericToken = (value) => {
       const parsed = toNumber(value)
       return parsed === null ? null : Math.round(parsed * 1000) / 1000
     }
 
+    // Item code is always alphanumeric, so it's found by scanning back for
+    // the last non-numeric token rather than assumed to be the literal last
+    // token. Some QR variants carry extra numeric fields (e.g. a purity% or
+    // rate) after the item code, which would otherwise get misread as the
+    // net weight/item code themselves (and the real net weight/item code
+    // misread as stone-component numbers).
+    let itemCodeIndex = -1
+    for (let i = meaningfulTokens.length - 1; i >= 0; i -= 1) {
+      if (toNumber(meaningfulTokens[i]) === null) {
+        itemCodeIndex = i
+        break
+      }
+    }
+    const trailingTokens = itemCodeIndex >= 0 ? meaningfulTokens.slice(itemCodeIndex + 1) : []
+    const stoneTokens = itemCodeIndex > 0 ? meaningfulTokens.slice(1, itemCodeIndex - 1) : []
+
+    const stoneValues = []
+    const stoneComponentFields = {}
+
     const grossWeight = parseNumericToken(meaningfulTokens[0])
-    const qrNetWeight = parseNumericToken(meaningfulTokens[meaningfulTokens.length - 2])
-    const itemCode = toText(meaningfulTokens[meaningfulTokens.length - 1])
+    const qrNetWeight = itemCodeIndex > 0 ? parseNumericToken(meaningfulTokens[itemCodeIndex - 1]) : null
+    const itemCode = itemCodeIndex >= 0 ? toText(meaningfulTokens[itemCodeIndex]) : null
 
     if (grossWeight === null) {
       errors.push({ field: 'grossWeight', reason: 'Gross weight is missing or invalid' })
@@ -131,6 +147,12 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       stoneComponents: { value: stoneValues, parsed: true },
       stoneComponentCount: { value: stoneValues.length, parsed: true },
       ...stoneComponentFields,
+      // Numeric fields found after the item code on some QR variants (e.g. a
+      // purity% or rate) - not yet confirmed what they represent, so they're
+      // surfaced here for visibility/review rather than guessed at.
+      ...(trailingTokens.length > 0
+        ? { trailingFields: { value: trailingTokens, parsed: true } }
+        : {}),
     }
 
     const tolerance = 0.02
@@ -275,10 +297,15 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
       })
       .filter((value) => value !== null)
 
-    const explicitOtherWeight = Math.round(((stoneComponent2 ?? 0) + (otherComponent1 ?? 0)) * 1000) / 1000
+    // CL- (colour stone) is a stone component, not an "other" deduction -
+    // stoneComponent2's own naming already says so, but it was previously
+    // being folded into otherWeight instead of stoneWeight, undercounting
+    // stone weight by the colour-stone amount whenever CL- was present.
+    const explicitStoneWeight = Math.round(((stoneComponent1 ?? 0) + (stoneComponent2 ?? 0)) * 1000) / 1000
+    const explicitOtherWeight = Math.round((otherComponent1 ?? 0) * 1000) / 1000
     const snapshot = calculateSettlementSnapshot({
       grossWeight: grossRaw,
-      stoneWeight: stoneComponent1 ?? 0,
+      stoneWeight: explicitStoneWeight,
       otherWeight: explicitOtherWeight,
       qrNetWeight: netRaw,
       purityPercent: 0,
@@ -324,23 +351,23 @@ const parseDelimiterStrategy = (raw, supplierQRMappingConfig) => {
           label: 'Stone Weight',
           value: stoneComponent1,
         },
+        {
+          sourceField: 'CL-',
+          label: 'Colour Stone Weight',
+          value: stoneComponent2,
+        },
       ].filter((component) => component.value !== null),
       otherWeight: {
         sourceField:
           snapshot.reconciliationStatus === 'reconciled_unmatched' ||
           snapshot.reconciliationStatus === 'inferred_remaining'
             ? 'reconciled'
-            : stoneComponent2 !== null || otherComponent1 !== null
-              ? 'CL-/MZ-'
+            : otherComponent1 !== null
+              ? 'MZ-'
               : null,
         value: snapshot.otherWeight,
       },
       otherComponents: [
-        {
-          sourceField: 'CL-',
-          label: 'Colour Stone Weight',
-          value: stoneComponent2,
-        },
         {
           sourceField: 'MZ-',
           label: 'Other Deduction',
